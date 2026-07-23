@@ -117,10 +117,10 @@
 /* ==== OpenRouter config ==== */
 const OPENROUTER_API_KEY = "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";
 const FREE_MODELS = [
-  "openai/gpt-oss-20b:free",
-  "openai/gpt-oss-120b:free",
   "qwen/qwen3-next-80b-a3b-instruct:free",
-  "nvidia/nemotron-nano-9b-v2:free"
+  "nvidia/nemotron-nano-9b-v2:free",
+  "openai/gpt-oss-20b:free",
+  "openai/gpt-oss-120b:free"
 ];
 
 const MAX_LEVEL = 12;
@@ -153,7 +153,7 @@ async function callOpenRouter(systemPrompt, userPrompt, maxTokens){
       lastErr = e;
       const msg = e.message || '';
       // only fall through to next model on "unavailable" style errors; otherwise stop
-      if(!/404|unavailable|not found|no endpoints/i.test(msg)) throw e;
+      if(!/404|unavailable|not found|no endpoints|پاسخ خالی/i.test(msg)) throw e;
     }
   }
   throw lastErr || new Error('هیچ‌کدام از مدل‌های رایگان در دسترس نبودند');
@@ -189,8 +189,11 @@ async function callOpenRouterWithModel(model, systemPrompt, userPrompt, maxToken
     const msg = (data && data.error && data.error.message) ? data.error.message : JSON.stringify(data).slice(0,300);
     throw new Error('خطای API (HTTP ' + res.status + '): ' + msg);
   }
-  const text = data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
-  if(!text) throw new Error('پاسخ متنی پیدا نشد: ' + JSON.stringify(data).slice(0,300));
+  const choice = data && data.choices && data.choices[0];
+  const text = choice && choice.message && choice.message.content;
+  if(!text){
+    throw new Error('پاسخ خالی برگشت (finish_reason: ' + (choice && choice.finish_reason) + ')');
+  }
   return text;
 }
 
@@ -242,7 +245,7 @@ ${difficultyNoteForLevel(level)}
 دقیقا ${n} مظنون در آرایه suspects بگذار. فقط یکی isLiar:true باشد، بقیه false. شخصیت‌ها، انگیزه‌ها و لحن صحبتشان کاملا متفاوت و متمایز از هم باشد. کل ماجرا باید یکپارچه و منسجم باشد، نه پراکنده.`;
   const userMsg = `یک پرونده جدید و اورجینال برای مرحله ${level} کمپین بساز. فقط JSON خروجی بده.`;
   try{
-    const raw = await callOpenRouter(sys, userMsg, 1800);
+    const raw = await callOpenRouter(sys, userMsg, 3000);
     const parsed = extractJson(raw);
     if(!parsed.suspects || parsed.suspects.length < 2) throw new Error('داده مظنونین ناقص بود');
     state.scenario = { title: parsed.title, setting: parsed.setting, description: parsed.description };
@@ -301,7 +304,7 @@ async function askQuestion(idx, question){
 
   if(!state.logs[idx]) state.logs[idx] = [];
   try{
-    const answer = await callOpenRouter(sys, userMsg, 500);
+    const answer = await callOpenRouter(sys, userMsg, 900);
     state.logs[idx].push({who:'q', text: question});
     state.logs[idx].push({who:'a', text: answer.trim()});
     state.rounds++;
