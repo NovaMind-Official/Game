@@ -114,8 +114,9 @@
 <div id="app"></div>
 
 <script>
-/* ==== Anthropic API (built-in, no key needed) ==== */
-const MODEL = "claude-sonnet-4-6";
+/* ==== OpenRouter config ==== */
+const OPENROUTER_API_KEY = "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";
+const MODEL = "meta-llama/llama-3.3-70b-instruct:free";
 
 const MAX_LEVEL = 12;
 
@@ -141,18 +142,23 @@ const state = {
 async function callOpenRouter(systemPrompt, userPrompt, maxTokens){
   let res;
   try{
-    res = await fetch("https://api.anthropic.com/v1/messages", {
+    res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + OPENROUTER_API_KEY
+      },
       body: JSON.stringify({
         model: MODEL,
-        max_tokens: maxTokens || 1000,
-        system: systemPrompt,
-        messages: [{ role: "user", content: userPrompt }]
+        max_tokens: maxTokens || 900,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt }
+        ]
       })
     });
   }catch(networkErr){
-    throw new Error('اتصال برقرار نشد (network error): ' + networkErr.message);
+    throw new Error('اتصال برقرار نشد. ممکنه به‌خاطر مسدود بودن CORS، افزونه Adblock/VPN مرورگر، یا کلید API باشه. جزئیات: ' + networkErr.message);
   }
   const raw = await res.text();
   let data;
@@ -163,9 +169,9 @@ async function callOpenRouter(systemPrompt, userPrompt, maxTokens){
     const msg = (data && data.error && data.error.message) ? data.error.message : JSON.stringify(data).slice(0,300);
     throw new Error('خطای API (HTTP ' + res.status + '): ' + msg);
   }
-  const block = (data.content || []).find(c => c.type === "text");
-  if(!block) throw new Error('پاسخ متنی پیدا نشد: ' + JSON.stringify(data).slice(0,300));
-  return block.text;
+  const text = data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+  if(!text) throw new Error('پاسخ متنی پیدا نشد: ' + JSON.stringify(data).slice(0,300));
+  return text;
 }
 
 function stripFence(t){ return t.replace(/```json|```/g, "").trim(); }
