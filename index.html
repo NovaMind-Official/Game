@@ -116,7 +116,12 @@
 <script>
 /* ==== OpenRouter config ==== */
 const OPENROUTER_API_KEY = "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";
-const MODEL = "openrouter/free";
+const FREE_MODELS = [
+  "openai/gpt-oss-20b:free",
+  "openai/gpt-oss-120b:free",
+  "qwen/qwen3-next-80b-a3b-instruct:free",
+  "nvidia/nemotron-nano-9b-v2:free"
+];
 
 const MAX_LEVEL = 12;
 
@@ -140,6 +145,21 @@ const state = {
 };
 
 async function callOpenRouter(systemPrompt, userPrompt, maxTokens){
+  let lastErr = null;
+  for(const model of FREE_MODELS){
+    try{
+      return await callOpenRouterWithModel(model, systemPrompt, userPrompt, maxTokens);
+    }catch(e){
+      lastErr = e;
+      const msg = e.message || '';
+      // only fall through to next model on "unavailable" style errors; otherwise stop
+      if(!/404|unavailable|not found|no endpoints/i.test(msg)) throw e;
+    }
+  }
+  throw lastErr || new Error('هیچ‌کدام از مدل‌های رایگان در دسترس نبودند');
+}
+
+async function callOpenRouterWithModel(model, systemPrompt, userPrompt, maxTokens){
   let res;
   try{
     res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -149,7 +169,7 @@ async function callOpenRouter(systemPrompt, userPrompt, maxTokens){
         "Authorization": "Bearer " + OPENROUTER_API_KEY
       },
       body: JSON.stringify({
-        model: MODEL,
+        model: model,
         max_tokens: maxTokens || 900,
         messages: [
           { role: "system", content: systemPrompt },
