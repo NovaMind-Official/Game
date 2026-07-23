@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>اتاق بازجویی</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@100..900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #16120f; --panel: #221c18; --panel-2: #2b241f; --panel-3: #1c1712;
+    --lamp: #e8a33d; --lamp-dim: #a8762b; --suspicion: #b23a2f;
+    --ink: #ede6d9; --muted: #948a7d; --line: #3a322b; --good:#5c8a5c;
+  }
+  *{ box-sizing: border-box; }
+  html,body{ margin:0; padding:0; }
+  body{ background: radial-gradient(ellipse 120% 80% at 50% -10%, #2a2118 0%, var(--bg) 55%); color: var(--ink); font-family: 'Vazirmatn', sans-serif; min-height: 100vh; }
+  .mono{ font-family:'JetBrains Mono', monospace; direction: ltr; unicode-bidi: isolate; }
+  #app{ min-height: 100vh; display:flex; flex-direction: column; }
+
+  .topbar{ display:flex; align-items:center; justify-content:space-between; padding: 12px 18px; border-bottom: 1px solid var(--line); background: var(--panel-3); position: sticky; top:0; z-index: 10; flex-wrap: wrap; gap:8px; }
+  .topbar .brand{ display:flex; align-items:center; gap:10px; }
+  .topbar .brand .dot{ width:8px; height:8px; border-radius:50%; background: var(--lamp); box-shadow:0 0 8px var(--lamp); }
+  .topbar .brand-text{ font-weight:800; font-size:15px; }
+  .topbar .meta{ font-size:11px; color: var(--muted); }
+  .topbar .actions{ display:flex; gap:8px; align-items:center; }
+  .level-track{ display:flex; gap:3px; align-items:center; }
+  .level-pip{ width:6px; height:6px; border-radius:50%; background: var(--line); }
+  .level-pip.done{ background: var(--lamp); }
+  .level-pip.current{ background: var(--suspicion); box-shadow:0 0 6px var(--suspicion); }
+
+  .layout{ flex:1; display:flex; max-width: 980px; margin: 0 auto; width:100%; }
+  .sidebar{ width: 210px; flex-shrink:0; border-left: 1px solid var(--line); padding: 16px 10px; display:flex; flex-direction:column; gap:4px; }
+  .nav-section-label{ font-family:'JetBrains Mono', monospace; font-size: 10px; letter-spacing:1.5px; color: var(--muted); text-transform:uppercase; padding: 10px 10px 6px; }
+  .nav-item{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding: 9px 11px; border-radius: 4px; cursor:pointer; font-size: 13.5px; color: var(--ink); border:1px solid transparent; transition: background .15s, border-color .15s; }
+  .nav-item:hover{ background: var(--panel-2); }
+  .nav-item.active{ background: var(--panel-2); border-color: var(--lamp-dim); color: var(--lamp); }
+  .nav-item .sus-dot{ width:6px; height:6px; border-radius:50%; background: var(--muted); flex-shrink:0; }
+  .nav-item .badge{ font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--muted); }
+
+  .content{ flex:1; padding: 18px 20px 60px; min-width:0; }
+
+  .card{ border: 1px solid var(--line); background: var(--panel); border-radius: 6px; padding: 18px 20px; margin-bottom: 16px; position:relative; overflow:hidden; }
+  .card::before{ content:""; position:absolute; inset:0; background: repeating-linear-gradient(180deg, transparent 0 3px, rgba(0,0,0,0.12) 3px 4px); pointer-events:none; opacity:.35; }
+  .eyebrow{ font-family:'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 2px; color: var(--lamp); text-transform: uppercase; margin-bottom: 8px; }
+  .card h2{ margin:0 0 10px; font-size: 19px; }
+  .card p{ color: var(--muted); font-size: 14.5px; line-height: 1.9; margin:0; }
+  .card p + p{ margin-top:10px; }
+
+  .suspect-grid{ display:grid; grid-template-columns: repeat(2,1fr); gap:10px; }
+  @media(max-width:640px){ .suspect-grid{ grid-template-columns: 1fr; } }
+  .suspect-card{ background: var(--panel); border:1px solid var(--line); border-radius:6px; padding: 14px 16px; cursor:pointer; transition: border-color .15s, transform .1s; }
+  .suspect-card:hover{ border-color: var(--lamp-dim); transform: translateY(-1px); }
+  .suspect-card .sname{ font-weight:700; font-size:14.5px; margin-bottom:2px; }
+  .suspect-card .srole{ color:var(--muted); font-size:12px; margin-bottom:8px; }
+  .suspicion-track{ height:4px; border-radius:2px; background: var(--panel-2); overflow:hidden; }
+  .suspicion-fill{ height:100%; background: var(--suspicion); width:0%; transition:width .3s; }
+
+  .chat-wrap{ display:flex; flex-direction:column; height: calc(100vh - 260px); min-height:360px; }
+  .log{ flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:12px; padding: 4px 2px 12px; }
+  .msg{ max-width: 86%; line-height:1.8; font-size:14.5px; padding: 9px 13px; border-radius: 6px; }
+  .msg.q{ align-self: flex-end; background: #33291b; border: 1px solid var(--lamp-dim); }
+  .msg.a{ align-self: flex-start; background: var(--panel-2); border: 1px solid var(--line); }
+  .msg.hint{ align-self:center; background: rgba(232,163,61,0.08); border:1px dashed var(--lamp-dim); font-size:13.5px; }
+  .msg .who{ font-size:11px; color:var(--muted); margin-bottom:4px; font-family:'JetBrains Mono',monospace; }
+  .composer{ display:flex; gap:8px; padding-top: 10px; border-top: 1px solid var(--line); }
+  .composer input{ flex:1; background: var(--panel-2); border: 1px solid var(--line); color: var(--ink); border-radius: 4px; padding: 11px 13px; font-family:inherit; font-size: 14.5px; }
+  .composer input:focus{ outline:none; border-color: var(--lamp); }
+
+  .btn{ background: var(--lamp); color:#1a1410; border:none; border-radius:4px; padding: 10px 18px; font-weight:700; cursor:pointer; font-family:inherit; font-size:14px; transition: filter .15s, transform .1s; }
+  .btn:hover{ filter: brightness(1.08); }
+  .btn:active{ transform: scale(.97); }
+  .btn:disabled{ opacity:.4; cursor:not-allowed; }
+  .btn.ghost{ background: transparent; color: var(--ink); border:1px solid var(--line); }
+  .btn.small{ padding:7px 12px; font-size:12.5px; }
+  .btn.danger{ background: var(--suspicion); color: #fff; }
+
+  textarea.notebook{ width:100%; min-height: 320px; background: var(--panel-2); border:1px solid var(--line); color: var(--ink); border-radius:6px; padding: 14px; font-family:'Vazirmatn'; font-size:14.5px; line-height:1.9; resize: vertical; }
+  textarea.notebook:focus{ outline:none; border-color: var(--lamp); }
+
+  .vote-list{ display:flex; flex-direction:column; gap:8px; margin: 14px 0 18px; }
+  .vote-row{ display:flex; align-items:center; justify-content:space-between; border:1px solid var(--line); background: var(--panel); border-radius:6px; padding: 12px 16px; cursor:pointer; }
+  .vote-row:hover{ border-color: var(--lamp-dim); }
+  .vote-row.picked{ border-color: var(--lamp); box-shadow:0 0 0 1px var(--lamp); }
+  .vote-row .vname{ font-weight:700; font-size:14.5px; }
+  .vote-row .vrole{ color:var(--muted); font-size:12px; }
+
+  .verdict-result{ text-align:center; padding: 8px 0 4px; }
+  .verdict-result h2{ margin:0 0 8px; font-size:19px; }
+  .verdict-result.win h2{ color: var(--lamp); }
+  .verdict-result.lose h2{ color: var(--suspicion); }
+  .verdict-result p{ color: var(--muted); line-height:1.9; font-size:14.5px; }
+
+  .loading{ text-align:center; color: var(--muted); padding: 80px 20px; font-size:14px; }
+  .lamp-spin{ width:34px; height:34px; margin: 0 auto 14px; border: 3px solid var(--panel-2); border-top-color: var(--lamp); border-radius:50%; animation: spin 0.9s linear infinite; }
+  @keyframes spin{ to{ transform: rotate(360deg); } }
+
+  .intro{ max-width: 520px; margin: 60px auto; text-align:center; padding: 0 16px; }
+  .intro-eyebrow{ font-family:'JetBrains Mono', monospace; font-size:11px; letter-spacing:3px; color: var(--lamp); text-transform:uppercase; margin-bottom: 10px; }
+  .intro h1{ font-size: 26px; margin: 0 0 14px; }
+  .intro p{ color: var(--muted); line-height:1.9; font-size:14.5px; margin-bottom: 26px; }
+  .err-box{ text-align:right; direction:rtl; background: rgba(178,58,47,0.1); border:1px solid var(--suspicion); border-radius:6px; padding:12px 14px; margin-top:18px; font-size:12.5px; color:#e8b3ac; line-height:1.8; }
+  .err-box .mono{ display:block; margin-top:6px; color:#c98d85; direction:ltr; text-align:left; word-break:break-all; }
+
+  @media(max-width: 760px){
+    .layout{ flex-direction: column-reverse; }
+    .sidebar{ width:100%; flex-direction:row; overflow-x:auto; border-left:none; border-top:1px solid var(--line); padding: 8px 10px; gap:6px; position: sticky; bottom:0; background: var(--panel-3); z-index: 10; }
+    .nav-section-label{ display:none; }
+    .nav-item{ flex-shrink:0; white-space:nowrap; }
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+/* ==== Anthropic API (built-in, no key needed) ==== */
+const MODEL = "claude-sonnet-4-6";
+
+const MAX_LEVEL = 12;
+
+const state = {
+  screen: 'intro',
+  view: 'case',
+  level: 1,
+  scenario: null,
+  suspects: [],
+  activeIdx: null,
+  logs: {},
+  rounds: 0,
+  notebook: '',
+  voted: null,
+  loadingChat: false,
+  loadingHint: false,
+  hintUsed: false,
+  hint: null,
+  error: null,
+  runOver: false,
+};
+
+async function callOpenRouter(systemPrompt, userPrompt, maxTokens){
+  let res;
+  try{
+    res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: MODEL,
+        max_tokens: maxTokens || 1000,
+        system: systemPrompt,
+        messages: [{ role: "user", content: userPrompt }]
+      })
+    });
+  }catch(networkErr){
+    throw new Error('اتصال برقرار نشد (network error): ' + networkErr.message);
+  }
+  const raw = await res.text();
+  let data;
+  try{ data = JSON.parse(raw); }catch(e){
+    throw new Error('پاسخ سرور معتبر نبود. HTTP ' + res.status + ' — ' + raw.slice(0,200));
+  }
+  if(!res.ok){
+    const msg = (data && data.error && data.error.message) ? data.error.message : JSON.stringify(data).slice(0,300);
+    throw new Error('خطای API (HTTP ' + res.status + '): ' + msg);
+  }
+  const block = (data.content || []).find(c => c.type === "text");
+  if(!block) throw new Error('پاسخ متنی پیدا نشد: ' + JSON.stringify(data).slice(0,300));
+  return block.text;
+}
+
+function stripFence(t){ return t.replace(/```json|```/g, "").trim(); }
+
+function extractJson(text){
+  const cleaned = stripFence(text);
+  try{ return JSON.parse(cleaned); }catch(e){}
+  const start = cleaned.indexOf('{');
+  const end = cleaned.lastIndexOf('}');
+  if(start !== -1 && end !== -1 && end > start){
+    return JSON.parse(cleaned.slice(start, end+1));
+  }
+  throw new Error('خروجی JSON معتبر نبود: ' + cleaned.slice(0,200));
+}
+
+function suspectCountForLevel(lvl){
+  if(lvl <= 3) return 4;
+  if(lvl <= 7) return 5;
+  return 6;
+}
+
+function difficultyNoteForLevel(lvl){
+  if(lvl <= 3) return "سطح دشواری: آسان. یک انگیزه ساده و آشکار، تناقض‌ها قابل کشف با ۲-۳ سوال.";
+  if(lvl <= 6) return "سطح دشواری: متوسط. حداقل یک سرنخ گمراه‌کننده (red herring) وجود داشته باشد، انگیزه‌ها کمی پیچیده‌تر و تودرتو باشند.";
+  if(lvl <= 9) return "سطح دشواری: سخت. حداقل دو سرنخ گمراه‌کننده، رابطه‌های پنهان بین چند مظنون، زمان‌بندی و جزئیات باید دقیق و قابل تناقض‌یابی باشند.";
+  return "سطح دشواری: خیلی سخت. توطئه چندلایه با انگیزه‌های متقاطع بین چند مظنون، جزئیات ظریف و چندین سرنخ گمراه‌کننده، فقط با دقت بالا قابل حل است.";
+}
+
+async function generateCase(level){
+  state.screen = 'loading';
+  state.error = null;
+  render();
+  const n = suspectCountForLevel(level);
+  const sys = `تو نویسنده و طراح یک بازی معمای جنایی/اجتماعی فارسی به‌صورت کمپین مرحله‌ای هستی. هر پرونده باید یک داستان واقعی با فضاسازی، پیشینه و جزئیات باشد؛ نه فقط یک جمله خشک با چند اسم. فقط و فقط یک آبجکت JSON معتبر و کامل برگردان، بدون هیچ توضیح، پیش‌گفتار یا بک‌تیک.
+
+${difficultyNoteForLevel(level)}
+این پرونده شماره ${level} از ${MAX_LEVEL} در یک کمپین است.
+
+ساختار دقیق خروجی:
+{
+ "title": "عنوان جذاب پرونده (حداکثر ۷ کلمه)",
+ "setting": "مکان و زمان وقوع ماجرا در چند کلمه (مثلا: یک عمارت قدیمی در شمال شهر، شب مهمانی سالگرد)",
+ "description": "شرح کامل ماجرا در ۴ تا ۶ جمله: چه اتفاقی افتاده، چه کسانی حضور داشتند، چه فضایی حاکم بوده، چرا این موضوع مهم است. باید حس یک داستان واقعی با تعلیق بدهد.",
+ "suspects": [
+   {"name":"اسم فارسی کامل","role":"نسبت یا شغل او در این داستان","personality":"توصیف شخصیت، لحن صحبت و یک ویژگی رفتاری متمایز در ۱-۲ جمله","motive":"چرا او می‌تواند انگیزه داشته باشد یا در کانون شک باشد، در یک جمله","secret":"یک راز شخصی که ربط مستقیم به پرونده ندارد ولی باعث دستپاچگی و رفتار مشکوک می‌شود","isLiar": false}
+ ]
+}
+دقیقا ${n} مظنون در آرایه suspects بگذار. فقط یکی isLiar:true باشد، بقیه false. شخصیت‌ها، انگیزه‌ها و لحن صحبتشان کاملا متفاوت و متمایز از هم باشد. کل ماجرا باید یکپارچه و منسجم باشد، نه پراکنده.`;
+  const userMsg = `یک پرونده جدید و اورجینال برای مرحله ${level} کمپین بساز. فقط JSON خروجی بده.`;
+  try{
+    const raw = await callOpenRouter(sys, userMsg, 1800);
+    const parsed = extractJson(raw);
+    if(!parsed.suspects || parsed.suspects.length < 2) throw new Error('داده مظنونین ناقص بود');
+    state.scenario = { title: parsed.title, setting: parsed.setting, description: parsed.description };
+    state.suspects = parsed.suspects.map((s,i)=>({...s, id:i, suspicion:0}));
+    state.logs = {};
+    state.rounds = 0;
+    state.notebook = '';
+    state.voted = null;
+    state.activeIdx = null;
+    state.hintUsed = false;
+    state.hint = null;
+    state.view = 'case';
+    state.screen = 'game';
+  }catch(e){
+    console.error('generateCase error:', e);
+    state.screen = 'intro';
+    state.error = e.message || String(e);
+  }
+  render();
+}
+
+function startCampaign(){
+  state.level = 1;
+  state.runOver = false;
+  generateCase(1);
+}
+
+function nextLevel(){
+  if(state.level >= MAX_LEVEL){
+    state.view = 'campaign-complete';
+    render();
+    return;
+  }
+  state.level++;
+  generateCase(state.level);
+}
+
+async function askQuestion(idx, question){
+  const suspect = state.suspects[idx];
+  state.loadingChat = true;
+  render();
+
+  const history = (state.logs[idx]||[]).filter(m=>m.who==='q'||m.who==='a').map(m => `${m.who==='q'?'بازجو':suspect.name}: ${m.text}`).join('\n');
+  const sys = `تو داری نقش یک شخصیت در یک بازی معمای جنایی فارسی بازی می‌کنی. کاملا در نقش بمان و از این شخصیت خارج نشو.
+اسم: ${suspect.name}
+نقش در ماجرا: ${suspect.role}
+شخصیت و لحن: ${suspect.personality}
+انگیزه احتمالی: ${suspect.motive || 'نامشخص'}
+راز شخصی (نامرتبط با پرونده ولی باعث دستپاچگی می‌شود اگر به آن نزدیک شوند): ${suspect.secret}
+فضای پرونده: ${state.scenario.setting}
+ماجرای پرونده: ${state.scenario.description}
+مرحله دشواری: ${state.level} از ${MAX_LEVEL}
+آیا این شخصیت مقصر اصلی است: ${suspect.isLiar ? "بله، او مقصر است. باید با ظرافت و منطقی انکار کند یا جا خالی بدهد، هرگز مستقیم اعتراف نکند، ولی در سطوح سخت‌تر می‌تواند لغزش‌های ظریف‌تر و قابل کشف‌تری داشته باشد اگر بازجو دقیق و هوشمندانه سوال بپرسد." : "نه، او بی‌گناه است اما ممکن است به‌خاطر رازش نامطمئن یا مشکوک به‌نظر برسد."}
+با لحن و شخصیت خودت، طبیعی و محاوره‌ای فارسی، حداکثر ۴-۵ جمله به سوال بازجو جواب بده. فقط متن پاسخ را برگردان، بدون توضیح اضافه یا نام خودت در ابتدای جواب.`;
+  const userMsg = `${history ? "گفتگوی قبلی:\n"+history+"\n\n" : ""}سوال جدید بازجو: ${question}`;
+
+  if(!state.logs[idx]) state.logs[idx] = [];
+  try{
+    const answer = await callOpenRouter(sys, userMsg, 500);
+    state.logs[idx].push({who:'q', text: question});
+    state.logs[idx].push({who:'a', text: answer.trim()});
+    state.rounds++;
+  }catch(e){
+    console.error('askQuestion error:', e);
+    state.logs[idx].push({who:'q', text: question});
+    state.logs[idx].push({who:'a', text: '⚠️ خطا: ' + (e.message || 'مشکل در دریافت پاسخ')});
+  }
+  state.loadingChat = false;
+  render();
+}
+
+async function askHint(){
+  if(state.hintUsed || state.loadingHint) return;
+  state.loadingHint = true;
+  render();
+  const suspectSummary = state.suspects.map(s=>`- ${s.name} (${s.role}): ${s.personality}`).join('\n');
+  const sys = `تو راهنمای یک بازی معمای جنایی فارسی هستی. بازیکن گیر کرده و درخواست یک راهنمایی کرده.
+ماجرای پرونده: ${state.scenario.description}
+مظنونین:
+${suspectSummary}
+یک راهنمایی کوتاه (۱-۲ جمله)، غیرمستقیم و ظریف بده که کمک کند بازیکن سوال بهتری بپرسد یا به یک تناقض احتمالی توجه کند — بدون اینکه مستقیما بگویی مقصر کیست. فقط متن راهنمایی را برگردان.`;
+  try{
+    const hint = await callOpenRouter(sys, "یک راهنمایی بده.", 200);
+    state.hint = hint.trim();
+    state.hintUsed = true;
+  }catch(e){
+    state.hint = 'راهنمایی در دسترس نبود: ' + (e.message || '');
+  }
+  state.loadingHint = false;
+  render();
+}
+
+function goTo(view, idx){
+  state.view = view;
+  if(idx !== undefined && idx !== null) state.activeIdx = idx;
+  render();
+}
+
+function toggleSuspicion(idx){
+  const s = state.suspects[idx];
+  s.suspicion = s.suspicion >= 100 ? 0 : Math.min(100, s.suspicion + 34);
+  render();
+}
+
+function pickVoteCandidate(idx){
+  state.voted = idx;
+  render();
+}
+
+function confirmVote(){
+  if(state.voted === null) return;
+  const voted = state.suspects[state.voted];
+  if(!voted.isLiar) state.runOver = true;
+  state.view = 'result';
+  render();
+}
+
+function resetToIntro(){
+  state.screen = 'intro';
+  state.error = null;
+  render();
+}
+
+function updateNotebook(val){ state.notebook = val; }
+
+function levelTrackHtml(){
+  let pips = '';
+  for(let i=1;i<=MAX_LEVEL;i++){
+    let cls = '';
+    if(i < state.level) cls = 'done';
+    else if(i === state.level) cls = 'current';
+    pips += `<span class="level-pip ${cls}"></span>`;
+  }
+  return `<div class="level-track">${pips}</div>`;
+}
+
+function sidebarHtml(){
+  const suspectItems = state.suspects.map((s,i)=>`
+    <div class="nav-item ${state.view==='suspect' && state.activeIdx===i ? 'active':''}" data-action="nav-suspect" data-idx="${i}">
+      <span style="display:flex;align-items:center;gap:8px;">
+        <span class="sus-dot" style="${s.suspicion>0?'background:var(--suspicion)':''}"></span>${s.name}
+      </span>
+      <span class="badge">${(state.logs[i]||[]).length/2 | 0}</span>
+    </div>
+  `).join('');
+  return `
+    <div class="nav-section-label">پرونده &middot; مرحله ${state.level}</div>
+    <div class="nav-item ${state.view==='case'?'active':''}" data-action="nav-case">بررسی پرونده</div>
+    <div class="nav-section-label">مظنونین</div>
+    ${suspectItems}
+    <div class="nav-section-label">ابزار</div>
+    <div class="nav-item ${state.view==='notebook'?'active':''}" data-action="nav-notebook">یادداشت‌ها</div>
+    <div class="nav-item ${state.view==='verdict' || state.view==='result' ?'active':''}" data-action="nav-verdict">رای‌گیری نهایی</div>
+  `;
+}
+
+function topbarHtml(){
+  return `
+    <div class="topbar">
+      <div class="brand">
+        <span class="dot"></span>
+        <span class="brand-text">اتاق بازجویی</span>
+        ${state.scenario ? `<span class="meta mono">&nbsp;&middot; مرحله ${state.level}/${MAX_LEVEL} &middot; دور ${state.rounds}</span>` : ''}
+      </div>
+      <div class="actions">
+        ${levelTrackHtml()}
+        <button class="btn small ghost" data-action="restart">شروع دوباره کمپین</button>
+      </div>
+    </div>
+  `;
+}
+
+function render(){
+  const app = document.getElementById('app');
+
+  if(state.screen === 'intro'){
+    app.innerHTML = `
+      <div class="intro">
+        <div class="intro-eyebrow">کمپین بازجویی &middot; ${MAX_LEVEL} پرونده</div>
+        <h1>اتاق بازجویی</h1>
+        <p>یک کمپین ${MAX_LEVEL} مرحله‌ای از پرونده‌های به‌هم‌پیوسته‌ی جنایی. هر پرونده داستان و پس‌زمینه خودش رو داره، مظنونین بیشتر و سرنخ‌های گمراه‌کننده‌تر از قبلی. یک اشتباه در رای‌گیری، کمپین رو تموم می‌کنه — دقیق سوال بپرس.</p>
+        <button class="btn" data-action="restart">شروع کمپین</button>
+        ${state.error ? `<div class="err-box">مشکلی پیش اومد و نتونستم پرونده رو بسازم:<span class="mono">${state.error}</span></div>` : ''}
+      </div>`;
+    bindGlobalClicks();
+    return;
+  }
+
+  if(state.screen === 'loading'){
+    app.innerHTML = `<div class="loading"><div class="lamp-spin"></div>در حال آماده‌سازی پرونده مرحله ${state.level}...</div>`;
+    return;
+  }
+
+  let mainHtml = '';
+
+  if(state.view === 'case'){
+    mainHtml = `
+      <div class="card">
+        <div class="eyebrow">پرونده محرمانه &middot; ${state.scenario.setting || ''}</div>
+        <h2>${state.scenario.title}</h2>
+        <p>${state.scenario.description}</p>
+      </div>
+      <div class="suspect-grid">
+        ${state.suspects.map((s,i)=>`
+          <div class="suspect-card" data-action="nav-suspect" data-idx="${i}">
+            <div class="sname">${s.name}</div>
+            <div class="srole">${s.role}</div>
+            <div class="suspicion-track"><div class="suspicion-fill" style="width:${s.suspicion}%"></div></div>
+          </div>
+        `).join('')}
+      </div>
+      <div style="margin-top:14px;">
+        <button class="btn ghost small" data-action="hint" ${state.hintUsed||state.loadingHint?'disabled':''}>${state.loadingHint ? 'در حال دریافت راهنمایی...' : (state.hintUsed ? 'راهنمایی استفاده شد' : 'درخواست یک راهنمایی')}</button>
+        ${state.hint ? `<div class="msg hint" style="margin-top:12px;max-width:100%;"><div class="who">راهنمایی</div>${state.hint}</div>` : ''}
+      </div>
+    `;
+  }
+  else if(state.view === 'suspect'){
+    const idx = state.activeIdx;
+    const s = state.suspects[idx];
+    const msgs = state.logs[idx] || [];
+    mainHtml = `
+      <div class="card" style="margin-bottom:12px;">
+        <div class="eyebrow">در حال بازجویی</div>
+        <h2 style="margin-bottom:2px;">${s.name}</h2>
+        <p style="margin-bottom:0;">${s.role}</p>
+      </div>
+      <div class="chat-wrap">
+        <div class="log" id="log">
+          ${msgs.length === 0 ? `<div style="color:var(--muted);font-size:13.5px;text-align:center;margin-top:30px;">اولین سوالتو بپرس</div>` : ''}
+          ${msgs.map(m => `
+            <div class="msg ${m.who}">
+              <div class="who">${m.who==='q' ? 'تو' : s.name}</div>
+              ${m.text}
+            </div>
+          `).join('')}
+          ${state.loadingChat ? `<div class="msg a"><div class="who">${s.name}</div>در حال فکر کردن...</div>` : ''}
+        </div>
+        <div class="composer">
+          <input id="qInput" type="text" placeholder="سوالتو بپرس..." ${state.loadingChat?'disabled':''}/>
+          <button class="btn" data-action="ask" data-idx="${idx}" ${state.loadingChat?'disabled':''}>پرسیدن</button>
+        </div>
+      </div>
+      <div style="margin-top:14px;display:flex;gap:8px;">
+        <button class="btn ghost small" data-action="suspect-toggle" data-idx="${idx}">علامت‌گذاری مشکوک</button>
+      </div>
+    `;
+  }
+  else if(state.view === 'notebook'){
+    mainHtml = `
+      <div class="card">
+        <div class="eyebrow">یادداشت‌های شخصی</div>
+        <h2>دفترچه بازجو</h2>
+        <p>هرچی به ذهنت می‌رسه، تناقض‌ها، حدسیات، اینجا بنویس.</p>
+      </div>
+      <textarea class="notebook" id="notebookArea" placeholder="مثلا: نگار گفت خونه بود ولی سارا گفت دیدتش بیرون...">${state.notebook}</textarea>
+    `;
+  }
+  else if(state.view === 'verdict'){
+    mainHtml = `
+      <div class="card">
+        <div class="eyebrow">رای نهایی &middot; مرحله ${state.level}</div>
+        <h2>کی مقصره؟</h2>
+        <p>یک نفر رو انتخاب کن و رایت رو نهایی کن. اگه اشتباه رای بدی، کمپین همینجا تموم می‌شه.</p>
+      </div>
+      <div class="vote-list">
+        ${state.suspects.map((s,i)=>`
+          <div class="vote-row ${state.voted===i?'picked':''}" data-action="pick-vote" data-idx="${i}">
+            <div>
+              <div class="vname">${s.name}</div>
+              <div class="vrole">${s.role}</div>
+            </div>
+            <div class="badge mono">${(state.logs[i]||[]).length/2 | 0} سوال</div>
+          </div>
+        `).join('')}
+      </div>
+      <button class="btn" data-action="confirm-vote" ${state.voted===null?'disabled':''}>ثبت رای نهایی</button>
+    `;
+  }
+  else if(state.view === 'result'){
+    const voted = state.suspects[state.voted];
+    const liar = state.suspects.find(s=>s.isLiar);
+    const win = voted.isLiar;
+    mainHtml = `
+      <div class="card">
+        <div class="eyebrow">نتیجه پرونده &middot; مرحله ${state.level}</div>
+        <h2>${state.scenario.title}</h2>
+      </div>
+      <div class="card verdict-result ${win?'win':'lose'}">
+        <h2>${win ? 'درست حدس زدی، پرونده بسته شد' : 'اشتباه رای دادی — کمپین تموم شد'}</h2>
+        <p>تو ${voted.name} رو مقصر دونستی. مقصر واقعی <b>${liar.name}</b> بود.</p>
+        ${!win ? `<p>تا مرحله ${state.level} از ${MAX_LEVEL} پیش رفتی.</p>` : ''}
+        <p style="margin-top:16px;">
+          ${win ? `<button class="btn" data-action="next-level">مرحله بعد (${Math.min(state.level+1, MAX_LEVEL)}/${MAX_LEVEL})</button>` : `<button class="btn" data-action="restart">شروع دوباره کمپین</button>`}
+        </p>
+      </div>
+    `;
+  }
+  else if(state.view === 'campaign-complete'){
+    mainHtml = `
+      <div class="card verdict-result win">
+        <div class="eyebrow">پایان کمپین</div>
+        <h2>هر ${MAX_LEVEL} پرونده رو حل کردی</h2>
+        <p>کمپین با موفقیت به پایان رسید.</p>
+        <p style="margin-top:16px;"><button class="btn" data-action="restart">شروع دوباره از اول</button></p>
+      </div>
+    `;
+  }
+
+  app.innerHTML = `
+    ${topbarHtml()}
+    <div class="layout">
+      <div class="sidebar">${sidebarHtml()}</div>
+      <div class="content">${mainHtml}</div>
+    </div>
+  `;
+
+  const log = document.getElementById('log');
+  if(log) log.scrollTop = log.scrollHeight;
+
+  const input = document.getElementById('qInput');
+  if(input){
+    input.focus();
+    input.addEventListener('keydown', (ev)=>{
+      if(ev.key === 'Enter') submitQuestion(state.activeIdx);
+    });
+  }
+
+  const notebookArea = document.getElementById('notebookArea');
+  if(notebookArea){
+    notebookArea.addEventListener('input', (ev)=> updateNotebook(ev.target.value));
+  }
+
+  bindGlobalClicks();
+}
+
+function submitQuestion(idx){
+  const input = document.getElementById('qInput');
+  const q = input.value.trim();
+  if(!q || state.loadingChat) return;
+  input.value = '';
+  askQuestion(idx, q);
+}
+
+let clickBound = false;
+function bindGlobalClicks(){
+  if(clickBound) return;
+  clickBound = true;
+  document.getElementById('app').addEventListener('click', (ev)=>{
+    const el = ev.target.closest('[data-action]');
+    if(!el) return;
+    const action = el.dataset.action;
+    const idx = el.dataset.idx !== undefined ? Number(el.dataset.idx) : null;
+    if(action === 'restart') startCampaign();
+    else if(action === 'next-level') nextLevel();
+    else if(action === 'nav-case') goTo('case');
+    else if(action === 'nav-suspect') goTo('suspect', idx);
+    else if(action === 'nav-notebook') goTo('notebook');
+    else if(action === 'nav-verdict') goTo('verdict');
+    else if(action === 'ask') submitQuestion(idx);
+    else if(action === 'suspect-toggle') toggleSuspicion(idx);
+    else if(action === 'pick-vote') pickVoteCandidate(idx);
+    else if(action === 'confirm-vote') confirmVote();
+    else if(action === 'hint') askHint();
+    else if(action === 'reset') resetToIntro();
+  });
+}
+
+render();
+</script>
+</body>
+</html>
