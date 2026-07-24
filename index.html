@@ -271,6 +271,7 @@
 </head>
 <body>
 <div id="app"></div>
+<div style="position:fixed;bottom:6px;left:8px;z-index:999;font-family:'JetBrains Mono',monospace;font-size:9px;color:#5a5044;pointer-events:none;">build v7</div>
 
 <script>
 /* ==== OpenRouter config ==== */
@@ -930,7 +931,7 @@ function accountPanelHtml(){
   if(!state.showAccountPanel) return '';
   return `
     <div class="account-overlay" data-action="account-close">
-      <div class="account-panel" onclick="event.stopPropagation()">
+      <div class="account-panel" data-action="panel-noop">
         <button class="account-close" data-action="account-toggle">✕</button>
 
         <div>
@@ -1250,6 +1251,7 @@ function bindGlobalClicks(){
     else if(action === 'nav-map') goToMap();
     else if(action === 'retry-level') retryLevel();
     else if(action === 'go-level') goToLevel(idx);
+    else if(action === 'panel-noop'){ /* clicked empty space inside the panel — do nothing, don't close */ }
   });
 }
 
