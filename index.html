@@ -271,7 +271,7 @@
 </head>
 <body>
 <div id="app"></div>
-<div style="position:fixed;bottom:6px;left:8px;z-index:999;font-family:'JetBrains Mono',monospace;font-size:9px;color:#5a5044;pointer-events:none;">build v7</div>
+<div style="position:fixed;bottom:6px;left:8px;z-index:999;font-family:'JetBrains Mono',monospace;font-size:9px;color:#5a5044;pointer-events:none;">build v8</div>
 
 <script>
 /* ==== OpenRouter config ==== */
@@ -578,7 +578,7 @@ async function callOpenRouter(systemPrompt, userPrompt, maxTokens){
     }catch(e){
       lastErr = e;
       const msg = e.message || '';
-      if(!/404|unavailable|not found|no endpoints|empty|خالی/i.test(msg)) throw e;
+      if(!/404|unavailable|not found|no endpoints|empty|خالی|truncated/i.test(msg)) throw e;
     }
   }
   throw lastErr || new Error(t('errNoFreeModel'));
@@ -618,6 +618,9 @@ async function callOpenRouterWithModel(model, systemPrompt, userPrompt, maxToken
   const text = choice && choice.message && choice.message.content;
   if(!text){
     throw new Error(t('errEmpty', choice && choice.finish_reason));
+  }
+  if(choice.finish_reason === 'length'){
+    throw new Error('truncated: response cut off before completion (finish_reason: length)');
   }
   return text;
 }
@@ -660,34 +663,33 @@ async function generateCase(level){
   render();
   const n = suspectCountForLevel(level);
   const langName = LANG_NAME[state.lang];
-  const sys = `You are a writer and designer for a narrative crime/social-deduction mystery game, structured as a staged campaign. Every case must feel like a real story with atmosphere, backstory and detail — not just one flat sentence with a few names. Respond ONLY with a single valid, complete JSON object, no explanation, preamble or backticks. Write ALL text content (title, setting, description, and every suspect field) in ${langName}.
+  const sys = `You are a writer and designer for a narrative crime/social-deduction mystery game, structured as a staged campaign. Every case must feel like a real story with atmosphere and detail, but text must stay BRIEF per field — this is critical because your total output has a limited size. Respond ONLY with a single valid, complete, compact JSON object (no markdown, no extra whitespace, no explanation, no preamble, no backticks). Write ALL text content in ${langName}.
 
 ${difficultyNoteForLevel(level)}
-This is case number ${level} of ${MAX_LEVEL} in the campaign.
+This is case number ${level} of ${MAX_LEVEL} in the campaign. Cast size: ${n} suspects.
 
-Exact output structure:
+Exact output structure (keep every field within its stated limit):
 {
- "title": "a catchy case title (max 7 words)",
- "setting": "where and when this takes place, briefly",
- "description": "a full account of what happened, in 4-6 sentences: what occurred, who was present, the atmosphere, why it matters. Should feel like a real story with tension.",
+ "title": "case title, max 6 words",
+ "setting": "where/when, max 12 words",
+ "description": "what happened, 3-4 sentences max, vivid but concise",
  "suspects": [
    {
-     "name":"full name appropriate to the story",
-     "role":"their relationship or job in this story",
-     "personality":"their personality, tone of speech, and one distinctive behavioral trait, in 1-2 sentences",
-     "motive":"why they could have a motive or be under suspicion, one sentence",
-     "secret":"a personal secret unrelated to the case that causes nervous/suspicious behavior if approached",
+     "name":"full name",
+     "role":"their relation/job, max 5 words",
+     "personality":"tone + one trait, 1 sentence max",
+     "motive":"possible motive, 1 short sentence",
+     "secret":"unrelated personal secret, 1 short sentence",
      "isLiar": false,
-     "openingStatement":"one short spontaneous line this character says unprompted when first approached, in character",
+     "openingStatement":"one short in-character line, max 15 words",
      "knownQA": [
-       {"q":"a standard baseline interrogation question already asked on record (e.g. about their whereabouts or relation to what happened)","a":"their already-recorded answer to it, in character, 1-2 sentences"},
-       {"q":"a second different standard baseline question","a":"their answer, in character, 1-2 sentences"}
+       {"q":"one baseline question already on record","a":"their recorded answer, 1 sentence max"}
      ]
    }
  ]
 }
-Include exactly ${n} suspects in the suspects array. Exactly one must have isLiar:true, the rest false. Personalities, motives and tones of speech must be clearly distinct from each other. Each suspect's knownQA must contain exactly 2 items and must be genuinely useful pre-existing testimony (not vague filler) so a player reading it has real material to reason about. The whole story must feel unified and coherent, not scattered.`;
-  const userMsg = `Create a new, original case for campaign stage ${level}. Output JSON only.`;
+Include exactly ${n} suspects. Exactly one isLiar:true, rest false. Keep personalities/motives/tones clearly distinct from each other. Each suspect's knownQA must contain exactly 1 useful, specific item (not vague filler). Stay strictly within the word limits given — brevity across ALL ${n} suspects matters more than elaborate prose, so the full JSON completes without being cut off. The story must still feel coherent and real despite being concise.`;
+  const userMsg = `Create a new, original case for campaign stage ${level}. Output compact JSON only, respecting every field's word limit.`;
   try{
     const raw = await callOpenRouter(sys, userMsg, caseTokenBudget(n));
     const parsed = extractJson(raw);
