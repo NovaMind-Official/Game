@@ -5,106 +5,265 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>اتاق بازجویی</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@100..900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@100..900&family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg: #16120f; --panel: #221c18; --panel-2: #2b241f; --panel-3: #1c1712;
-    --lamp: #e8a33d; --lamp-dim: #a8762b; --suspicion: #b23a2f;
-    --ink: #ede6d9; --muted: #948a7d; --line: #3a322b; --good:#5c8a5c;
+    --bg: #0f0d0b; --panel: #1c1713; --panel-2: #241e19; --panel-3: #16120f;
+    --lamp: #eeae4f; --lamp-dim: #a8762b; --suspicion: #c0463a;
+    --ink: #f1e9db; --muted: #9a8f80; --line: #362e26; --good:#5c8a5c;
+    --radius: 10px;
   }
+  [data-theme="light"]{
+    --bg: #f6f1e8; --panel: #ffffff; --panel-2: #f1e9db; --panel-3: #ede3d2;
+    --lamp: #c17d1f; --lamp-dim: #a8762b; --suspicion: #b23a2f;
+    --ink: #251d14; --muted: #7a6d5c; --line: #ddd0ba; --good:#3f6b3f;
+  }
+  [data-theme="light"] body{
+    background: radial-gradient(ellipse 90% 60% at 20% -10%, rgba(193,125,31,0.06) 0%, transparent 60%), var(--bg);
+  }
+  [data-theme="light"] .topbar{ background: rgba(246,241,232,0.88); }
+  [data-theme="light"] .btn{ color:#fff; }
+  [data-theme="light"] .card::before{ opacity:.08; }
   *{ box-sizing: border-box; }
   html,body{ margin:0; padding:0; }
-  body{ background: radial-gradient(ellipse 120% 80% at 50% -10%, #2a2118 0%, var(--bg) 55%); color: var(--ink); font-family: 'Vazirmatn', sans-serif; min-height: 100vh; }
+  body{
+    background:
+      radial-gradient(ellipse 90% 60% at 20% -10%, rgba(238,174,79,0.08) 0%, transparent 60%),
+      radial-gradient(ellipse 120% 80% at 80% 0%, #241d16 0%, var(--bg) 55%);
+    color: var(--ink); font-family: 'Vazirmatn', 'Inter', sans-serif; min-height: 100vh;
+    -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: "ss01" 1; letter-spacing: 0.1px;
+  }
+  [dir="ltr"] body{ font-family: 'Inter', 'Vazirmatn', sans-serif; }
+  h1, h2, h3, .btn, .brand-text{ font-weight: 800; letter-spacing: -0.3px; }
+  [dir="rtl"] h1, [dir="rtl"] h2, [dir="rtl"] h3, [dir="rtl"] .btn, [dir="rtl"] .brand-text{ letter-spacing: 0; }
+  p, .msg, .nav-item, input, textarea{ font-weight: 400; }
+  [dir="ltr"] .card p, [dir="ltr"] .verdict-result p, [dir="ltr"] .intro p{ line-height: 1.75; }
   .mono{ font-family:'JetBrains Mono', monospace; direction: ltr; unicode-bidi: isolate; }
   #app{ min-height: 100vh; display:flex; flex-direction: column; }
+  ::selection{ background: rgba(238,174,79,0.3); }
 
-  .topbar{ display:flex; align-items:center; justify-content:space-between; padding: 12px 18px; border-bottom: 1px solid var(--line); background: var(--panel-3); position: sticky; top:0; z-index: 10; flex-wrap: wrap; gap:8px; }
+  @keyframes fadeUp{ from{ opacity:0; transform: translateY(6px);} to{ opacity:1; transform:translateY(0);} }
+  .content > *{ animation: fadeUp .25s ease both; }
+
+  /* ---------- topbar ---------- */
+  .topbar{
+    display:flex; align-items:center; justify-content:space-between; padding: 13px 20px;
+    border-bottom: 1px solid var(--line); background: rgba(22,18,15,0.85);
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    position: sticky; top:0; z-index: 20; flex-wrap: wrap; gap:10px;
+  }
   .topbar .brand{ display:flex; align-items:center; gap:10px; }
-  .topbar .brand .dot{ width:8px; height:8px; border-radius:50%; background: var(--lamp); box-shadow:0 0 8px var(--lamp); }
-  .topbar .brand-text{ font-weight:800; font-size:15px; }
+  .topbar .brand .dot{ width:8px; height:8px; border-radius:50%; background: var(--lamp); box-shadow:0 0 10px 1px var(--lamp); }
+  .topbar .brand-text{ font-weight:800; font-size:15px; letter-spacing:.2px; }
   .topbar .meta{ font-size:11px; color: var(--muted); }
   .topbar .actions{ display:flex; gap:8px; align-items:center; }
   .level-track{ display:flex; gap:3px; align-items:center; }
-  .level-pip{ width:6px; height:6px; border-radius:50%; background: var(--line); }
+  .level-pip{ width:6px; height:6px; border-radius:50%; background: var(--line); transition: background .2s; }
   .level-pip.done{ background: var(--lamp); }
   .level-pip.current{ background: var(--suspicion); box-shadow:0 0 6px var(--suspicion); }
+  .lang-toggle{
+    display:flex; border:1px solid var(--line); border-radius:20px; overflow:hidden; font-size:11.5px;
+  }
+  .lang-toggle button{
+    background:transparent; border:none; color:var(--muted); padding:6px 12px; cursor:pointer;
+    font-family:'JetBrains Mono',monospace; font-weight:600; transition: background .15s, color .15s;
+  }
+  .lang-toggle button.active{ background: var(--lamp); color:#1a1410; }
 
-  .layout{ flex:1; display:flex; max-width: 980px; margin: 0 auto; width:100%; }
-  .sidebar{ width: 210px; flex-shrink:0; border-left: 1px solid var(--line); padding: 16px 10px; display:flex; flex-direction:column; gap:4px; }
-  .nav-section-label{ font-family:'JetBrains Mono', monospace; font-size: 10px; letter-spacing:1.5px; color: var(--muted); text-transform:uppercase; padding: 10px 10px 6px; }
-  .nav-item{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding: 9px 11px; border-radius: 4px; cursor:pointer; font-size: 13.5px; color: var(--ink); border:1px solid transparent; transition: background .15s, border-color .15s; }
+  .account-btn{
+    width:34px; height:34px; border-radius:50%; border:1px solid var(--line); background: var(--panel-2);
+    display:flex; align-items:center; justify-content:center; cursor:pointer; color: var(--ink);
+    font-size:14px; font-weight:700; flex-shrink:0; transition: border-color .15s;
+    overflow:hidden;
+  }
+  .account-btn:hover{ border-color: var(--lamp-dim); }
+  .account-btn img{ width:100%; height:100%; object-fit:cover; }
+
+  .account-overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:40; display:flex; justify-content:flex-end;
+    animation: fadeUp .15s ease;
+  }
+  [dir="rtl"] .account-overlay{ justify-content:flex-start; }
+  .account-panel{
+    width: 300px; max-width: 88vw; height:100%; background: var(--panel-3); border-left:1px solid var(--line);
+    padding: 20px 18px; overflow-y:auto; display:flex; flex-direction:column; gap:20px;
+  }
+  [dir="rtl"] .account-panel{ border-left:none; border-right:1px solid var(--line); }
+  .account-section-title{
+    font-family:'JetBrains Mono', monospace; font-size:10.5px; letter-spacing:1.5px; color:var(--muted);
+    text-transform:uppercase; margin-bottom:10px;
+  }
+  .account-close{
+    align-self:flex-end; background:none; border:none; color:var(--muted); font-size:20px; cursor:pointer;
+    line-height:1; padding:4px;
+  }
+  .profile-row{ display:flex; align-items:center; gap:12px; }
+  .profile-row .avatar-lg{ width:48px; height:48px; border-radius:50%; overflow:hidden; flex-shrink:0; }
+  .profile-row .avatar-lg img{ width:100%; height:100%; object-fit:cover; }
+  .profile-name{ font-weight:700; font-size:14.5px; }
+  .profile-email{ font-size:12px; color:var(--muted); }
+  .stat-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .stat-box{ background: var(--panel); border:1px solid var(--line); border-radius:8px; padding:12px; text-align:center; }
+  .stat-box .num{ font-family:'JetBrains Mono',monospace; font-size:20px; font-weight:600; color:var(--lamp); }
+  .stat-box .lbl{ font-size:11px; color:var(--muted); margin-top:4px; }
+  .theme-row{ display:flex; gap:8px; }
+  .theme-opt{
+    flex:1; border:1px solid var(--line); border-radius:8px; padding:10px; text-align:center; cursor:pointer;
+    font-size:12.5px; transition: border-color .15s;
+  }
+  .theme-opt.active{ border-color: var(--lamp); color: var(--lamp); }
+  .toggle-row{ display:flex; align-items:center; justify-content:space-between; padding:2px 0; }
+  .toggle-row .label{ font-size:13.5px; }
+  .toggle-row .sub{ font-size:11.5px; color:var(--muted); margin-top:2px; }
+  .switch{ width:40px; height:22px; border-radius:12px; background: var(--panel-2); border:1px solid var(--line); position:relative; cursor:pointer; flex-shrink:0; }
+  .switch.on{ background: var(--lamp-dim); }
+  .switch .knob{ position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%; background:#fff; transition: left .15s; }
+  .switch.on .knob{ left:20px; }
+  [dir="rtl"] .switch .knob{ left:auto; right:2px; }
+  [dir="rtl"] .switch.on .knob{ right:20px; left:auto; }
+  #gsiBtn{ display:flex; justify-content:center; }
+
+  .map-wrap{ position:relative; max-width: 420px; margin: 10px auto 30px; padding: 10px 10px 30px; }
+  .map-path-line{
+    position:absolute; top:20px; bottom:20px; left:50%; width:3px; transform:translateX(-50%);
+    background: repeating-linear-gradient(180deg, var(--line) 0 8px, transparent 8px 16px); z-index:0;
+  }
+  .map-node-wrap{ position:relative; z-index:1; display:flex; margin-bottom: 26px; }
+  .map-node-wrap.pos-left{ justify-content:flex-start; padding-right:52%; }
+  .map-node-wrap.pos-right{ justify-content:flex-end; padding-left:52%; }
+  .map-node-wrap.pos-center{ justify-content:center; }
+  .map-node{
+    width:54px; height:54px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    font-weight:800; font-size:16px; border:3px solid var(--line); background: var(--panel);
+    position:relative; flex-shrink:0; transition: transform .15s;
+  }
+  .map-node.done{ background: linear-gradient(135deg, var(--lamp-dim), var(--good)); border-color: var(--good); color:#fff; cursor:pointer; }
+  .map-node.current{ background: linear-gradient(135deg, #f2bb63, var(--lamp)); border-color: var(--lamp); color:#1a1410; cursor:pointer; box-shadow: 0 0 0 4px rgba(238,174,79,0.18); animation: pulseNode 1.8s ease-in-out infinite; }
+  .map-node.locked{ color: var(--muted); cursor:not-allowed; opacity:.55; }
+  .map-node:active{ transform: scale(.92); }
+  @keyframes pulseNode{ 0%,100%{ box-shadow: 0 0 0 4px rgba(238,174,79,0.18); } 50%{ box-shadow: 0 0 0 9px rgba(238,174,79,0.1); } }
+  .map-node .check{ position:absolute; top:-4px; right:-4px; width:18px; height:18px; border-radius:50%; background: var(--good); color:#fff; font-size:11px; display:flex; align-items:center; justify-content:center; border:2px solid var(--panel-3); }
+  .map-node .lock{ position:absolute; top:-4px; right:-4px; width:18px; height:18px; border-radius:50%; background: var(--panel-2); color: var(--muted); font-size:10px; display:flex; align-items:center; justify-content:center; border:2px solid var(--panel-3); }
+
+  /* ---------- layout ---------- */
+  .layout{ flex:1; display:flex; max-width: 1000px; margin: 0 auto; width:100%; }
+  [dir="rtl"] .sidebar{ border-left: 1px solid var(--line); border-right:none; }
+  [dir="ltr"] .sidebar{ border-right: 1px solid var(--line); border-left:none; }
+  .sidebar{ width: 216px; flex-shrink:0; padding: 18px 11px; display:flex; flex-direction:column; gap:4px; }
+  .nav-section-label{ font-family:'JetBrains Mono', monospace; font-size: 10px; letter-spacing:1.5px; color: var(--muted); text-transform:uppercase; padding: 12px 11px 6px; }
+  .nav-item{
+    display:flex; align-items:center; justify-content:space-between; gap:8px; padding: 10px 12px;
+    border-radius: 8px; cursor:pointer; font-size: 13.5px; color: var(--ink); border:1px solid transparent;
+    transition: background .15s, border-color .15s, transform .1s;
+  }
   .nav-item:hover{ background: var(--panel-2); }
-  .nav-item.active{ background: var(--panel-2); border-color: var(--lamp-dim); color: var(--lamp); }
+  .nav-item:active{ transform: scale(.98); }
+  .nav-item.active{ background: linear-gradient(90deg, rgba(238,174,79,0.13), transparent); border-color: var(--lamp-dim); color: var(--lamp); }
   .nav-item .sus-dot{ width:6px; height:6px; border-radius:50%; background: var(--muted); flex-shrink:0; }
   .nav-item .badge{ font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--muted); }
 
-  .content{ flex:1; padding: 18px 20px 60px; min-width:0; }
+  .content{ flex:1; padding: 20px 22px 70px; min-width:0; }
 
-  .card{ border: 1px solid var(--line); background: var(--panel); border-radius: 6px; padding: 18px 20px; margin-bottom: 16px; position:relative; overflow:hidden; }
-  .card::before{ content:""; position:absolute; inset:0; background: repeating-linear-gradient(180deg, transparent 0 3px, rgba(0,0,0,0.12) 3px 4px); pointer-events:none; opacity:.35; }
-  .eyebrow{ font-family:'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 2px; color: var(--lamp); text-transform: uppercase; margin-bottom: 8px; }
-  .card h2{ margin:0 0 10px; font-size: 19px; }
+  .card{
+    border: 1px solid var(--line); background: linear-gradient(180deg, var(--panel), var(--panel-3));
+    border-radius: var(--radius); padding: 20px 22px; margin-bottom: 16px; position:relative; overflow:hidden;
+    box-shadow: 0 8px 24px -12px rgba(0,0,0,0.5);
+  }
+  .card::before{ content:""; position:absolute; inset:0; background: repeating-linear-gradient(180deg, transparent 0 3px, rgba(0,0,0,0.1) 3px 4px); pointer-events:none; opacity:.3; }
+  .eyebrow{ font-family:'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 2px; color: var(--lamp); text-transform: uppercase; margin-bottom: 9px; }
+  .card h2{ margin:0 0 10px; font-size: 20px; letter-spacing: -.2px; }
   .card p{ color: var(--muted); font-size: 14.5px; line-height: 1.9; margin:0; }
   .card p + p{ margin-top:10px; }
 
-  .suspect-grid{ display:grid; grid-template-columns: repeat(2,1fr); gap:10px; }
+  .suspect-grid{ display:grid; grid-template-columns: repeat(2,1fr); gap:11px; }
   @media(max-width:640px){ .suspect-grid{ grid-template-columns: 1fr; } }
-  .suspect-card{ background: var(--panel); border:1px solid var(--line); border-radius:6px; padding: 14px 16px; cursor:pointer; transition: border-color .15s, transform .1s; }
-  .suspect-card:hover{ border-color: var(--lamp-dim); transform: translateY(-1px); }
+  .suspect-card{
+    background: var(--panel); border:1px solid var(--line); border-radius:var(--radius);
+    padding: 15px 17px; cursor:pointer; transition: border-color .15s, transform .12s, box-shadow .15s;
+    display:flex; gap:12px; align-items:center;
+  }
+  .suspect-card:hover{ border-color: var(--lamp-dim); transform: translateY(-2px); box-shadow: 0 10px 20px -12px rgba(238,174,79,0.25); }
+  .suspect-card:active{ transform: translateY(0); }
+  .avatar{
+    width:38px; height:38px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center;
+    background: linear-gradient(135deg, var(--lamp-dim), var(--suspicion)); color:#fff; font-weight:700; font-size:14px;
+    overflow:hidden;
+  }
+  .avatar-fallback{ width:100%; height:100%; display:flex; align-items:center; justify-content:center; }
+  .suspect-card .sbody{ flex:1; min-width:0; }
   .suspect-card .sname{ font-weight:700; font-size:14.5px; margin-bottom:2px; }
   .suspect-card .srole{ color:var(--muted); font-size:12px; margin-bottom:8px; }
   .suspicion-track{ height:4px; border-radius:2px; background: var(--panel-2); overflow:hidden; }
-  .suspicion-fill{ height:100%; background: var(--suspicion); width:0%; transition:width .3s; }
+  .suspicion-fill{ height:100%; background: linear-gradient(90deg, var(--lamp-dim), var(--suspicion)); width:0%; transition:width .3s; }
 
-  .chat-wrap{ display:flex; flex-direction:column; height: calc(100vh - 260px); min-height:360px; }
+  .chat-wrap{ display:flex; flex-direction:column; height: calc(100vh - 270px); min-height:360px; }
   .log{ flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:12px; padding: 4px 2px 12px; }
-  .msg{ max-width: 86%; line-height:1.8; font-size:14.5px; padding: 9px 13px; border-radius: 6px; }
-  .msg.q{ align-self: flex-end; background: #33291b; border: 1px solid var(--lamp-dim); }
-  .msg.a{ align-self: flex-start; background: var(--panel-2); border: 1px solid var(--line); }
-  .msg.hint{ align-self:center; background: rgba(232,163,61,0.08); border:1px dashed var(--lamp-dim); font-size:13.5px; }
+  .msg{ max-width: 86%; line-height:1.8; font-size:14.5px; padding: 10px 14px; border-radius: 10px; }
+  .msg.q{ align-self: flex-end; background: linear-gradient(135deg, #3a2c19, #2c2115); border: 1px solid var(--lamp-dim); border-bottom-right-radius:2px; }
+  [dir="ltr"] .msg.q{ border-bottom-right-radius:10px; border-bottom-left-radius:2px; }
+  .msg.a{ align-self: flex-start; background: var(--panel-2); border: 1px solid var(--line); border-bottom-left-radius:2px; }
+  [dir="ltr"] .msg.a{ border-bottom-left-radius:10px; border-bottom-right-radius:2px; }
+  .msg.hint{ align-self:center; background: rgba(238,174,79,0.08); border:1px dashed var(--lamp-dim); font-size:13.5px; border-radius:10px; }
+  .msg.err{ align-self:center; background: rgba(192,70,58,0.1); border:1px dashed var(--suspicion); font-size:13px; color:#e3aca6; }
   .msg .who{ font-size:11px; color:var(--muted); margin-bottom:4px; font-family:'JetBrains Mono',monospace; }
-  .composer{ display:flex; gap:8px; padding-top: 10px; border-top: 1px solid var(--line); }
-  .composer input{ flex:1; background: var(--panel-2); border: 1px solid var(--line); color: var(--ink); border-radius: 4px; padding: 11px 13px; font-family:inherit; font-size: 14.5px; }
+  .composer{ display:flex; gap:8px; padding-top: 12px; border-top: 1px solid var(--line); }
+  .composer input{
+    flex:1; background: var(--panel-2); border: 1px solid var(--line); color: var(--ink);
+    border-radius: 24px; padding: 12px 16px; font-family:inherit; font-size: 14.5px;
+  }
   .composer input:focus{ outline:none; border-color: var(--lamp); }
 
-  .btn{ background: var(--lamp); color:#1a1410; border:none; border-radius:4px; padding: 10px 18px; font-weight:700; cursor:pointer; font-family:inherit; font-size:14px; transition: filter .15s, transform .1s; }
-  .btn:hover{ filter: brightness(1.08); }
-  .btn:active{ transform: scale(.97); }
-  .btn:disabled{ opacity:.4; cursor:not-allowed; }
-  .btn.ghost{ background: transparent; color: var(--ink); border:1px solid var(--line); }
-  .btn.small{ padding:7px 12px; font-size:12.5px; }
-  .btn.danger{ background: var(--suspicion); color: #fff; }
+  .btn{
+    background: linear-gradient(135deg, #f2bb63, var(--lamp)); color:#1a1410; border:none; border-radius:24px;
+    padding: 11px 20px; font-weight:700; cursor:pointer; font-family:inherit; font-size:14px;
+    transition: filter .15s, transform .1s, box-shadow .15s;
+    box-shadow: 0 4px 14px -4px rgba(238,174,79,0.4);
+  }
+  .btn:hover{ filter: brightness(1.06); box-shadow: 0 6px 18px -4px rgba(238,174,79,0.55); }
+  .btn:active{ transform: scale(.96); }
+  .btn:disabled{ opacity:.4; cursor:not-allowed; box-shadow:none; }
+  .btn.ghost{ background: transparent; color: var(--ink); border:1px solid var(--line); box-shadow:none; }
+  .btn.ghost:hover{ border-color: var(--lamp-dim); box-shadow:none; }
+  .btn.small{ padding:8px 14px; font-size:12.5px; border-radius:18px; }
+  .btn.danger{ background: linear-gradient(135deg, #d1584a, var(--suspicion)); color: #fff; }
 
-  textarea.notebook{ width:100%; min-height: 320px; background: var(--panel-2); border:1px solid var(--line); color: var(--ink); border-radius:6px; padding: 14px; font-family:'Vazirmatn'; font-size:14.5px; line-height:1.9; resize: vertical; }
+  textarea.notebook{ width:100%; min-height: 320px; background: var(--panel-2); border:1px solid var(--line); color: var(--ink); border-radius:var(--radius); padding: 16px; font-family:'Vazirmatn'; font-size:14.5px; line-height:1.9; resize: vertical; }
   textarea.notebook:focus{ outline:none; border-color: var(--lamp); }
 
-  .vote-list{ display:flex; flex-direction:column; gap:8px; margin: 14px 0 18px; }
-  .vote-row{ display:flex; align-items:center; justify-content:space-between; border:1px solid var(--line); background: var(--panel); border-radius:6px; padding: 12px 16px; cursor:pointer; }
+  .vote-list{ display:flex; flex-direction:column; gap:9px; margin: 16px 0 20px; }
+  .vote-row{ display:flex; align-items:center; justify-content:space-between; border:1px solid var(--line); background: var(--panel); border-radius:var(--radius); padding: 13px 17px; cursor:pointer; transition: border-color .15s, transform .1s; }
   .vote-row:hover{ border-color: var(--lamp-dim); }
-  .vote-row.picked{ border-color: var(--lamp); box-shadow:0 0 0 1px var(--lamp); }
+  .vote-row.picked{ border-color: var(--lamp); box-shadow:0 0 0 1px var(--lamp), 0 8px 20px -12px rgba(238,174,79,0.4); }
   .vote-row .vname{ font-weight:700; font-size:14.5px; }
   .vote-row .vrole{ color:var(--muted); font-size:12px; }
 
-  .verdict-result{ text-align:center; padding: 8px 0 4px; }
-  .verdict-result h2{ margin:0 0 8px; font-size:19px; }
+  .verdict-result{ text-align:center; padding: 10px 0 4px; }
+  .verdict-result h2{ margin:0 0 8px; font-size:20px; }
   .verdict-result.win h2{ color: var(--lamp); }
   .verdict-result.lose h2{ color: var(--suspicion); }
   .verdict-result p{ color: var(--muted); line-height:1.9; font-size:14.5px; }
 
-  .loading{ text-align:center; color: var(--muted); padding: 80px 20px; font-size:14px; }
-  .lamp-spin{ width:34px; height:34px; margin: 0 auto 14px; border: 3px solid var(--panel-2); border-top-color: var(--lamp); border-radius:50%; animation: spin 0.9s linear infinite; }
+  .loading{ text-align:center; color: var(--muted); padding: 90px 20px; font-size:14px; }
+  .lamp-spin{ width:36px; height:36px; margin: 0 auto 16px; border: 3px solid var(--panel-2); border-top-color: var(--lamp); border-radius:50%; animation: spin 0.9s linear infinite; }
   @keyframes spin{ to{ transform: rotate(360deg); } }
 
-  .intro{ max-width: 520px; margin: 60px auto; text-align:center; padding: 0 16px; }
-  .intro-eyebrow{ font-family:'JetBrains Mono', monospace; font-size:11px; letter-spacing:3px; color: var(--lamp); text-transform:uppercase; margin-bottom: 10px; }
-  .intro h1{ font-size: 26px; margin: 0 0 14px; }
-  .intro p{ color: var(--muted); line-height:1.9; font-size:14.5px; margin-bottom: 26px; }
-  .err-box{ text-align:right; direction:rtl; background: rgba(178,58,47,0.1); border:1px solid var(--suspicion); border-radius:6px; padding:12px 14px; margin-top:18px; font-size:12.5px; color:#e8b3ac; line-height:1.8; }
+  .intro{ max-width: 540px; margin: 64px auto; text-align:center; padding: 0 18px; }
+  .intro-eyebrow{ font-family:'JetBrains Mono', monospace; font-size:11px; letter-spacing:3px; color: var(--lamp); text-transform:uppercase; margin-bottom: 12px; }
+  .intro h1{ font-size: 30px; margin: 0 0 16px; letter-spacing:-.3px; }
+  .intro p{ color: var(--muted); line-height:1.9; font-size:14.5px; margin-bottom: 28px; }
+  .err-box{ text-align:right; background: rgba(192,70,58,0.1); border:1px solid var(--suspicion); border-radius:var(--radius); padding:13px 15px; margin-top:20px; font-size:12.5px; color:#e8b3ac; line-height:1.8; }
+  [dir="ltr"] .err-box{ text-align:left; }
   .err-box .mono{ display:block; margin-top:6px; color:#c98d85; direction:ltr; text-align:left; word-break:break-all; }
 
   @media(max-width: 760px){
     .layout{ flex-direction: column-reverse; }
-    .sidebar{ width:100%; flex-direction:row; overflow-x:auto; border-left:none; border-top:1px solid var(--line); padding: 8px 10px; gap:6px; position: sticky; bottom:0; background: var(--panel-3); z-index: 10; }
+    .sidebar{
+      width:100%; flex-direction:row; overflow-x:auto; border:none !important;
+      border-top:1px solid var(--line) !important; padding: 9px 12px; gap:6px;
+      position: sticky; bottom:0; background: rgba(22,18,15,0.92); backdrop-filter: blur(10px);
+      z-index: 20;
+    }
     .nav-section-label{ display:none; }
     .nav-item{ flex-shrink:0; white-space:nowrap; }
   }
@@ -123,11 +282,205 @@ const FREE_MODELS = [
   "openai/gpt-oss-120b:free"
 ];
 
-const MAX_LEVEL = 12;
+/* ==== Google Sign-In config ====
+   Replace this with your own OAuth Client ID from Google Cloud Console:
+   console.cloud.google.com -> APIs & Services -> Credentials -> Create Credentials -> OAuth client ID -> Web application
+   Authorized JavaScript origins must include your exact GitHub Pages URL (e.g. https://youruser.github.io) */
+const GOOGLE_CLIENT_ID = "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com";
+
+/* ==== local persistence (works once hosted; may not persist inside Claude's own preview) ==== */
+const STORE_KEY = "interrogation_room_save_v1";
+function loadStore(){
+  try{
+    const raw = localStorage.getItem(STORE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  }catch(e){ return {}; }
+}
+function saveStore(patch){
+  try{
+    const current = loadStore();
+    const merged = { ...current, ...patch };
+    localStorage.setItem(STORE_KEY, JSON.stringify(merged));
+    return merged;
+  }catch(e){ return patch; }
+}
+
+const MAX_LEVEL = 20;
+
+/* ==== i18n ==== */
+const LANG_NAME = { fa: "Persian (Farsi)", en: "English" };
+
+const STRINGS = {
+  fa: {
+    pageTitle: "اتاق بازجویی",
+    introEyebrow: "کمپین بازجویی · ۱۲ پرونده",
+    introTitle: "اتاق بازجویی",
+    introDesc: `یک کمپین ${MAX_LEVEL} مرحله‌ای از پرونده‌های به‌هم‌پیوسته‌ی جنایی. هر پرونده داستان و پس‌زمینه خودش رو داره، مظنونین بیشتر و سرنخ‌های گمراه‌کننده‌تر از قبلی. یک اشتباه در رای‌گیری، کمپین رو تموم می‌کنه — دقیق سوال بپرس.`,
+    startCampaign: "شروع کمپین",
+    errPrefix: "مشکلی پیش اومد و نتونستم پرونده رو بسازم:",
+    loadingCase: (lvl) => `در حال آماده‌سازی پرونده مرحله ${lvl}...`,
+    navCaseSection: (lvl) => `پرونده · مرحله ${lvl}`,
+    navCase: "بررسی پرونده",
+    navSuspects: "مظنونین",
+    navTools: "ابزار",
+    navNotebook: "یادداشت‌ها",
+    navVerdict: "رای‌گیری نهایی",
+    navProgress: "پیشرفت",
+    navMap: "نقشه مراحل",
+    mapDesc: "هر مرحله‌ای که بهش رسیده باشی این‌جا باز و قابل بازیه. مرحله‌های قفل‌شده باید اول باز بشن.",
+    retryLevel: "امتحان دوباره‌ی این مرحله",
+    goToMap: "برو به نقشه مراحل",
+    restartCampaign: "شروع دوباره کمپین",
+    stageLevel: (lvl,max,round) => `مرحله ${lvl}/${max} · دور ${round}`,
+    requestHint: "درخواست یک راهنمایی",
+    hintLoading: "در حال دریافت راهنمایی...",
+    hintUsed: "راهنمایی استفاده شد",
+    hintLabel: "راهنمایی",
+    hintFailed: "راهنمایی در دسترس نبود، دوباره امتحان کن.",
+    interrogating: "در حال بازجویی",
+    askFirst: "اولین سوالتو بپرس",
+    onRecord: "پیش‌تر ثبت شده",
+    you: "تو",
+    thinking: "در حال فکر کردن...",
+    askPlaceholder: "سوالتو بپرس...",
+    ask: "پرسیدن",
+    markSuspicious: "علامت‌گذاری مشکوک",
+    notebookEyebrow: "یادداشت‌های شخصی",
+    notebookTitle: "دفترچه بازجو",
+    notebookDesc: "هرچی به ذهنت می‌رسه، تناقض‌ها، حدسیات، اینجا بنویس.",
+    notebookPlaceholder: "مثلا: نگار گفت خونه بود ولی سارا گفت دیدتش بیرون...",
+    verdictEyebrow: (lvl) => `رای نهایی · مرحله ${lvl}`,
+    verdictTitle: "کی مقصره؟",
+    verdictDesc: "یک نفر رو انتخاب کن و رایت رو نهایی کن. اگه اشتباه رای بدی، کمپین همینجا تموم می‌شه.",
+    questionsCount: (n) => `${n} سوال`,
+    confirmVote: "ثبت رای نهایی",
+    resultEyebrow: (lvl) => `نتیجه پرونده · مرحله ${lvl}`,
+    winTitle: "درست حدس زدی، پرونده بسته شد",
+    loseTitle: "اشتباه رای دادی — کمپین تموم شد",
+    verdictSummary: (voted, liar) => `تو ${voted} رو مقصر دونستی. مقصر واقعی ${liar} بود.`,
+    reachedLevel: (lvl,max) => `تا مرحله ${lvl} از ${max} پیش رفتی.`,
+    nextLevelBtn: (n,max) => `مرحله بعد (${n}/${max})`,
+    campaignCompleteEyebrow: "پایان کمپین",
+    campaignCompleteTitle: (max) => `هر ${max} پرونده رو حل کردی`,
+    campaignCompleteDesc: "کمپین با موفقیت به پایان رسید.",
+    restartFromStart: "شروع دوباره از اول",
+    errNetwork: (m) => "اتصال برقرار نشد. ممکنه به‌خاطر مسدود بودن CORS، افزونه Adblock/VPN مرورگر، یا کلید API باشه. جزئیات: " + m,
+    errBadResponse: (status, body) => "پاسخ سرور معتبر نبود. HTTP " + status + " — " + body,
+    errApi: (status, msg) => "خطای API (HTTP " + status + "): " + msg,
+    errEmpty: (reason) => "پاسخ خالی برگشت (finish_reason: " + reason + ")",
+    errNoFreeModel: "هیچ‌کدام از مدل‌های رایگان در دسترس نبودند",
+    errChat: (m) => "⚠️ خطا: " + m,
+    accountTitle: "حساب کاربری",
+    signInWithGoogle: "ورود با Google",
+    signedInAs: "وارد شدی به‌عنوان",
+    signOut: "خروج از حساب",
+    guestMode: "مهمان — واردنشده",
+    statsTitle: "رکوردها",
+    statBestLevel: "بهترین مرحله",
+    statCasesSolved: "پرونده‌های حل‌شده",
+    statCampaigns: "تعداد کمپین‌ها",
+    themeTitle: "تم",
+    themeDark: "تیره",
+    themeLight: "روشن",
+    notifTitle: "اعلان‌ها",
+    notifLabel: "یادآوری ادامه‌ی پرونده",
+    notifSub: "با اجازه‌ی مرورگر، یادآوری می‌فرسته",
+  },
+  en: {
+    pageTitle: "The Interrogation Room",
+    introEyebrow: "Interrogation Campaign · 12 Cases",
+    introTitle: "The Interrogation Room",
+    introDesc: `A ${MAX_LEVEL}-stage campaign of connected criminal cases. Each case has its own story and backdrop, more suspects, and trickier red herrings than the last. One wrong verdict ends the campaign — question carefully.`,
+    startCampaign: "Start Campaign",
+    errPrefix: "Something went wrong building the case:",
+    loadingCase: (lvl) => `Preparing case ${lvl}...`,
+    navCaseSection: (lvl) => `Case · Stage ${lvl}`,
+    navCase: "Case File",
+    navSuspects: "Suspects",
+    navTools: "Tools",
+    navNotebook: "Notebook",
+    navVerdict: "Final Verdict",
+    navProgress: "Progress",
+    navMap: "Stage Map",
+    mapDesc: "Any stage you've reached is unlocked and playable here. Locked stages must be reached first.",
+    retryLevel: "Retry This Stage",
+    goToMap: "Go To Stage Map",
+    restartCampaign: "Restart Campaign",
+    stageLevel: (lvl,max,round) => `Stage ${lvl}/${max} · Round ${round}`,
+    requestHint: "Request a hint",
+    hintLoading: "Getting hint...",
+    hintUsed: "Hint used",
+    hintLabel: "Hint",
+    hintFailed: "Hint unavailable, try again.",
+    interrogating: "Interrogating",
+    askFirst: "Ask your first question",
+    onRecord: "on record",
+    you: "You",
+    thinking: "Thinking...",
+    askPlaceholder: "Ask a question...",
+    ask: "Ask",
+    markSuspicious: "Mark as suspicious",
+    notebookEyebrow: "Personal Notes",
+    notebookTitle: "Detective's Notebook",
+    notebookDesc: "Write down anything that comes to mind — contradictions, hunches, theories.",
+    notebookPlaceholder: "e.g. Nick said he was home, but Sarah said she saw him outside...",
+    verdictEyebrow: (lvl) => `Final Verdict · Stage ${lvl}`,
+    verdictTitle: "Who's guilty?",
+    verdictDesc: "Pick one suspect and lock in your verdict. A wrong guess ends the campaign here.",
+    questionsCount: (n) => `${n} questions`,
+    confirmVote: "Lock In Verdict",
+    resultEyebrow: (lvl) => `Case Result · Stage ${lvl}`,
+    winTitle: "You got it right — case closed",
+    loseTitle: "Wrong verdict — campaign over",
+    verdictSummary: (voted, liar) => `You accused ${voted}. The real culprit was ${liar}.`,
+    reachedLevel: (lvl,max) => `You made it to stage ${lvl} of ${max}.`,
+    nextLevelBtn: (n,max) => `Next Stage (${n}/${max})`,
+    campaignCompleteEyebrow: "Campaign Complete",
+    campaignCompleteTitle: (max) => `You solved all ${max} cases`,
+    campaignCompleteDesc: "The campaign ended successfully.",
+    restartFromStart: "Start Over",
+    errNetwork: (m) => "Connection failed. Could be CORS, an Adblock/VPN extension, or the API key. Details: " + m,
+    errBadResponse: (status, body) => "Invalid server response. HTTP " + status + " — " + body,
+    errApi: (status, msg) => "API error (HTTP " + status + "): " + msg,
+    errEmpty: (reason) => "Empty response returned (finish_reason: " + reason + ")",
+    errNoFreeModel: "None of the free models were available",
+    errChat: (m) => "⚠️ Error: " + m,
+    accountTitle: "Account",
+    signInWithGoogle: "Sign in with Google",
+    signedInAs: "Signed in as",
+    signOut: "Sign out",
+    guestMode: "Guest — not signed in",
+    statsTitle: "Records",
+    statBestLevel: "Best stage",
+    statCasesSolved: "Cases solved",
+    statCampaigns: "Campaigns played",
+    themeTitle: "Theme",
+    themeDark: "Dark",
+    themeLight: "Light",
+    notifTitle: "Notifications",
+    notifLabel: "Case reminder",
+    notifSub: "Sends a reminder with browser permission",
+  }
+};
+
+function t(key, ...args){
+  const dict = STRINGS[state.lang] || STRINGS.fa;
+  const val = dict[key];
+  if(typeof val === 'function') return val(...args);
+  return val;
+}
+
+const savedStore = loadStore();
 
 const state = {
   screen: 'intro',
   view: 'case',
+  lang: 'fa',
+  theme: savedStore.theme || 'dark',
+  notificationsEnabled: !!savedStore.notificationsEnabled,
+  googleUser: savedStore.googleUser || null,
+  stats: Object.assign({ bestLevel: 0, casesSolved: 0, campaigns: 0, unlockedLevel: 1 }, savedStore.stats || {}),
+  showAccountPanel: false,
   level: 1,
   scenario: null,
   suspects: [],
@@ -140,9 +493,81 @@ const state = {
   loadingHint: false,
   hintUsed: false,
   hint: null,
+  hintError: null,
   error: null,
   runOver: false,
 };
+
+document.documentElement.setAttribute('data-theme', state.theme);
+
+function setLang(lang){
+  if(state.lang === lang) return;
+  state.lang = lang;
+  document.documentElement.lang = lang;
+  document.documentElement.dir = lang === 'fa' ? 'rtl' : 'ltr';
+  document.title = t('pageTitle');
+  render();
+}
+
+function setTheme(theme){
+  state.theme = theme;
+  document.documentElement.setAttribute('data-theme', theme);
+  saveStore({ theme });
+  render();
+}
+
+function toggleAccountPanel(){
+  state.showAccountPanel = !state.showAccountPanel;
+  render();
+}
+
+async function toggleNotifications(){
+  if(!state.notificationsEnabled){
+    if('Notification' in window){
+      const perm = await Notification.requestPermission();
+      if(perm !== 'granted') return;
+    }
+    state.notificationsEnabled = true;
+  }else{
+    state.notificationsEnabled = false;
+  }
+  saveStore({ notificationsEnabled: state.notificationsEnabled });
+  render();
+}
+
+function handleGoogleSignIn(response){
+  try{
+    const payload = JSON.parse(atob(response.credential.split('.')[1]));
+    state.googleUser = { name: payload.name, email: payload.email, picture: payload.picture };
+    saveStore({ googleUser: state.googleUser });
+    render();
+  }catch(e){ console.error('Google sign-in decode failed', e); }
+}
+
+function signOutGoogle(){
+  state.googleUser = null;
+  saveStore({ googleUser: null });
+  render();
+}
+
+function recordCaseSolved(){
+  state.stats.casesSolved++;
+  if(state.level > state.stats.bestLevel) state.stats.bestLevel = state.level;
+  saveStore({ stats: state.stats });
+}
+
+function recordCampaignStart(){
+  state.stats.campaigns++;
+  saveStore({ stats: state.stats });
+}
+
+function initGoogleSignIn(){
+  if(GOOGLE_CLIENT_ID.indexOf('YOUR_GOOGLE_CLIENT_ID') === 0) return;
+  if(!window.google || !window.google.accounts) return;
+  google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: handleGoogleSignIn });
+  const el = document.getElementById('gsiBtn');
+  if(el) google.accounts.id.renderButton(el, { theme: state.theme === 'light' ? 'outline' : 'filled_black', size: 'large', width: 240 });
+}
 
 async function callOpenRouter(systemPrompt, userPrompt, maxTokens){
   let lastErr = null;
@@ -152,11 +577,10 @@ async function callOpenRouter(systemPrompt, userPrompt, maxTokens){
     }catch(e){
       lastErr = e;
       const msg = e.message || '';
-      // only fall through to next model on "unavailable" style errors; otherwise stop
-      if(!/404|unavailable|not found|no endpoints|پاسخ خالی/i.test(msg)) throw e;
+      if(!/404|unavailable|not found|no endpoints|empty|خالی/i.test(msg)) throw e;
     }
   }
-  throw lastErr || new Error('هیچ‌کدام از مدل‌های رایگان در دسترس نبودند');
+  throw lastErr || new Error(t('errNoFreeModel'));
 }
 
 async function callOpenRouterWithModel(model, systemPrompt, userPrompt, maxTokens){
@@ -178,26 +602,26 @@ async function callOpenRouterWithModel(model, systemPrompt, userPrompt, maxToken
       })
     });
   }catch(networkErr){
-    throw new Error('اتصال برقرار نشد. ممکنه به‌خاطر مسدود بودن CORS، افزونه Adblock/VPN مرورگر، یا کلید API باشه. جزئیات: ' + networkErr.message);
+    throw new Error(t('errNetwork', networkErr.message));
   }
   const raw = await res.text();
   let data;
   try{ data = JSON.parse(raw); }catch(e){
-    throw new Error('پاسخ سرور معتبر نبود. HTTP ' + res.status + ' — ' + raw.slice(0,200));
+    throw new Error(t('errBadResponse', res.status, raw.slice(0,200)));
   }
   if(!res.ok){
     const msg = (data && data.error && data.error.message) ? data.error.message : JSON.stringify(data).slice(0,300);
-    throw new Error('خطای API (HTTP ' + res.status + '): ' + msg);
+    throw new Error(t('errApi', res.status, msg));
   }
   const choice = data && data.choices && data.choices[0];
   const text = choice && choice.message && choice.message.content;
   if(!text){
-    throw new Error('پاسخ خالی برگشت (finish_reason: ' + (choice && choice.finish_reason) + ')');
+    throw new Error(t('errEmpty', choice && choice.finish_reason));
   }
   return text;
 }
 
-function stripFence(t){ return t.replace(/```json|```/g, "").trim(); }
+function stripFence(txt){ return txt.replace(/```json|```/g, "").trim(); }
 
 function extractJson(text){
   const cleaned = stripFence(text);
@@ -207,20 +631,26 @@ function extractJson(text){
   if(start !== -1 && end !== -1 && end > start){
     return JSON.parse(cleaned.slice(start, end+1));
   }
-  throw new Error('خروجی JSON معتبر نبود: ' + cleaned.slice(0,200));
+  throw new Error('invalid JSON: ' + cleaned.slice(0,200));
 }
 
 function suspectCountForLevel(lvl){
   if(lvl <= 3) return 4;
-  if(lvl <= 7) return 5;
-  return 6;
+  if(lvl <= 8) return 5;
+  if(lvl <= 14) return 6;
+  return 7;
 }
 
 function difficultyNoteForLevel(lvl){
-  if(lvl <= 3) return "سطح دشواری: آسان. یک انگیزه ساده و آشکار، تناقض‌ها قابل کشف با ۲-۳ سوال.";
-  if(lvl <= 6) return "سطح دشواری: متوسط. حداقل یک سرنخ گمراه‌کننده (red herring) وجود داشته باشد، انگیزه‌ها کمی پیچیده‌تر و تودرتو باشند.";
-  if(lvl <= 9) return "سطح دشواری: سخت. حداقل دو سرنخ گمراه‌کننده، رابطه‌های پنهان بین چند مظنون، زمان‌بندی و جزئیات باید دقیق و قابل تناقض‌یابی باشند.";
-  return "سطح دشواری: خیلی سخت. توطئه چندلایه با انگیزه‌های متقاطع بین چند مظنون، جزئیات ظریف و چندین سرنخ گمراه‌کننده، فقط با دقت بالا قابل حل است.";
+  if(lvl <= 3) return "Difficulty: easy. One clear, simple motive; contradictions discoverable within 2-3 questions.";
+  if(lvl <= 8) return "Difficulty: medium. At least one red herring; motives slightly more layered.";
+  if(lvl <= 14) return "Difficulty: hard. At least two red herrings, hidden relationships between suspects, precise timing details that can be contradicted.";
+  return "Difficulty: very hard. A multi-layered conspiracy with crossing motives between several suspects, subtle details, and multiple red herrings — solvable only with careful, precise questioning.";
+}
+
+function caseTokenBudget(n){
+  // scale the token ceiling with suspect count so richer casts never get truncated
+  return Math.min(6000, 1600 + n * 650);
 }
 
 async function generateCase(level){
@@ -228,35 +658,61 @@ async function generateCase(level){
   state.error = null;
   render();
   const n = suspectCountForLevel(level);
-  const sys = `تو نویسنده و طراح یک بازی معمای جنایی/اجتماعی فارسی به‌صورت کمپین مرحله‌ای هستی. هر پرونده باید یک داستان واقعی با فضاسازی، پیشینه و جزئیات باشد؛ نه فقط یک جمله خشک با چند اسم. فقط و فقط یک آبجکت JSON معتبر و کامل برگردان، بدون هیچ توضیح، پیش‌گفتار یا بک‌تیک.
+  const langName = LANG_NAME[state.lang];
+  const sys = `You are a writer and designer for a narrative crime/social-deduction mystery game, structured as a staged campaign. Every case must feel like a real story with atmosphere, backstory and detail — not just one flat sentence with a few names. Respond ONLY with a single valid, complete JSON object, no explanation, preamble or backticks. Write ALL text content (title, setting, description, and every suspect field) in ${langName}.
 
 ${difficultyNoteForLevel(level)}
-این پرونده شماره ${level} از ${MAX_LEVEL} در یک کمپین است.
+This is case number ${level} of ${MAX_LEVEL} in the campaign.
 
-ساختار دقیق خروجی:
+Exact output structure:
 {
- "title": "عنوان جذاب پرونده (حداکثر ۷ کلمه)",
- "setting": "مکان و زمان وقوع ماجرا در چند کلمه (مثلا: یک عمارت قدیمی در شمال شهر، شب مهمانی سالگرد)",
- "description": "شرح کامل ماجرا در ۴ تا ۶ جمله: چه اتفاقی افتاده، چه کسانی حضور داشتند، چه فضایی حاکم بوده، چرا این موضوع مهم است. باید حس یک داستان واقعی با تعلیق بدهد.",
+ "title": "a catchy case title (max 7 words)",
+ "setting": "where and when this takes place, briefly",
+ "description": "a full account of what happened, in 4-6 sentences: what occurred, who was present, the atmosphere, why it matters. Should feel like a real story with tension.",
  "suspects": [
-   {"name":"اسم فارسی کامل","role":"نسبت یا شغل او در این داستان","personality":"توصیف شخصیت، لحن صحبت و یک ویژگی رفتاری متمایز در ۱-۲ جمله","motive":"چرا او می‌تواند انگیزه داشته باشد یا در کانون شک باشد، در یک جمله","secret":"یک راز شخصی که ربط مستقیم به پرونده ندارد ولی باعث دستپاچگی و رفتار مشکوک می‌شود","isLiar": false}
+   {
+     "name":"full name appropriate to the story",
+     "role":"their relationship or job in this story",
+     "personality":"their personality, tone of speech, and one distinctive behavioral trait, in 1-2 sentences",
+     "motive":"why they could have a motive or be under suspicion, one sentence",
+     "secret":"a personal secret unrelated to the case that causes nervous/suspicious behavior if approached",
+     "isLiar": false,
+     "openingStatement":"one short spontaneous line this character says unprompted when first approached, in character",
+     "knownQA": [
+       {"q":"a standard baseline interrogation question already asked on record (e.g. about their whereabouts or relation to what happened)","a":"their already-recorded answer to it, in character, 1-2 sentences"},
+       {"q":"a second different standard baseline question","a":"their answer, in character, 1-2 sentences"}
+     ]
+   }
  ]
 }
-دقیقا ${n} مظنون در آرایه suspects بگذار. فقط یکی isLiar:true باشد، بقیه false. شخصیت‌ها، انگیزه‌ها و لحن صحبتشان کاملا متفاوت و متمایز از هم باشد. کل ماجرا باید یکپارچه و منسجم باشد، نه پراکنده.`;
-  const userMsg = `یک پرونده جدید و اورجینال برای مرحله ${level} کمپین بساز. فقط JSON خروجی بده.`;
+Include exactly ${n} suspects in the suspects array. Exactly one must have isLiar:true, the rest false. Personalities, motives and tones of speech must be clearly distinct from each other. Each suspect's knownQA must contain exactly 2 items and must be genuinely useful pre-existing testimony (not vague filler) so a player reading it has real material to reason about. The whole story must feel unified and coherent, not scattered.`;
+  const userMsg = `Create a new, original case for campaign stage ${level}. Output JSON only.`;
   try{
-    const raw = await callOpenRouter(sys, userMsg, 3000);
+    const raw = await callOpenRouter(sys, userMsg, caseTokenBudget(n));
     const parsed = extractJson(raw);
-    if(!parsed.suspects || parsed.suspects.length < 2) throw new Error('داده مظنونین ناقص بود');
+    if(!parsed.suspects || parsed.suspects.length < 2) throw new Error('incomplete suspects data');
     state.scenario = { title: parsed.title, setting: parsed.setting, description: parsed.description };
     state.suspects = parsed.suspects.map((s,i)=>({...s, id:i, suspicion:0}));
     state.logs = {};
+    state.suspects.forEach((s,i)=>{
+      const seeded = [];
+      if(Array.isArray(s.knownQA)){
+        s.knownQA.forEach(pair=>{
+          if(pair && pair.q && pair.a){
+            seeded.push({who:'q', text: pair.q, seeded:true});
+            seeded.push({who:'a', text: pair.a, seeded:true});
+          }
+        });
+      }
+      state.logs[i] = seeded;
+    });
     state.rounds = 0;
     state.notebook = '';
     state.voted = null;
     state.activeIdx = null;
     state.hintUsed = false;
     state.hint = null;
+    state.hintError = null;
     state.view = 'case';
     state.screen = 'game';
   }catch(e){
@@ -270,6 +726,7 @@ ${difficultyNoteForLevel(level)}
 function startCampaign(){
   state.level = 1;
   state.runOver = false;
+  recordCampaignStart();
   generateCase(1);
 }
 
@@ -283,35 +740,53 @@ function nextLevel(){
   generateCase(state.level);
 }
 
+function goToLevel(lvl){
+  if(lvl > (state.stats.unlockedLevel || 1)) return; // locked
+  state.level = lvl;
+  generateCase(lvl);
+}
+
+function goToMap(){
+  state.screen = 'game';
+  state.view = 'map';
+  state.error = null;
+  render();
+}
+
+function retryLevel(){
+  generateCase(state.level);
+}
+
 async function askQuestion(idx, question){
   const suspect = state.suspects[idx];
   state.loadingChat = true;
   render();
 
-  const history = (state.logs[idx]||[]).filter(m=>m.who==='q'||m.who==='a').map(m => `${m.who==='q'?'بازجو':suspect.name}: ${m.text}`).join('\n');
-  const sys = `تو داری نقش یک شخصیت در یک بازی معمای جنایی فارسی بازی می‌کنی. کاملا در نقش بمان و از این شخصیت خارج نشو.
-اسم: ${suspect.name}
-نقش در ماجرا: ${suspect.role}
-شخصیت و لحن: ${suspect.personality}
-انگیزه احتمالی: ${suspect.motive || 'نامشخص'}
-راز شخصی (نامرتبط با پرونده ولی باعث دستپاچگی می‌شود اگر به آن نزدیک شوند): ${suspect.secret}
-فضای پرونده: ${state.scenario.setting}
-ماجرای پرونده: ${state.scenario.description}
-مرحله دشواری: ${state.level} از ${MAX_LEVEL}
-آیا این شخصیت مقصر اصلی است: ${suspect.isLiar ? "بله، او مقصر است. باید با ظرافت و منطقی انکار کند یا جا خالی بدهد، هرگز مستقیم اعتراف نکند، ولی در سطوح سخت‌تر می‌تواند لغزش‌های ظریف‌تر و قابل کشف‌تری داشته باشد اگر بازجو دقیق و هوشمندانه سوال بپرسد." : "نه، او بی‌گناه است اما ممکن است به‌خاطر رازش نامطمئن یا مشکوک به‌نظر برسد."}
-با لحن و شخصیت خودت، طبیعی و محاوره‌ای فارسی، حداکثر ۴-۵ جمله به سوال بازجو جواب بده. فقط متن پاسخ را برگردان، بدون توضیح اضافه یا نام خودت در ابتدای جواب.`;
-  const userMsg = `${history ? "گفتگوی قبلی:\n"+history+"\n\n" : ""}سوال جدید بازجو: ${question}`;
+  const langName = LANG_NAME[state.lang];
+  const history = (state.logs[idx]||[]).filter(m=>m.who==='q'||m.who==='a').map(m => `${m.who==='q'? 'Interrogator':suspect.name}: ${m.text}`).join('\n');
+  const sys = `You are role-playing a character in a narrative crime mystery game. Stay fully in character.
+Name: ${suspect.name}
+Role in the story: ${suspect.role}
+Personality and tone: ${suspect.personality}
+Possible motive: ${suspect.motive || 'unknown'}
+Personal secret (unrelated to the case, causes nervous behavior if approached): ${suspect.secret}
+Setting: ${state.scenario.setting}
+Case story: ${state.scenario.description}
+Difficulty stage: ${state.level} of ${MAX_LEVEL}
+Is this character the actual culprit: ${suspect.isLiar ? "Yes. They must deny or deflect subtly and logically, never confess outright, though at harder stages they can leave more discoverable subtle slips if questioned sharply." : "No, they are innocent, but their secret may make them seem nervous or suspicious."}
+Respond in ${langName}, in your own tone and personality, naturally and conversationally, max 4-5 sentences. Return ONLY the reply text, no extra explanation or your name prefixed.`;
+  const userMsg = `${history ? "Previous conversation:\n"+history+"\n\n" : ""}New question from the interrogator: ${question}`;
 
   if(!state.logs[idx]) state.logs[idx] = [];
   try{
-    const answer = await callOpenRouter(sys, userMsg, 900);
+    const answer = await callOpenRouter(sys, userMsg, 1100);
     state.logs[idx].push({who:'q', text: question});
     state.logs[idx].push({who:'a', text: answer.trim()});
     state.rounds++;
   }catch(e){
     console.error('askQuestion error:', e);
     state.logs[idx].push({who:'q', text: question});
-    state.logs[idx].push({who:'a', text: '⚠️ خطا: ' + (e.message || 'مشکل در دریافت پاسخ')});
+    state.logs[idx].push({who:'err', text: t('errChat', e.message || '')});
   }
   state.loadingChat = false;
   render();
@@ -320,19 +795,22 @@ async function askQuestion(idx, question){
 async function askHint(){
   if(state.hintUsed || state.loadingHint) return;
   state.loadingHint = true;
+  state.hintError = null;
   render();
+  const langName = LANG_NAME[state.lang];
   const suspectSummary = state.suspects.map(s=>`- ${s.name} (${s.role}): ${s.personality}`).join('\n');
-  const sys = `تو راهنمای یک بازی معمای جنایی فارسی هستی. بازیکن گیر کرده و درخواست یک راهنمایی کرده.
-ماجرای پرونده: ${state.scenario.description}
-مظنونین:
+  const sys = `You are the hint-giver for a narrative crime mystery game. The player is stuck and asked for a hint.
+Case story: ${state.scenario.description}
+Suspects:
 ${suspectSummary}
-یک راهنمایی کوتاه (۱-۲ جمله)، غیرمستقیم و ظریف بده که کمک کند بازیکن سوال بهتری بپرسد یا به یک تناقض احتمالی توجه کند — بدون اینکه مستقیما بگویی مقصر کیست. فقط متن راهنمایی را برگردان.`;
+Give one short (1-2 sentence) hint in ${langName}, indirect and subtle, that helps the player ask a better question or notice a possible contradiction — without directly stating who is guilty. Return ONLY the hint text.`;
   try{
-    const hint = await callOpenRouter(sys, "یک راهنمایی بده.", 200);
+    const hint = await callOpenRouter(sys, "Give one hint.", 500);
     state.hint = hint.trim();
     state.hintUsed = true;
   }catch(e){
-    state.hint = 'راهنمایی در دسترس نبود: ' + (e.message || '');
+    console.error('askHint error:', e);
+    state.hintError = e.message || String(e);
   }
   state.loadingHint = false;
   render();
@@ -358,7 +836,13 @@ function pickVoteCandidate(idx){
 function confirmVote(){
   if(state.voted === null) return;
   const voted = state.suspects[state.voted];
-  if(!voted.isLiar) state.runOver = true;
+  if(voted.isLiar){
+    recordCaseSolved();
+    if(state.level + 1 > (state.stats.unlockedLevel || 1)){
+      state.stats.unlockedLevel = Math.min(state.level + 1, MAX_LEVEL);
+      saveStore({ stats: state.stats });
+    }
+  }
   state.view = 'result';
   render();
 }
@@ -371,6 +855,25 @@ function resetToIntro(){
 
 function updateNotebook(val){ state.notebook = val; }
 
+function initials(name){
+  if(!name) return '?';
+  const parts = name.trim().split(/\s+/);
+  if(parts.length === 1) return parts[0].slice(0,2);
+  return (parts[0][0] + parts[parts.length-1][0]).toUpperCase();
+}
+
+function suspectAvatarUrl(suspect, level){
+  // deterministic, free, keyless avatar generator — seeded so each suspect keeps the same face
+  const style = level >= 15 ? 'personas' : (level >= 8 ? 'notionists' : 'adventurer');
+  const seed = encodeURIComponent((suspect.name || '') + '-' + state.level + '-' + suspect.id);
+  return `https://api.dicebear.com/9.x/${style}/svg?seed=${seed}&backgroundType=gradientLinear`;
+}
+
+function avatarImg(suspect, sizeStyle){
+  const url = suspectAvatarUrl(suspect, state.level);
+  return `<img src="${url}" alt="${suspect.name}" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('div'), {className:'avatar-fallback', textContent:'${initials(suspect.name)}'}))" style="width:100%;height:100%;object-fit:cover;"/>`;
+}
+
 function levelTrackHtml(){
   let pips = '';
   for(let i=1;i<=MAX_LEVEL;i++){
@@ -382,23 +885,100 @@ function levelTrackHtml(){
   return `<div class="level-track">${pips}</div>`;
 }
 
+function langToggleHtml(){
+  return `
+    <div class="lang-toggle">
+      <button data-action="lang" data-lang="fa" class="${state.lang==='fa'?'active':''}">FA</button>
+      <button data-action="lang" data-lang="en" class="${state.lang==='en'?'active':''}">EN</button>
+    </div>
+  `;
+}
+
 function sidebarHtml(){
   const suspectItems = state.suspects.map((s,i)=>`
     <div class="nav-item ${state.view==='suspect' && state.activeIdx===i ? 'active':''}" data-action="nav-suspect" data-idx="${i}">
       <span style="display:flex;align-items:center;gap:8px;">
         <span class="sus-dot" style="${s.suspicion>0?'background:var(--suspicion)':''}"></span>${s.name}
       </span>
-      <span class="badge">${(state.logs[i]||[]).length/2 | 0}</span>
+      <span class="badge">${(state.logs[i]||[]).filter(m=>m.who==='q' && !m.seeded).length}</span>
     </div>
   `).join('');
-  return `
-    <div class="nav-section-label">پرونده &middot; مرحله ${state.level}</div>
-    <div class="nav-item ${state.view==='case'?'active':''}" data-action="nav-case">بررسی پرونده</div>
-    <div class="nav-section-label">مظنونین</div>
+  const caseNav = state.scenario ? `
+    <div class="nav-section-label">${t('navCaseSection', state.level)}</div>
+    <div class="nav-item ${state.view==='case'?'active':''}" data-action="nav-case">${t('navCase')}</div>
+    <div class="nav-section-label">${t('navSuspects')}</div>
     ${suspectItems}
-    <div class="nav-section-label">ابزار</div>
-    <div class="nav-item ${state.view==='notebook'?'active':''}" data-action="nav-notebook">یادداشت‌ها</div>
-    <div class="nav-item ${state.view==='verdict' || state.view==='result' ?'active':''}" data-action="nav-verdict">رای‌گیری نهایی</div>
+    <div class="nav-section-label">${t('navTools')}</div>
+    <div class="nav-item ${state.view==='notebook'?'active':''}" data-action="nav-notebook">${t('navNotebook')}</div>
+    <div class="nav-item ${state.view==='verdict' || state.view==='result' ?'active':''}" data-action="nav-verdict">${t('navVerdict')}</div>
+  ` : '';
+  return `
+    ${caseNav}
+    <div class="nav-section-label">${t('navProgress')}</div>
+    <div class="nav-item ${state.view==='map'?'active':''}" data-action="nav-map">${t('navMap')}</div>
+  `;
+}
+
+function accountButtonHtml(){
+  if(state.googleUser && state.googleUser.picture){
+    return `<button class="account-btn" data-action="account-toggle"><img src="${state.googleUser.picture}" alt=""/></button>`;
+  }
+  return `<button class="account-btn" data-action="account-toggle">${state.googleUser ? initials(state.googleUser.name) : '👤'}</button>`;
+}
+
+function accountPanelHtml(){
+  if(!state.showAccountPanel) return '';
+  return `
+    <div class="account-overlay" data-action="account-close">
+      <div class="account-panel" onclick="event.stopPropagation()">
+        <button class="account-close" data-action="account-toggle">✕</button>
+
+        <div>
+          <div class="account-section-title">${t('accountTitle')}</div>
+          ${state.googleUser ? `
+            <div class="profile-row">
+              <div class="avatar-lg">${state.googleUser.picture ? `<img src="${state.googleUser.picture}" alt=""/>` : `<div class="avatar" style="width:100%;height:100%;">${initials(state.googleUser.name)}</div>`}</div>
+              <div>
+                <div class="profile-name">${state.googleUser.name}</div>
+                <div class="profile-email">${state.googleUser.email}</div>
+              </div>
+            </div>
+            <button class="btn ghost small" style="margin-top:12px;" data-action="sign-out">${t('signOut')}</button>
+          ` : `
+            <div style="font-size:12.5px;color:var(--muted);margin-bottom:10px;">${t('guestMode')}</div>
+            <div id="gsiBtn"></div>
+          `}
+        </div>
+
+        <div>
+          <div class="account-section-title">${t('statsTitle')}</div>
+          <div class="stat-grid">
+            <div class="stat-box"><div class="num">${state.stats.bestLevel}</div><div class="lbl">${t('statBestLevel')}</div></div>
+            <div class="stat-box"><div class="num">${state.stats.casesSolved}</div><div class="lbl">${t('statCasesSolved')}</div></div>
+            <div class="stat-box" style="grid-column:1/-1;"><div class="num">${state.stats.campaigns}</div><div class="lbl">${t('statCampaigns')}</div></div>
+          </div>
+        </div>
+
+        <div>
+          <div class="account-section-title">${t('themeTitle')}</div>
+          <div class="theme-row">
+            <div class="theme-opt ${state.theme==='dark'?'active':''}" data-action="set-theme" data-theme="dark">${t('themeDark')}</div>
+            <div class="theme-opt ${state.theme==='light'?'active':''}" data-action="set-theme" data-theme="light">${t('themeLight')}</div>
+          </div>
+        </div>
+
+        <div>
+          <div class="account-section-title">${t('notifTitle')}</div>
+          <div class="toggle-row">
+            <div>
+              <div class="label">${t('notifLabel')}</div>
+              <div class="sub">${t('notifSub')}</div>
+            </div>
+            <div class="switch ${state.notificationsEnabled?'on':''}" data-action="toggle-notif"><div class="knob"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
   `;
 }
 
@@ -407,14 +987,17 @@ function topbarHtml(){
     <div class="topbar">
       <div class="brand">
         <span class="dot"></span>
-        <span class="brand-text">اتاق بازجویی</span>
-        ${state.scenario ? `<span class="meta mono">&nbsp;&middot; مرحله ${state.level}/${MAX_LEVEL} &middot; دور ${state.rounds}</span>` : ''}
+        <span class="brand-text">${t('introTitle')}</span>
+        ${state.scenario ? `<span class="meta mono">&nbsp;·&nbsp;${t('stageLevel', state.level, MAX_LEVEL, state.rounds)}</span>` : ''}
       </div>
       <div class="actions">
+        ${langToggleHtml()}
         ${levelTrackHtml()}
-        <button class="btn small ghost" data-action="restart">شروع دوباره کمپین</button>
+        <button class="btn small ghost" data-action="restart">${t('restartCampaign')}</button>
+        ${accountButtonHtml()}
       </div>
     </div>
+    ${accountPanelHtml()}
   `;
 }
 
@@ -423,19 +1006,23 @@ function render(){
 
   if(state.screen === 'intro'){
     app.innerHTML = `
+      <div class="topbar" style="border-bottom:none;justify-content:flex-end;">${langToggleHtml()}${accountButtonHtml()}</div>
+      ${accountPanelHtml()}
       <div class="intro">
-        <div class="intro-eyebrow">کمپین بازجویی &middot; ${MAX_LEVEL} پرونده</div>
-        <h1>اتاق بازجویی</h1>
-        <p>یک کمپین ${MAX_LEVEL} مرحله‌ای از پرونده‌های به‌هم‌پیوسته‌ی جنایی. هر پرونده داستان و پس‌زمینه خودش رو داره، مظنونین بیشتر و سرنخ‌های گمراه‌کننده‌تر از قبلی. یک اشتباه در رای‌گیری، کمپین رو تموم می‌کنه — دقیق سوال بپرس.</p>
-        <button class="btn" data-action="restart">شروع کمپین</button>
-        ${state.error ? `<div class="err-box">مشکلی پیش اومد و نتونستم پرونده رو بسازم:<span class="mono">${state.error}</span></div>` : ''}
+        <div class="intro-eyebrow">${t('introEyebrow')}</div>
+        <h1>${t('introTitle')}</h1>
+        <p>${t('introDesc')}</p>
+        <button class="btn" data-action="restart">${t('startCampaign')}</button>
+        ${state.stats.unlockedLevel > 1 ? `<div style="margin-top:12px;"><button class="btn ghost small" data-action="nav-map">${t('navMap')} (${state.stats.unlockedLevel}/${MAX_LEVEL})</button></div>` : ''}
+        ${state.error ? `<div class="err-box">${t('errPrefix')}<span class="mono">${state.error}</span></div>` : ''}
       </div>`;
+    if(state.showAccountPanel) initGoogleSignIn();
     bindGlobalClicks();
     return;
   }
 
   if(state.screen === 'loading'){
-    app.innerHTML = `<div class="loading"><div class="lamp-spin"></div>در حال آماده‌سازی پرونده مرحله ${state.level}...</div>`;
+    app.innerHTML = `<div class="loading"><div class="lamp-spin"></div>${t('loadingCase', state.level)}</div>`;
     return;
   }
 
@@ -444,22 +1031,26 @@ function render(){
   if(state.view === 'case'){
     mainHtml = `
       <div class="card">
-        <div class="eyebrow">پرونده محرمانه &middot; ${state.scenario.setting || ''}</div>
+        <div class="eyebrow">${state.scenario.setting || ''}</div>
         <h2>${state.scenario.title}</h2>
         <p>${state.scenario.description}</p>
       </div>
       <div class="suspect-grid">
         ${state.suspects.map((s,i)=>`
           <div class="suspect-card" data-action="nav-suspect" data-idx="${i}">
-            <div class="sname">${s.name}</div>
-            <div class="srole">${s.role}</div>
-            <div class="suspicion-track"><div class="suspicion-fill" style="width:${s.suspicion}%"></div></div>
+            <div class="avatar">${avatarImg(s)}</div>
+            <div class="sbody">
+              <div class="sname">${s.name}</div>
+              <div class="srole">${s.role}</div>
+              <div class="suspicion-track"><div class="suspicion-fill" style="width:${s.suspicion}%"></div></div>
+            </div>
           </div>
         `).join('')}
       </div>
-      <div style="margin-top:14px;">
-        <button class="btn ghost small" data-action="hint" ${state.hintUsed||state.loadingHint?'disabled':''}>${state.loadingHint ? 'در حال دریافت راهنمایی...' : (state.hintUsed ? 'راهنمایی استفاده شد' : 'درخواست یک راهنمایی')}</button>
-        ${state.hint ? `<div class="msg hint" style="margin-top:12px;max-width:100%;"><div class="who">راهنمایی</div>${state.hint}</div>` : ''}
+      <div style="margin-top:16px;">
+        <button class="btn ghost small" data-action="hint" ${state.hintUsed||state.loadingHint?'disabled':''}>${state.loadingHint ? t('hintLoading') : (state.hintUsed ? t('hintUsed') : t('requestHint'))}</button>
+        ${state.hint ? `<div class="msg hint" style="margin-top:12px;max-width:100%;"><div class="who">${t('hintLabel')}</div>${state.hint}</div>` : ''}
+        ${state.hintError ? `<div class="msg err" style="margin-top:12px;max-width:100%;">${t('hintFailed')}<div class="mono" style="margin-top:6px;font-size:11px;opacity:.8;">${state.hintError}</div></div>` : ''}
       </div>
     `;
   }
@@ -468,61 +1059,69 @@ function render(){
     const s = state.suspects[idx];
     const msgs = state.logs[idx] || [];
     mainHtml = `
-      <div class="card" style="margin-bottom:12px;">
-        <div class="eyebrow">در حال بازجویی</div>
-        <h2 style="margin-bottom:2px;">${s.name}</h2>
-        <p style="margin-bottom:0;">${s.role}</p>
+      <div class="card" style="margin-bottom:12px;display:flex;align-items:center;gap:14px;">
+        <div class="avatar" style="width:46px;height:46px;font-size:16px;">${avatarImg(s)}</div>
+        <div>
+          <div class="eyebrow" style="margin-bottom:3px;">${t('interrogating')}</div>
+          <h2 style="margin:0;font-size:17px;">${s.name}</h2>
+          <p style="margin-top:2px;">${s.role}</p>
+        </div>
       </div>
       <div class="chat-wrap">
         <div class="log" id="log">
-          ${msgs.length === 0 ? `<div style="color:var(--muted);font-size:13.5px;text-align:center;margin-top:30px;">اولین سوالتو بپرس</div>` : ''}
-          ${msgs.map(m => `
+          ${s.openingStatement ? `<div class="msg a" style="align-self:center;font-style:italic;background:transparent;border-style:dashed;">${s.openingStatement}</div>` : ''}
+          ${msgs.map(m => m.who==='err' ? `
+            <div class="msg err">${m.text}</div>
+          ` : `
             <div class="msg ${m.who}">
-              <div class="who">${m.who==='q' ? 'تو' : s.name}</div>
+              <div class="who">${m.who==='q' ? t('you') : s.name}${m.seeded ? ' · ' + t('onRecord') : ''}</div>
               ${m.text}
             </div>
           `).join('')}
-          ${state.loadingChat ? `<div class="msg a"><div class="who">${s.name}</div>در حال فکر کردن...</div>` : ''}
+          ${state.loadingChat ? `<div class="msg a"><div class="who">${s.name}</div>${t('thinking')}</div>` : ''}
         </div>
         <div class="composer">
-          <input id="qInput" type="text" placeholder="سوالتو بپرس..." ${state.loadingChat?'disabled':''}/>
-          <button class="btn" data-action="ask" data-idx="${idx}" ${state.loadingChat?'disabled':''}>پرسیدن</button>
+          <input id="qInput" type="text" placeholder="${t('askPlaceholder')}" ${state.loadingChat?'disabled':''}/>
+          <button class="btn" data-action="ask" data-idx="${idx}" ${state.loadingChat?'disabled':''}>${t('ask')}</button>
         </div>
       </div>
       <div style="margin-top:14px;display:flex;gap:8px;">
-        <button class="btn ghost small" data-action="suspect-toggle" data-idx="${idx}">علامت‌گذاری مشکوک</button>
+        <button class="btn ghost small" data-action="suspect-toggle" data-idx="${idx}">${t('markSuspicious')}</button>
       </div>
     `;
   }
   else if(state.view === 'notebook'){
     mainHtml = `
       <div class="card">
-        <div class="eyebrow">یادداشت‌های شخصی</div>
-        <h2>دفترچه بازجو</h2>
-        <p>هرچی به ذهنت می‌رسه، تناقض‌ها، حدسیات، اینجا بنویس.</p>
+        <div class="eyebrow">${t('notebookEyebrow')}</div>
+        <h2>${t('notebookTitle')}</h2>
+        <p>${t('notebookDesc')}</p>
       </div>
-      <textarea class="notebook" id="notebookArea" placeholder="مثلا: نگار گفت خونه بود ولی سارا گفت دیدتش بیرون...">${state.notebook}</textarea>
+      <textarea class="notebook" id="notebookArea" placeholder="${t('notebookPlaceholder')}">${state.notebook}</textarea>
     `;
   }
   else if(state.view === 'verdict'){
     mainHtml = `
       <div class="card">
-        <div class="eyebrow">رای نهایی &middot; مرحله ${state.level}</div>
-        <h2>کی مقصره؟</h2>
-        <p>یک نفر رو انتخاب کن و رایت رو نهایی کن. اگه اشتباه رای بدی، کمپین همینجا تموم می‌شه.</p>
+        <div class="eyebrow">${t('verdictEyebrow', state.level)}</div>
+        <h2>${t('verdictTitle')}</h2>
+        <p>${t('verdictDesc')}</p>
       </div>
       <div class="vote-list">
         ${state.suspects.map((s,i)=>`
           <div class="vote-row ${state.voted===i?'picked':''}" data-action="pick-vote" data-idx="${i}">
-            <div>
-              <div class="vname">${s.name}</div>
-              <div class="vrole">${s.role}</div>
+            <div style="display:flex;align-items:center;gap:12px;">
+              <div class="avatar" style="width:32px;height:32px;font-size:12px;">${avatarImg(s)}</div>
+              <div>
+                <div class="vname">${s.name}</div>
+                <div class="vrole">${s.role}</div>
+              </div>
             </div>
-            <div class="badge mono">${(state.logs[i]||[]).length/2 | 0} سوال</div>
+            <div class="badge mono">${t('questionsCount', (state.logs[i]||[]).filter(m=>m.who==='q' && !m.seeded).length)}</div>
           </div>
         `).join('')}
       </div>
-      <button class="btn" data-action="confirm-vote" ${state.voted===null?'disabled':''}>ثبت رای نهایی</button>
+      <button class="btn" data-action="confirm-vote" ${state.voted===null?'disabled':''}>${t('confirmVote')}</button>
     `;
   }
   else if(state.view === 'result'){
@@ -531,15 +1130,18 @@ function render(){
     const win = voted.isLiar;
     mainHtml = `
       <div class="card">
-        <div class="eyebrow">نتیجه پرونده &middot; مرحله ${state.level}</div>
+        <div class="eyebrow">${t('resultEyebrow', state.level)}</div>
         <h2>${state.scenario.title}</h2>
       </div>
       <div class="card verdict-result ${win?'win':'lose'}">
-        <h2>${win ? 'درست حدس زدی، پرونده بسته شد' : 'اشتباه رای دادی — کمپین تموم شد'}</h2>
-        <p>تو ${voted.name} رو مقصر دونستی. مقصر واقعی <b>${liar.name}</b> بود.</p>
-        ${!win ? `<p>تا مرحله ${state.level} از ${MAX_LEVEL} پیش رفتی.</p>` : ''}
-        <p style="margin-top:16px;">
-          ${win ? `<button class="btn" data-action="next-level">مرحله بعد (${Math.min(state.level+1, MAX_LEVEL)}/${MAX_LEVEL})</button>` : `<button class="btn" data-action="restart">شروع دوباره کمپین</button>`}
+        <h2>${win ? t('winTitle') : t('loseTitle')}</h2>
+        <p>${t('verdictSummary', voted.name, liar.name)}</p>
+        <p style="margin-top:16px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+          ${win
+            ? `<button class="btn" data-action="next-level">${t('nextLevelBtn', Math.min(state.level+1, MAX_LEVEL), MAX_LEVEL)}</button>`
+            : `<button class="btn" data-action="retry-level">${t('retryLevel')}</button>
+               <button class="btn ghost" data-action="nav-map">${t('goToMap')}</button>`
+          }
         </p>
       </div>
     `;
@@ -547,10 +1149,39 @@ function render(){
   else if(state.view === 'campaign-complete'){
     mainHtml = `
       <div class="card verdict-result win">
-        <div class="eyebrow">پایان کمپین</div>
-        <h2>هر ${MAX_LEVEL} پرونده رو حل کردی</h2>
-        <p>کمپین با موفقیت به پایان رسید.</p>
-        <p style="margin-top:16px;"><button class="btn" data-action="restart">شروع دوباره از اول</button></p>
+        <div class="eyebrow">${t('campaignCompleteEyebrow')}</div>
+        <h2>${t('campaignCompleteTitle', MAX_LEVEL)}</h2>
+        <p>${t('campaignCompleteDesc')}</p>
+        <p style="margin-top:16px;"><button class="btn" data-action="restart">${t('restartFromStart')}</button></p>
+      </div>
+    `;
+  }
+  else if(state.view === 'map'){
+    const unlocked = state.stats.unlockedLevel || 1;
+    const positions = ['pos-center','pos-left','pos-right'];
+    let nodes = '';
+    for(let lvl=1; lvl<=MAX_LEVEL; lvl++){
+      const status = lvl < unlocked ? 'done' : (lvl === unlocked ? 'current' : 'locked');
+      const pos = positions[lvl % positions.length];
+      const badge = status === 'done' ? '<div class="check">✓</div>' : (status === 'locked' ? '<div class="lock">🔒</div>' : '');
+      nodes += `
+        <div class="map-node-wrap ${pos}">
+          <div class="map-node ${status}" ${status!=='locked' ? `data-action="go-level" data-idx="${lvl}"` : ''}>
+            ${lvl}
+            ${badge}
+          </div>
+        </div>
+      `;
+    }
+    mainHtml = `
+      <div class="card">
+        <div class="eyebrow">${t('navProgress')}</div>
+        <h2>${t('navMap')}</h2>
+        <p>${t('mapDesc')}</p>
+      </div>
+      <div class="map-wrap">
+        <div class="map-path-line"></div>
+        ${nodes}
       </div>
     `;
   }
@@ -579,12 +1210,11 @@ function render(){
     notebookArea.addEventListener('input', (ev)=> updateNotebook(ev.target.value));
   }
 
+  if(state.showAccountPanel) initGoogleSignIn();
   bindGlobalClicks();
 }
 
 function submitQuestion(idx){
-  const input = document.getElementById('qInput');
-  const q = input.value.trim();
   if(!q || state.loadingChat) return;
   input.value = '';
   askQuestion(idx, q);
@@ -611,10 +1241,20 @@ function bindGlobalClicks(){
     else if(action === 'confirm-vote') confirmVote();
     else if(action === 'hint') askHint();
     else if(action === 'reset') resetToIntro();
+    else if(action === 'lang') setLang(el.dataset.lang);
+    else if(action === 'account-toggle') toggleAccountPanel();
+    else if(action === 'account-close') toggleAccountPanel();
+    else if(action === 'set-theme') setTheme(el.dataset.theme);
+    else if(action === 'toggle-notif') toggleNotifications();
+    else if(action === 'sign-out') signOutGoogle();
+    else if(action === 'nav-map') goToMap();
+    else if(action === 'retry-level') retryLevel();
+    else if(action === 'go-level') goToLevel(idx);
   });
 }
 
 render();
 </script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 </body>
 </html>
