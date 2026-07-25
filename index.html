@@ -8,28 +8,31 @@
 <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@100..900&family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg: #0f0d0b; --panel: #1c1713; --panel-2: #241e19; --panel-3: #16120f;
-    --lamp: #eeae4f; --lamp-dim: #a8762b; --suspicion: #c0463a;
-    --ink: #f1e9db; --muted: #9a8f80; --line: #362e26; --good:#5c8a5c;
-    --radius: 10px;
+    --bg: #2b2116; --panel: #3a2e1f; --panel-2: #4a3b28; --panel-3: #221a11;
+    --lamp: #ffc93c; --lamp-dim: #d9a441; --suspicion: #ff5a4e;
+    --ink: #fdf6e8; --muted: #b8a888; --line: #5c4a32; --good:#58cc02;
+    --radius: 16px;
+    --pin: #ff5a4e;
   }
   [data-theme="light"]{
-    --bg: #f6f1e8; --panel: #ffffff; --panel-2: #f1e9db; --panel-3: #ede3d2;
-    --lamp: #c17d1f; --lamp-dim: #a8762b; --suspicion: #b23a2f;
-    --ink: #251d14; --muted: #7a6d5c; --line: #ddd0ba; --good:#3f6b3f;
+    --bg: #f1dfb8; --panel: #fffaf0; --panel-2: #f6ecd2; --panel-3: #e9d5a8;
+    --lamp: #f5a623; --lamp-dim: #d98a1a; --suspicion: #ee4b3f;
+    --ink: #2b2116; --muted: #8a7455; --line: #d4bd8c; --good:#4caa02;
   }
   [data-theme="light"] body{
-    background: radial-gradient(ellipse 90% 60% at 20% -10%, rgba(193,125,31,0.06) 0%, transparent 60%), var(--bg);
+    background:
+      radial-gradient(circle at 3px 3px, rgba(0,0,0,0.06) 1.5px, transparent 1.5px) 0 0/16px 16px,
+      var(--bg);
   }
-  [data-theme="light"] .topbar{ background: rgba(246,241,232,0.88); }
-  [data-theme="light"] .btn{ color:#fff; }
-  [data-theme="light"] .card::before{ opacity:.08; }
+  [data-theme="light"] .topbar{ background: rgba(241,223,184,0.88); }
+  [data-theme="light"] .btn{ color:#2b2116; }
+  [data-theme="light"] .card::before{ opacity:0; }
   *{ box-sizing: border-box; }
   html,body{ margin:0; padding:0; }
   body{
     background:
-      radial-gradient(ellipse 90% 60% at 20% -10%, rgba(238,174,79,0.08) 0%, transparent 60%),
-      radial-gradient(ellipse 120% 80% at 80% 0%, #241d16 0%, var(--bg) 55%);
+      radial-gradient(circle at 3px 3px, rgba(255,255,255,0.04) 1.5px, transparent 1.5px) 0 0/16px 16px,
+      radial-gradient(ellipse 120% 80% at 80% 0%, #3a2c19 0%, var(--bg) 55%);
     color: var(--ink); font-family: 'Vazirmatn', 'Inter', sans-serif; min-height: 100vh;
     -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
     font-feature-settings: "ss01" 1; letter-spacing: 0.1px;
@@ -126,25 +129,26 @@
 
   .map-wrap{ position:relative; max-width: 420px; margin: 10px auto 30px; padding: 10px 10px 30px; }
   .map-path-line{
-    position:absolute; top:20px; bottom:20px; left:50%; width:3px; transform:translateX(-50%);
-    background: repeating-linear-gradient(180deg, var(--line) 0 8px, transparent 8px 16px); z-index:0;
+    position:absolute; top:20px; bottom:20px; left:50%; width:3px; transform:translateX(-50%) rotate(-1deg);
+    background: repeating-linear-gradient(180deg, var(--pin) 0 10px, transparent 10px 18px);
+    opacity:.65; z-index:0;
   }
   .map-node-wrap{ position:relative; z-index:1; display:flex; margin-bottom: 26px; }
   .map-node-wrap.pos-left{ justify-content:flex-start; padding-right:52%; }
   .map-node-wrap.pos-right{ justify-content:flex-end; padding-left:52%; }
   .map-node-wrap.pos-center{ justify-content:center; }
   .map-node{
-    width:54px; height:54px; border-radius:50%; display:flex; align-items:center; justify-content:center;
-    font-weight:800; font-size:16px; border:3px solid var(--line); background: var(--panel);
-    position:relative; flex-shrink:0; transition: transform .15s;
+    width:56px; height:56px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    font-weight:800; font-size:17px; border:3px solid var(--line); background: var(--panel);
+    position:relative; flex-shrink:0; transition: transform .15s; box-shadow: 0 4px 10px -4px rgba(0,0,0,0.4);
   }
-  .map-node.done{ background: linear-gradient(135deg, var(--lamp-dim), var(--good)); border-color: var(--good); color:#fff; cursor:pointer; }
-  .map-node.current{ background: linear-gradient(135deg, #f2bb63, var(--lamp)); border-color: var(--lamp); color:#1a1410; cursor:pointer; box-shadow: 0 0 0 4px rgba(238,174,79,0.18); animation: pulseNode 1.8s ease-in-out infinite; }
-  .map-node.locked{ color: var(--muted); cursor:not-allowed; opacity:.55; }
-  .map-node:active{ transform: scale(.92); }
-  @keyframes pulseNode{ 0%,100%{ box-shadow: 0 0 0 4px rgba(238,174,79,0.18); } 50%{ box-shadow: 0 0 0 9px rgba(238,174,79,0.1); } }
-  .map-node .check{ position:absolute; top:-4px; right:-4px; width:18px; height:18px; border-radius:50%; background: var(--good); color:#fff; font-size:11px; display:flex; align-items:center; justify-content:center; border:2px solid var(--panel-3); }
-  .map-node .lock{ position:absolute; top:-4px; right:-4px; width:18px; height:18px; border-radius:50%; background: var(--panel-2); color: var(--muted); font-size:10px; display:flex; align-items:center; justify-content:center; border:2px solid var(--panel-3); }
+  .map-node.done{ background: linear-gradient(135deg, #7ee13f, var(--good)); border-color: var(--good); color:#1a1410; cursor:pointer; }
+  .map-node.current{ background: linear-gradient(135deg, #ffd76b, var(--lamp)); border-color: var(--lamp); color:#2b2116; cursor:pointer; box-shadow: 0 0 0 5px rgba(255,201,60,0.22); animation: pulseNode 1.6s ease-in-out infinite; }
+  .map-node.locked{ color: var(--muted); cursor:not-allowed; opacity:.5; }
+  .map-node:active{ transform: scale(.9); }
+  @keyframes pulseNode{ 0%,100%{ box-shadow: 0 0 0 5px rgba(255,201,60,0.22); } 50%{ box-shadow: 0 0 0 11px rgba(255,201,60,0.1); } }
+  .map-node .check{ position:absolute; top:-5px; right:-5px; width:20px; height:20px; border-radius:50%; background: var(--good); color:#fff; font-size:12px; display:flex; align-items:center; justify-content:center; border:2px solid var(--panel-3); }
+  .map-node .lock{ position:absolute; top:-5px; right:-5px; width:20px; height:20px; border-radius:50%; background: var(--panel-2); color: var(--muted); font-size:11px; display:flex; align-items:center; justify-content:center; border:2px solid var(--panel-3); }
 
   /* ---------- layout ---------- */
   .layout{ flex:1; display:flex; max-width: 1000px; margin: 0 auto; width:100%; }
@@ -176,25 +180,35 @@
   .card p{ color: var(--muted); font-size: 14.5px; line-height: 1.9; margin:0; }
   .card p + p{ margin-top:10px; }
 
-  .suspect-grid{ display:grid; grid-template-columns: repeat(2,1fr); gap:11px; }
+  .suspect-grid{ display:grid; grid-template-columns: repeat(2,1fr); gap:16px; padding-top: 6px; }
   @media(max-width:640px){ .suspect-grid{ grid-template-columns: 1fr; } }
   .suspect-card{
     background: var(--panel); border:1px solid var(--line); border-radius:var(--radius);
-    padding: 15px 17px; cursor:pointer; transition: border-color .15s, transform .12s, box-shadow .15s;
-    display:flex; gap:12px; align-items:center;
+    padding: 18px 16px 15px; cursor:pointer; transition: transform .15s, box-shadow .15s;
+    display:flex; gap:12px; align-items:center; position:relative;
+    box-shadow: 0 6px 14px -8px rgba(0,0,0,0.4);
   }
-  .suspect-card:hover{ border-color: var(--lamp-dim); transform: translateY(-2px); box-shadow: 0 10px 20px -12px rgba(238,174,79,0.25); }
-  .suspect-card:active{ transform: translateY(0); }
+  .suspect-card:nth-child(4n+1){ transform: rotate(-1.6deg); }
+  .suspect-card:nth-child(4n+2){ transform: rotate(1.4deg); }
+  .suspect-card:nth-child(4n+3){ transform: rotate(-0.8deg); }
+  .suspect-card:nth-child(4n+4){ transform: rotate(1.9deg); }
+  .suspect-card:hover{ transform: scale(1.03) rotate(0deg); box-shadow: 0 14px 24px -10px rgba(0,0,0,0.45); z-index:2; }
+  .suspect-card:active{ transform: scale(0.98) rotate(0deg); }
+  .suspect-card::before{
+    content:""; position:absolute; top:-7px; left:50%; transform:translateX(-50%);
+    width:13px; height:13px; border-radius:50%; background: radial-gradient(circle at 35% 35%, #ff8a7f, var(--pin));
+    box-shadow: 0 3px 4px rgba(0,0,0,0.4); z-index:3;
+  }
   .avatar{
-    width:38px; height:38px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center;
+    width:42px; height:42px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center;
     background: linear-gradient(135deg, var(--lamp-dim), var(--suspicion)); color:#fff; font-weight:700; font-size:14px;
-    overflow:hidden;
+    overflow:hidden; border: 2px solid var(--panel-2);
   }
   .avatar-fallback{ width:100%; height:100%; display:flex; align-items:center; justify-content:center; }
   .suspect-card .sbody{ flex:1; min-width:0; }
   .suspect-card .sname{ font-weight:700; font-size:14.5px; margin-bottom:2px; }
   .suspect-card .srole{ color:var(--muted); font-size:12px; margin-bottom:8px; }
-  .suspicion-track{ height:4px; border-radius:2px; background: var(--panel-2); overflow:hidden; }
+  .suspicion-track{ height:5px; border-radius:3px; background: var(--panel-2); overflow:hidden; }
   .suspicion-fill{ height:100%; background: linear-gradient(90deg, var(--lamp-dim), var(--suspicion)); width:0%; transition:width .3s; }
 
   .chat-wrap{ display:flex; flex-direction:column; height: calc(100vh - 270px); min-height:360px; }
@@ -215,18 +229,19 @@
   .composer input:focus{ outline:none; border-color: var(--lamp); }
 
   .btn{
-    background: linear-gradient(135deg, #f2bb63, var(--lamp)); color:#1a1410; border:none; border-radius:24px;
-    padding: 11px 20px; font-weight:700; cursor:pointer; font-family:inherit; font-size:14px;
-    transition: filter .15s, transform .1s, box-shadow .15s;
-    box-shadow: 0 4px 14px -4px rgba(238,174,79,0.4);
+    background: linear-gradient(135deg, #ffd76b, var(--lamp)); color:#2b2116; border:none; border-radius:24px;
+    padding: 13px 24px; font-weight:800; cursor:pointer; font-family:inherit; font-size:14.5px;
+    transition: filter .15s, transform .08s, box-shadow .1s;
+    box-shadow: 0 4px 0 0 var(--lamp-dim), 0 8px 16px -6px rgba(0,0,0,0.35);
   }
-  .btn:hover{ filter: brightness(1.06); box-shadow: 0 6px 18px -4px rgba(238,174,79,0.55); }
-  .btn:active{ transform: scale(.96); }
+  .btn:hover{ filter: brightness(1.05); }
+  .btn:active{ transform: translateY(3px); box-shadow: 0 1px 0 0 var(--lamp-dim), 0 4px 8px -4px rgba(0,0,0,0.3); }
   .btn:disabled{ opacity:.4; cursor:not-allowed; box-shadow:none; }
-  .btn.ghost{ background: transparent; color: var(--ink); border:1px solid var(--line); box-shadow:none; }
-  .btn.ghost:hover{ border-color: var(--lamp-dim); box-shadow:none; }
-  .btn.small{ padding:8px 14px; font-size:12.5px; border-radius:18px; }
-  .btn.danger{ background: linear-gradient(135deg, #d1584a, var(--suspicion)); color: #fff; }
+  .btn.ghost{ background: var(--panel); color: var(--ink); border:2px solid var(--line); box-shadow: 0 4px 0 0 var(--line); }
+  .btn.ghost:hover{ border-color: var(--lamp-dim); }
+  .btn.ghost:active{ box-shadow: 0 1px 0 0 var(--line); }
+  .btn.small{ padding:9px 16px; font-size:13px; border-radius:18px; }
+  .btn.danger{ background: linear-gradient(135deg, #ff7d70, var(--suspicion)); color: #fff; box-shadow: 0 4px 0 0 #c73d33, 0 8px 16px -6px rgba(0,0,0,0.35); }
 
   textarea.notebook{ width:100%; min-height: 320px; background: var(--panel-2); border:1px solid var(--line); color: var(--ink); border-radius:var(--radius); padding: 16px; font-family:'Vazirmatn'; font-size:14.5px; line-height:1.9; resize: vertical; }
   textarea.notebook:focus{ outline:none; border-color: var(--lamp); }
@@ -256,6 +271,19 @@
   [dir="ltr"] .err-box{ text-align:left; }
   .err-box .mono{ display:block; margin-top:6px; color:#c98d85; direction:ltr; text-align:left; word-break:break-all; }
 
+  .onboard-wrap{ max-width: 460px; margin: 0 auto; min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; padding: 30px 22px; text-align:center; }
+  .onboard-icon{
+    width:88px; height:88px; border-radius:50%; background: linear-gradient(135deg, #ffd76b, var(--lamp));
+    display:flex; align-items:center; justify-content:center; font-size:38px; margin-bottom:24px;
+    box-shadow: 0 10px 24px -8px rgba(255,201,60,0.5); animation: fadeUp .3s ease;
+  }
+  .onboard-wrap h1{ font-size:24px; margin:0 0 14px; }
+  .onboard-wrap p{ color:var(--muted); line-height:1.9; font-size:14.5px; margin-bottom:30px; }
+  .onboard-dots{ display:flex; gap:7px; margin-bottom:26px; }
+  .onboard-dot{ width:8px; height:8px; border-radius:50%; background: var(--line); transition: background .2s, width .2s; }
+  .onboard-dot.active{ background: var(--lamp); width:22px; border-radius:5px; }
+  .onboard-actions{ display:flex; gap:10px; align-items:center; }
+
   @media(max-width: 760px){
     .layout{ flex-direction: column-reverse; }
     .sidebar{
@@ -271,16 +299,22 @@
 </head>
 <body>
 <div id="app"></div>
-<div style="position:fixed;bottom:6px;left:8px;z-index:999;font-family:'JetBrains Mono',monospace;font-size:9px;color:#5a5044;pointer-events:none;">build v8</div>
+<div style="position:fixed;bottom:6px;left:8px;z-index:999;font-family:'JetBrains Mono',monospace;font-size:9px;color:#5a5044;pointer-events:none;">build v13</div>
 
 <script>
-/* ==== OpenRouter config ==== */
-const OPENROUTER_API_KEY = "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";
+/* ==== Gemini config (optional upgrade — free tier from Google AI Studio, if ever accessible) ====
+   Get a free key at https://aistudio.google.com/apikey, then paste it below. Leave as-is to skip. */
+const GEMINI_API_KEY = "YOUR_GEMINI_API_KEY";
+const GEMINI_MODEL = "gemini-2.5-flash";
+
+/* ==== OpenRouter config (free-tier models only — no payment required) ==== */
+const OPENROUTER_API_KEY = "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";
 const FREE_MODELS = [
   "qwen/qwen3-next-80b-a3b-instruct:free",
-  "nvidia/nemotron-nano-9b-v2:free",
+  "meta-llama/llama-4-maverick:free",
+  "google/gemma-4-31b-it:free",
   "openai/gpt-oss-20b:free",
-  "openai/gpt-oss-120b:free"
+  "openrouter/free"
 ];
 
 /* ==== Google Sign-In config ====
@@ -329,6 +363,17 @@ const STRINGS = {
     navProgress: "پیشرفت",
     navMap: "نقشه مراحل",
     mapDesc: "هر مرحله‌ای که بهش رسیده باشی این‌جا باز و قابل بازیه. مرحله‌های قفل‌شده باید اول باز بشن.",
+    onboardSkip: "رد کردن",
+    onboardNext: "بعدی",
+    onboardStart: "بزن بریم!",
+    onboardStep1Title: "به تخته‌ی کارآگاهی خوش اومدی",
+    onboardStep1Desc: "هر پرونده یه ماجرای واقعیه با چندتا مظنون که عکسشون رو تخته سنجاق می‌شه. یکی‌شون داره دروغ می‌گه — کارت اینه که پیداش کنی.",
+    onboardStep2Title: "بازجویی کن",
+    onboardStep2Desc: "روی هر مظنون بزن و هرچی می‌خوای ازش بپرس. یه‌سری سوال‌جواب پایه هم از قبل برات آماده‌ست تا دست خالی شروع نکنی.",
+    onboardStep3Title: "دفترچه و راهنمایی",
+    onboardStep3Desc: "تناقض‌ها رو توی دفترچه‌ی یادداشت بنویس. اگه گیر کردی، یه راهنمایی هم می‌تونی توی هر پرونده بگیری.",
+    onboardStep4Title: "نقشه‌ی مراحل",
+    onboardStep4Desc: "۲۰ مرحله داری که هرکدوم سخت‌تر از قبلیه. درست حدس بزنی می‌ری جلو؛ اشتباه کنی فقط همون مرحله رو دوباره امتحان می‌کنی، نه از اول!",
     retryLevel: "امتحان دوباره‌ی این مرحله",
     goToMap: "برو به نقشه مراحل",
     restartCampaign: "شروع دوباره کمپین",
@@ -404,6 +449,17 @@ const STRINGS = {
     navProgress: "Progress",
     navMap: "Stage Map",
     mapDesc: "Any stage you've reached is unlocked and playable here. Locked stages must be reached first.",
+    onboardSkip: "Skip",
+    onboardNext: "Next",
+    onboardStart: "Let's go!",
+    onboardStep1Title: "Welcome to the detective board",
+    onboardStep1Desc: "Every case is a real story with a few suspects pinned up on your board. One of them is lying — your job is to find out who.",
+    onboardStep2Title: "Interrogate them",
+    onboardStep2Desc: "Tap any suspect and ask them anything. Some baseline testimony is already on record, so you're never starting from scratch.",
+    onboardStep3Title: "Notebook & hints",
+    onboardStep3Desc: "Jot down contradictions in your notebook. Stuck? You can grab one hint per case.",
+    onboardStep4Title: "The stage map",
+    onboardStep4Desc: "20 stages, each harder than the last. Get it right and move forward; get it wrong and just retry that stage — not the whole campaign!",
     retryLevel: "Retry This Stage",
     goToMap: "Go To Stage Map",
     restartCampaign: "Restart Campaign",
@@ -472,9 +528,11 @@ function t(key, ...args){
 }
 
 const savedStore = loadStore();
+const isFirstTimeUser = !savedStore.onboardingSeen;
 
 const state = {
-  screen: 'intro',
+  screen: isFirstTimeUser ? 'onboarding' : 'intro',
+  onboardingStep: 1,
   view: 'case',
   lang: 'fa',
   theme: savedStore.theme || 'dark',
@@ -500,6 +558,34 @@ const state = {
 };
 
 document.documentElement.setAttribute('data-theme', state.theme);
+
+const ONBOARD_STEPS = 4;
+const ONBOARD_ICONS = ['🕵️', '💬', '📓', '🗺️'];
+
+function onboardNext(){
+  if(state.onboardingStep >= ONBOARD_STEPS){
+    finishOnboarding(true);
+    return;
+  }
+  state.onboardingStep++;
+  render();
+}
+
+function skipOnboarding(){
+  finishOnboarding(false);
+}
+
+function finishOnboarding(startNow){
+  saveStore({ onboardingSeen: true });
+  if(startNow){
+    state.screen = 'intro';
+    render();
+    startCampaign();
+  }else{
+    state.screen = 'intro';
+    render();
+  }
+}
 
 function setLang(lang){
   if(state.lang === lang) return;
@@ -570,15 +656,67 @@ function initGoogleSignIn(){
   if(el) google.accounts.id.renderButton(el, { theme: state.theme === 'light' ? 'outline' : 'filled_black', size: 'large', width: 240 });
 }
 
+async function callAI(systemPrompt, userPrompt, maxTokens, jsonMode){
+  if(GEMINI_API_KEY && GEMINI_API_KEY.indexOf('YOUR_GEMINI_API_KEY') !== 0){
+    try{
+      return await callGemini(systemPrompt, userPrompt, maxTokens, jsonMode);
+    }catch(e){
+      console.warn('Gemini failed, falling back to OpenRouter chain:', e.message);
+    }
+  }
+  return await callOpenRouter(systemPrompt, userPrompt, maxTokens);
+}
+
+async function callGemini(systemPrompt, userPrompt, maxTokens, jsonMode){
+  let res;
+  const body = {
+    contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+    systemInstruction: { parts: [{ text: systemPrompt }] },
+    generationConfig: {
+      maxOutputTokens: maxTokens || 900,
+      temperature: 0.9
+    }
+  };
+  if(jsonMode) body.generationConfig.responseMimeType = "application/json";
+  try{
+    res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+  }catch(networkErr){
+    throw new Error(t('errNetwork', networkErr.message));
+  }
+  const raw = await res.text();
+  let data;
+  try{ data = JSON.parse(raw); }catch(e){
+    throw new Error(t('errBadResponse', res.status, raw.slice(0,200)));
+  }
+  if(!res.ok){
+    const msg = (data && data.error && data.error.message) ? data.error.message : JSON.stringify(data).slice(0,300);
+    throw new Error(t('errApi', res.status, msg));
+  }
+  const candidate = data && data.candidates && data.candidates[0];
+  const text = candidate && candidate.content && candidate.content.parts && candidate.content.parts.map(p=>p.text||'').join('');
+  if(!text){
+    throw new Error(t('errEmpty', candidate && candidate.finishReason));
+  }
+  if(candidate.finishReason === 'MAX_TOKENS'){
+    throw new Error('truncated: response cut off before completion (finishReason: MAX_TOKENS)');
+  }
+  return text;
+}
+
 async function callOpenRouter(systemPrompt, userPrompt, maxTokens){
   let lastErr = null;
   for(const model of FREE_MODELS){
     try{
       return await callOpenRouterWithModel(model, systemPrompt, userPrompt, maxTokens);
     }catch(e){
+      console.warn('model failed, trying next:', model, e.message);
       lastErr = e;
-      const msg = e.message || '';
-      if(!/404|unavailable|not found|no endpoints|empty|خالی|truncated/i.test(msg)) throw e;
+      // keep trying the remaining models in the chain no matter why this one failed
+      // (insufficient credits, rate limit, deprecated slug, truncation, network hiccup, etc.)
     }
   }
   throw lastErr || new Error(t('errNoFreeModel'));
@@ -691,7 +829,7 @@ Exact output structure (keep every field within its stated limit):
 Include exactly ${n} suspects. Exactly one isLiar:true, rest false. Keep personalities/motives/tones clearly distinct from each other. Each suspect's knownQA must contain exactly 1 useful, specific item (not vague filler). Stay strictly within the word limits given — brevity across ALL ${n} suspects matters more than elaborate prose, so the full JSON completes without being cut off. The story must still feel coherent and real despite being concise.`;
   const userMsg = `Create a new, original case for campaign stage ${level}. Output compact JSON only, respecting every field's word limit.`;
   try{
-    const raw = await callOpenRouter(sys, userMsg, caseTokenBudget(n));
+    const raw = await callAI(sys, userMsg, caseTokenBudget(n), true);
     const parsed = extractJson(raw);
     if(!parsed.suspects || parsed.suspects.length < 2) throw new Error('incomplete suspects data');
     state.scenario = { title: parsed.title, setting: parsed.setting, description: parsed.description };
@@ -782,7 +920,7 @@ Respond in ${langName}, in your own tone and personality, naturally and conversa
 
   if(!state.logs[idx]) state.logs[idx] = [];
   try{
-    const answer = await callOpenRouter(sys, userMsg, 1100);
+    const answer = await callAI(sys, userMsg, 1100);
     state.logs[idx].push({who:'q', text: question});
     state.logs[idx].push({who:'a', text: answer.trim()});
     state.rounds++;
@@ -808,7 +946,7 @@ Suspects:
 ${suspectSummary}
 Give one short (1-2 sentence) hint in ${langName}, indirect and subtle, that helps the player ask a better question or notice a possible contradiction — without directly stating who is guilty. Return ONLY the hint text.`;
   try{
-    const hint = await callOpenRouter(sys, "Give one hint.", 500);
+    const hint = await callAI(sys, "Give one hint.", 500);
     state.hint = hint.trim();
     state.hintUsed = true;
   }catch(e){
@@ -1006,6 +1144,26 @@ function topbarHtml(){
 
 function render(){
   const app = document.getElementById('app');
+
+  if(state.screen === 'onboarding'){
+    const step = state.onboardingStep;
+    app.innerHTML = `
+      <div class="topbar" style="border-bottom:none;justify-content:flex-end;position:absolute;top:0;left:0;right:0;background:transparent;backdrop-filter:none;">${langToggleHtml()}</div>
+      <div class="onboard-wrap">
+        <div class="onboard-icon">${ONBOARD_ICONS[step-1]}</div>
+        <h1>${t('onboardStep' + step + 'Title')}</h1>
+        <p>${t('onboardStep' + step + 'Desc')}</p>
+        <div class="onboard-dots">
+          ${Array.from({length: ONBOARD_STEPS}).map((_,i)=>`<div class="onboard-dot ${i+1===step?'active':''}"></div>`).join('')}
+        </div>
+        <div class="onboard-actions">
+          ${step < ONBOARD_STEPS ? `<button class="btn ghost" data-action="onboard-skip">${t('onboardSkip')}</button>` : ''}
+          <button class="btn" data-action="onboard-next">${step < ONBOARD_STEPS ? t('onboardNext') : t('onboardStart')}</button>
+        </div>
+      </div>`;
+    bindGlobalClicks();
+    return;
+  }
 
   if(state.screen === 'intro'){
     app.innerHTML = `
@@ -1253,6 +1411,8 @@ function bindGlobalClicks(){
     else if(action === 'nav-map') goToMap();
     else if(action === 'retry-level') retryLevel();
     else if(action === 'go-level') goToLevel(idx);
+    else if(action === 'onboard-next') onboardNext();
+    else if(action === 'onboard-skip') skipOnboarding();
     else if(action === 'panel-noop'){ /* clicked empty space inside the panel — do nothing, don't close */ }
   });
 }
