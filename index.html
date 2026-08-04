@@ -119,7 +119,11 @@
     </div>
   </div>
   <div id="crosshair">+</div>
-  <div class="huntBox">🎯 هیولاها: <span id="monsterCount">0/3</span></div>
+  <div class="huntBox">🎯 هیولاها: <span id="monsterCount">0/9</span></div>
+  <div class="battBar" id="hpBar" style="top:12px;left:12px;border-color:var(--blood-bright);">
+    <div class="battLabel">سلامتی</div>
+    <div class="battTrack"><div class="battFill" id="hpFill" style="background:linear-gradient(90deg,#7a1f1f,#e05a4f);"></div></div>
+  </div>
   <div class="battBar">
     <div class="battLabel">باتری چراغ‌قوه</div>
     <div class="battTrack"><div class="battFill" id="battFill"></div></div>
@@ -144,9 +148,9 @@
   <div class="card">
     <h1>شکارچی خانه‌ی متروکه</h1>
     <div class="story">
-      سه ربات مسلح به تبر تو این خونه‌ی متروکه مستقرن. دروازه‌ی حیاط قفله و تا شکارشون نکنی باز نمی‌شه.
-      یه تپانچه داری با فشنگ نامحدود، ولی یه شات‌گان هم یه‌جای این خونه قایم شده — پیداش کن.
-      ربات‌ها زیاد حرکت نمی‌کنن، ولی اگه بهت نزدیک بشی با تبر می‌زنن.
+      یه خیابون پر از خونه‌های خراب و ماشین‌های سوخته، بعدش یه خونه‌ی متروکه سرِ راهت. ۹ تا ربات این محدوده رو گرفتن —
+      سه‌تاشون تو خونه با تبر می‌زنن، بقیه توی خیابون با تفنگ بهت شلیک می‌کنن. پشت ماشین‌ها و دیوارهای شکسته سنگر بگیر.
+      یه تپانچه داری با فشنگ نامحدود، ولی یه شات‌گان هم یه‌جای اون خونه قایم شده — پیداش کن.
     </div>
     <ul>
       <li>🕹 حرکت: جوی‌استیک چپ یا W A S D</li>
@@ -156,7 +160,7 @@
       <li>🔃 پرکردن مجدد: دکمه‌ی 🔃 یا کلید R</li>
       <li>1️⃣2️⃣ تعویض اسلحه: آیکون‌های پایین یا کلید ۱ / ۲</li>
       <li>💨 فرار سریع: دکمه‌ی کهربایی یا Q — یه قدم سریع عقب، با کمی مصونیت</li>
-      <li>🎯 هدف: هر سه هیولا رو شکار کن، بعد برو سمت دروازه</li>
+      <li>🎯 هدف: هر ۹ تا ربات رو شکار کن، بعد برگرد سمت دروازه‌ی حیاط</li>
     </ul>
     <button class="primary" id="btnStart">ورود به حیاط</button>
   </div>
@@ -194,7 +198,7 @@ if(typeof THREE === 'undefined'){
 
 /* ================= CONSTANTS ================= */
 const CELL=4;
-const GCOLS=11, GROWS=11;
+const GCOLS=11, GROWS=21;
 const HEDGE_H=2.7;
 const EYE_H=1.65;
 const PLAYER_R=0.4;
@@ -211,7 +215,7 @@ function carve(x0,y0,w,h,val){
   }
 }
 function buildMazeGrid(){
-  maze = Array.from({length:GROWS},()=>Array(GCOLS).fill(0)); // 0 = dense forest/void (blocked)
+  maze = Array.from({length:GROWS},()=>Array(GCOLS).fill(0)); // 0 = rubble/dense void (blocked)
   carve(3,8,6,3,1);   // small yard (ground) in front of the house
   carve(1,0,9,7,2);   // house shell (walls)
   carve(2,1,3,2,3);   // living room floor
@@ -223,12 +227,27 @@ function buildMazeGrid(){
   carve(7,4,1,1,3);   // hallway <-> bathroom link
   carve(5,4,1,4,3);   // entry corridor down to the front door
   maze[7][5]=4;       // front door
-  maze[10][5]=5;      // yard gate (start point + escape)
+  maze[10][5]=5;      // yard gate (checkpoint between yard and street)
+
+  // ruined street, south of the yard
+  carve(4,11,4,10,1);  // main street corridor
+  carve(1,13,3,2,3);   // west ruined house pocket #1
+  carve(7,13,3,2,3);   // east ruined house pocket #1
+  carve(1,17,3,2,3);   // west ruined house pocket #2
+  carve(7,17,3,2,3);   // east ruined house pocket #2
+  carve(0,13,1,2,2);   // broken back wall, west pocket #1
+  carve(10,13,1,2,2);  // broken back wall, east pocket #1
+  carve(0,17,1,2,2);   // broken back wall, west pocket #2
+  carve(10,17,1,2,2);  // broken back wall, east pocket #2
+  maze[12][5]=6;       // wrecked car cover
+  maze[15][6]=6;       // wrecked car cover
+  maze[18][5]=6;       // wrecked car cover
 }
 function gridToWorld(gx,gy){ return {x:gx*CELL+CELL/2, z:gy*CELL+CELL/2}; }
 function isOpenGrid(gx,gy){
   if(gx<0||gx>=GCOLS||gy<0||gy>=GROWS) return false;
-  return maze[gy][gx]!==0;
+  const t=maze[gy][gx];
+  return t!==0 && t!==2 && t!==6; // 0=rubble/void, 2=wall, 6=car cover — all solid
 }
 function isWalkableWorld(x,z){
   const gx=Math.floor(x/CELL), gy=Math.floor(z/CELL);
@@ -456,12 +475,35 @@ ground.position.set(GCOLS*CELL/2, 0, GROWS*CELL/2);
 ground.receiveShadow=true;
 scene.add(ground);
 
-/* ---- Boundary (dense forest/hedge around the small house+yard plot) ---- */
+/* ---- Boundary (dense forest/hedge around the house+yard; rubble in the street) ---- */
+function buildRubbleTexture(){
+  const size=256;
+  const c=document.createElement('canvas'); c.width=c.height=size;
+  const tctx=c.getContext('2d');
+  tctx.fillStyle='#3a3833'; tctx.fillRect(0,0,size,size);
+  for(let i=0;i<700;i++){
+    const x=Math.random()*size,y=Math.random()*size;
+    const g=Math.floor(-20+Math.random()*40);
+    tctx.fillStyle=`rgba(${58+g},${55+g},${50+g},${0.2+Math.random()*0.3})`;
+    const s=4+Math.random()*14;
+    tctx.beginPath(); tctx.moveTo(x,y); tctx.lineTo(x+s,y+Math.random()*s-s/2); tctx.lineTo(x+Math.random()*s-s/2,y+s);
+    tctx.closePath(); tctx.fill();
+  }
+  tctx.strokeStyle='rgba(10,8,6,0.5)'; tctx.lineWidth=1.4;
+  for(let i=0;i<12;i++){
+    let x=Math.random()*size,y=Math.random()*size;
+    tctx.beginPath(); tctx.moveTo(x,y);
+    for(let s=0;s<5;s++){ x+=(Math.random()-0.5)*30; y+=(Math.random()-0.5)*30; tctx.lineTo(x,y); }
+    tctx.stroke();
+  }
+  const tex=new THREE.CanvasTexture(c);
+  tex.wrapS=THREE.RepeatWrapping; tex.wrapT=THREE.RepeatWrapping;
+  tex.repeat.set(1.3,1);
+  return tex;
+}
 const hedgeGeo=new THREE.BoxGeometry(CELL*0.98, HEDGE_H, CELL*0.98);
 const hedgeMat=new THREE.MeshStandardMaterial({map:buildLeafTexture(), roughness:1});
-let wallCount=0;
-for(let gy=0;gy<GROWS;gy++) for(let gx=0;gx<GCOLS;gx++) if(maze[gy] && maze[gy][gx]===0) wallCount++;
-const hedgeInst=new THREE.InstancedMesh(hedgeGeo, hedgeMat, Math.max(wallCount,1));
+const rubbleMat=new THREE.MeshStandardMaterial({map:buildRubbleTexture(), roughness:1});
 function isAdjacentToOpen(gx,gy){
   const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
   return dirs.some(([ddx,ddy])=>{
@@ -469,42 +511,53 @@ function isAdjacentToOpen(gx,gy){
     return nx>=0&&nx<GCOLS&&ny>=0&&ny<GROWS&&maze[ny][nx]!==0;
   });
 }
+const STREET_START_ROW=11;
 const boundaryEdgeCells=[];
-{
-  let idx=0;
-  const m=new THREE.Matrix4();
-  for(let gy=0;gy<GROWS;gy++){
-    for(let gx=0;gx<GCOLS;gx++){
-      if(maze[gy][gx]===0){
-        const w=gridToWorld(gx,gy);
-        const hVar=0.85+Math.random()*0.45; // jagged canopy height, still fully blocks movement (collision is grid-based, not mesh-based)
-        m.compose(
-          new THREE.Vector3(w.x, HEDGE_H*hVar/2, w.z),
-          new THREE.Quaternion(),
-          new THREE.Vector3(1,hVar,1)
-        );
-        hedgeInst.setMatrixAt(idx, m);
-        idx++;
-        if(isAdjacentToOpen(gx,gy)) boundaryEdgeCells.push({gx,gy});
-      }
+let hedgeInst=null, rubbleInst=null;
+function buildBoundaryMeshes(){
+  const hedgeCells=[], rubbleCells=[];
+  for(let gy=0;gy<GROWS;gy++) for(let gx=0;gx<GCOLS;gx++){
+    if(maze[gy][gx]===0){
+      if(gy<STREET_START_ROW) hedgeCells.push([gx,gy]); else rubbleCells.push([gx,gy]);
+      if(isAdjacentToOpen(gx,gy)) boundaryEdgeCells.push({gx,gy,street:gy>=STREET_START_ROW});
     }
   }
+  hedgeInst=new THREE.InstancedMesh(hedgeGeo, hedgeMat, Math.max(hedgeCells.length,1));
+  const m=new THREE.Matrix4();
+  hedgeCells.forEach(([gx,gy],idx)=>{
+    const w=gridToWorld(gx,gy);
+    const hVar=0.85+Math.random()*0.45;
+    m.compose(new THREE.Vector3(w.x,HEDGE_H*hVar/2,w.z), new THREE.Quaternion(), new THREE.Vector3(1,hVar,1));
+    hedgeInst.setMatrixAt(idx,m);
+  });
   hedgeInst.instanceMatrix.needsUpdate=true;
-}
-hedgeInst.castShadow=true;
-hedgeInst.receiveShadow=true;
-scene.add(hedgeInst);
+  hedgeInst.castShadow=true; hedgeInst.receiveShadow=true;
+  scene.add(hedgeInst);
 
-/* extra bush clumps along the inner-facing edge — purely visual density, collision stays on the grid */
+  rubbleInst=new THREE.InstancedMesh(hedgeGeo, rubbleMat, Math.max(rubbleCells.length,1));
+  rubbleCells.forEach(([gx,gy],idx)=>{
+    const w=gridToWorld(gx,gy);
+    const hVar=0.35+Math.random()*0.55; // low, jagged debris piles rather than tall hedges
+    m.compose(new THREE.Vector3(w.x,HEDGE_H*hVar/2,w.z), new THREE.Quaternion(), new THREE.Vector3(1,hVar,1));
+    rubbleInst.setMatrixAt(idx,m);
+  });
+  rubbleInst.instanceMatrix.needsUpdate=true;
+  rubbleInst.castShadow=true; rubbleInst.receiveShadow=true;
+  scene.add(rubbleInst);
+}
+buildBoundaryMeshes();
+
+/* extra bush clumps along the yard's inner-facing edge — purely visual, collision stays on the grid */
 function scatterBoundaryBushes(){
-  if(boundaryEdgeCells.length===0) return;
+  const yardEdges=boundaryEdgeCells.filter(c=>!c.street);
+  if(yardEdges.length===0) return;
   const perCell=2;
   const geo=new THREE.IcosahedronGeometry(0.34,0);
   const mat=new THREE.MeshStandardMaterial({map:buildLeafTexture(), roughness:1});
-  const inst=new THREE.InstancedMesh(geo, mat, boundaryEdgeCells.length*perCell);
+  const inst=new THREE.InstancedMesh(geo, mat, yardEdges.length*perCell);
   const m=new THREE.Matrix4();
   let i=0;
-  boundaryEdgeCells.forEach(({gx,gy})=>{
+  yardEdges.forEach(({gx,gy})=>{
     const w=gridToWorld(gx,gy);
     for(let k=0;k<perCell;k++){
       const ox=(Math.random()-0.5)*CELL*0.9, oz=(Math.random()-0.5)*CELL*0.9;
@@ -521,31 +574,71 @@ function scatterBoundaryBushes(){
 }
 scatterBoundaryBushes();
 
-/* ---- House interior walls ---- */
+/* ---- Wrecked cars (street cover) ---- */
+let carCoverInst=null;
+function buildCarCover(){
+  const cells=[];
+  for(let gy=0;gy<GROWS;gy++) for(let gx=0;gx<GCOLS;gx++) if(maze[gy][gx]===6) cells.push([gx,gy]);
+  const bodyMat=new THREE.MeshStandardMaterial({map:buildRustTexture(), roughness:0.8, metalness:0.4});
+  const wheelMat=new THREE.MeshStandardMaterial({color:0x0a0a0a, roughness:0.9});
+  carCoverInst=new THREE.Group();
+  cells.forEach(([gx,gy])=>{
+    const w=gridToWorld(gx,gy);
+    const car=new THREE.Group();
+    const body=new THREE.Mesh(new THREE.BoxGeometry(CELL*0.85,1.05,CELL*0.5), bodyMat);
+    body.position.y=0.55; body.castShadow=true; body.receiveShadow=true;
+    car.add(body);
+    const cabin=new THREE.Mesh(new THREE.BoxGeometry(CELL*0.5,0.5,CELL*0.46), bodyMat);
+    cabin.position.y=1.15; cabin.castShadow=true;
+    car.add(cabin);
+    [[-1,-1],[-1,1],[1,-1],[1,1]].forEach(([sx,sz])=>{
+      const wheel=new THREE.Mesh(new THREE.CylinderGeometry(0.28,0.28,0.24,10), wheelMat);
+      wheel.rotation.z=Math.PI/2;
+      wheel.position.set(sx*CELL*0.32,0.28,sz*CELL*0.2);
+      wheel.castShadow=true;
+      car.add(wheel);
+    });
+    car.rotation.y=Math.random()*0.3-0.15;
+    car.position.set(w.x,0,w.z);
+    carCoverInst.add(car);
+  });
+  scene.add(carCoverInst);
+}
+buildCarCover();
+
+/* ---- House interior walls (house = clean plaster, street = ruined/scorched) ---- */
 const houseWallMat=new THREE.MeshStandardMaterial({map:buildWallTexture(), roughness:1});
-let houseWallsInst=null;
+const ruinedWallMat=new THREE.MeshStandardMaterial({map:buildRubbleTexture(), roughness:1});
+let houseWallsInst=null, ruinedWallsInst=null;
 function rebuildHouseWalls(){
-  let count=0;
-  for(let gy=0;gy<GROWS;gy++) for(let gx=0;gx<GCOLS;gx++) if(maze[gy][gx]===2) count++;
-  const inst=new THREE.InstancedMesh(hedgeGeo, houseWallMat, Math.max(count,1));
-  let idx=0;
-  const m=new THREE.Matrix4();
-  for(let gy=0;gy<GROWS;gy++){
-    for(let gx=0;gx<GCOLS;gx++){
-      if(maze[gy][gx]===2){
-        const w=gridToWorld(gx,gy);
-        m.makeTranslation(w.x, HEDGE_H/2, w.z);
-        inst.setMatrixAt(idx,m); idx++;
-      }
-    }
+  const houseCells=[], ruinedCells=[];
+  for(let gy=0;gy<GROWS;gy++) for(let gx=0;gx<GCOLS;gx++){
+    if(maze[gy][gx]===2){ (gy<STREET_START_ROW?houseCells:ruinedCells).push([gx,gy]); }
   }
-  inst.instanceMatrix.needsUpdate=true;
-  inst.castShadow=true; inst.receiveShadow=true;
-  scene.add(inst);
-  houseWallsInst=inst;
+  const m=new THREE.Matrix4();
+  houseWallsInst=new THREE.InstancedMesh(hedgeGeo, houseWallMat, Math.max(houseCells.length,1));
+  houseCells.forEach(([gx,gy],idx)=>{
+    const w=gridToWorld(gx,gy);
+    m.makeTranslation(w.x, HEDGE_H/2, w.z);
+    houseWallsInst.setMatrixAt(idx,m);
+  });
+  houseWallsInst.instanceMatrix.needsUpdate=true;
+  houseWallsInst.castShadow=true; houseWallsInst.receiveShadow=true;
+  scene.add(houseWallsInst);
+
+  ruinedWallsInst=new THREE.InstancedMesh(hedgeGeo, ruinedWallMat, Math.max(ruinedCells.length,1));
+  ruinedCells.forEach(([gx,gy],idx)=>{
+    const w=gridToWorld(gx,gy);
+    const hVar=0.6+Math.random()*0.4; // broken, uneven wall heights
+    m.compose(new THREE.Vector3(w.x,HEDGE_H*hVar/2,w.z), new THREE.Quaternion(), new THREE.Vector3(1,hVar,1));
+    ruinedWallsInst.setMatrixAt(idx,m);
+  });
+  ruinedWallsInst.instanceMatrix.needsUpdate=true;
+  ruinedWallsInst.castShadow=true; ruinedWallsInst.receiveShadow=true;
+  scene.add(ruinedWallsInst);
 }
 rebuildHouseWalls();
-const envTargets=[hedgeInst, houseWallsInst, ground];
+const envTargets=[hedgeInst, rubbleInst, houseWallsInst, ruinedWallsInst, carCoverInst, ground];
 
 /* ---- Floors ---- */
 function buildFloor(){
@@ -817,7 +910,7 @@ function spawnItems(){
 }
 
 /* ================= PLAYER / HANDS ================= */
-let player={x:0,z:0,yaw:0,pitch:0,flashlightOn:false,battery:100,walkT:0,dashTimer:0,dashCooldown:0,dashDX:0,dashDZ:0,invulnTimer:0,vx:0,vz:0,recoilKick:0};
+let player={x:0,z:0,yaw:0,pitch:0,flashlightOn:false,battery:100,walkT:0,dashTimer:0,dashCooldown:0,dashDX:0,dashDZ:0,invulnTimer:0,vx:0,vz:0,recoilKick:0,hp:100,maxHp:100};
 const handGroup=new THREE.Group();
 camera.add(handGroup);
 
@@ -978,7 +1071,8 @@ let monstersRemaining=0;
 const MONSTER_TYPES={
   stalker:{ speedMul:1.4, chaseMul:1.3, hp:2, catchR:0.8, eyeColor:0xff2b2b, skinColor:0x140a12 },
   brute:  { speedMul:0.62, chaseMul:0.68, hp:6, catchR:1.1, eyeColor:0xff7a1a, skinColor:0x0a0806 },
-  crawler:{ speedMul:1.15, chaseMul:1.35, hp:3, catchR:0.75, eyeColor:0xccff33, skinColor:0x0d1308 }
+  crawler:{ speedMul:1.15, chaseMul:1.35, hp:3, catchR:0.75, eyeColor:0xccff33, skinColor:0x0d1308 },
+  shooter:{ speedMul:0.4, chaseMul:0.4, hp:2, catchR:0.8, eyeColor:0xff8800, skinColor:0x1c1c1e }
 };
 function buildMonster(type){
   const stats=MONSTER_TYPES[type]||MONSTER_TYPES.stalker;
@@ -1007,6 +1101,12 @@ function buildMonster(type){
       leg.castShadow=true; g.add(leg);
     }
     var eyeY=0.36, eyeZ=0.72, eyeGap=0.07, eyeSize=0.03;
+  } else if(type==='shooter'){
+    const body=new THREE.Mesh(new THREE.CylinderGeometry(0.24,0.27,1.5,7), skinMat);
+    body.position.y=0.92; body.castShadow=true; g.add(body);
+    const head=new THREE.Mesh(new THREE.SphereGeometry(0.22,10,10), skinMat);
+    head.position.y=1.85; head.castShadow=true; g.add(head);
+    var eyeY=1.87, eyeZ=0.19, eyeGap=0.08, eyeSize=0.032;
   } else {
     const body=new THREE.Mesh(new THREE.CylinderGeometry(0.20,0.24,1.55,7), skinMat);
     body.position.y=0.95; body.castShadow=true; g.add(body);
@@ -1041,6 +1141,17 @@ function buildMonster(type){
     armPivot.add(axeBlade);
     g.add(armPivot);
     g.userData.axeArm=armPivot;
+  } else if(type==='shooter'){
+    const armPivot=new THREE.Group();
+    armPivot.position.set(0.18,1.32,0.08);
+    const rifle=new THREE.Mesh(new THREE.CylinderGeometry(0.028,0.028,0.7,6), new THREE.MeshStandardMaterial({color:0x1c1c1c, metalness:0.6, roughness:0.4}));
+    rifle.rotation.x=1.45; rifle.position.set(0,0,0.35); rifle.castShadow=true;
+    armPivot.add(rifle);
+    const rifleTip=new THREE.Object3D();
+    rifleTip.position.set(0,0.7,0);
+    rifle.add(rifleTip);
+    g.add(armPivot);
+    g.userData.rifleTip=rifleTip;
   }
   return g;
 }
@@ -1048,6 +1159,12 @@ const monsterDefs=[
   {start:[7,1], patrol:[[7,1],[7,2],[5,3],[3,1],[3,2],[5,3]], type:'stalker'},
   {start:[3,6], patrol:[[3,6],[3,5],[5,3],[2,3],[5,3]], type:'brute'},
   {start:[6,6], patrol:[[6,6],[6,5],[5,3],[5,5],[5,3]], type:'crawler'},
+  {start:[2,13], type:'shooter'},
+  {start:[8,13], type:'shooter'},
+  {start:[7,15], type:'shooter'},
+  {start:[4,19], type:'shooter'},
+  {start:[2,18], type:'shooter'},
+  {start:[8,18], type:'shooter'},
 ];
 function spawnMonsters(){
   monsters.forEach(m=>scene.remove(m.mesh));
@@ -1234,7 +1351,7 @@ function spawnTracer(start,end){
   setTimeout(()=>scene.remove(line), 90);
 }
 function spawnEnvImpact(){
-  const envHits=raycaster.intersectObjects(envTargets, false);
+  const envHits=raycaster.intersectObjects(envTargets, true);
   if(envHits.length>0){
     const hit=envHits[0];
     const n = hit.face ? hit.face.normal.clone().transformDirection(hit.object.matrixWorld) : new THREE.Vector3(0,1,0);
@@ -1478,11 +1595,12 @@ let gameRunning=false, gameOverFlag=false, gameWinFlag=false;
 
 function resetGame(){
   buildMazeGrid();
-  const startW=gridToWorld(5,10);
+  const startW=gridToWorld(5,20);
   player.x=startW.x; player.z=startW.z; player.yaw=Math.PI; player.pitch=0;
   player.flashlightOn=false; player.battery=100; player.walkT=0;
   player.dashTimer=0; player.dashCooldown=0; player.invulnTimer=0;
   player.vx=0; player.vz=0; player.recoilKick=0;
+  player.hp=player.maxHp; updateHealthUI();
 
   spawnMonsters();
 
@@ -1636,7 +1754,43 @@ function updateWeaponVisuals(dt){
   if(sgMuzzle) sgMuzzle.intensity = (activeWeapon==='shotgun' && weapons.shotgun.flashTimer>0) ? 4 : 0;
 }
 
+const losRaycaster=new THREE.Raycaster();
+function updateShooterBot(m,dt){
+  const mx=m.mesh.position.x, mz=m.mesh.position.z;
+  const dist=Math.hypot(player.x-mx, player.z-mz);
+  if(m.fireTimer===undefined) m.fireTimer=Math.random()*1.5;
+
+  let canSee=false;
+  if(dist<16){
+    const eyeY=1.87;
+    const dir=new THREE.Vector3(player.x-mx, EYE_H-eyeY, player.z-mz);
+    const flatDist=dir.length();
+    dir.normalize();
+    losRaycaster.set(new THREE.Vector3(mx,eyeY,mz), dir);
+    losRaycaster.far=Math.max(0.1,flatDist-0.4);
+    canSee = losRaycaster.intersectObjects(envTargets, true).length===0;
+  }
+
+  if(canSee){
+    m.mode='attack';
+    m.mesh.rotation.y=Math.atan2(player.x-mx, player.z-mz);
+    m.fireTimer-=dt;
+    if(m.fireTimer<=0){
+      m.fireTimer=1.0+Math.random()*0.8;
+      const tip=m.mesh.userData.rifleTip;
+      const origin = tip? tip.getWorldPosition(new THREE.Vector3()) : m.mesh.position.clone().add(new THREE.Vector3(0,1.4,0));
+      beep(210+Math.random()*40,0.09,0.25,'square');
+      spawnTracer(origin, new THREE.Vector3(player.x, EYE_H, player.z));
+      if(Math.random()<0.5 && player.invulnTimer<=0) damagePlayer(9);
+    }
+  } else {
+    m.mode='idle';
+  }
+  m.mesh.userData.eyeLight.intensity = m.mode==='attack'?1.1:0.5;
+}
+
 function updateOneMonster(m,dt,playerMoving,moveMag){
+  if(m.type==='shooter'){ updateShooterBot(m,dt); return; }
   const mx=m.mesh.position.x, mz=m.mesh.position.z;
   const dist=Math.hypot(player.x-mx, player.z-mz);
 
@@ -1661,7 +1815,7 @@ function updateOneMonster(m,dt,playerMoving,moveMag){
     const phase=(m.swingTimer%swingCycle)/swingCycle;
     if(m.mesh.userData.axeArm) m.mesh.userData.axeArm.rotation.x=-0.3+Math.sin(phase*Math.PI*2)*0.9;
     if(phase>0.42 && phase<0.55 && dist<SWING_R && player.invulnTimer<=0){
-      catchPlayer();
+      damagePlayer(42);
     }
   } else {
     m.mode='idle';
@@ -1729,6 +1883,22 @@ function updateAudioCues(dt){
 }
 
 /* ================= WIN / LOSE ================= */
+function damagePlayer(amount){
+  if(!gameRunning || gameOverFlag || gameWinFlag) return;
+  if(player.invulnTimer>0) return;
+  player.hp=Math.max(0,player.hp-amount);
+  updateHealthUI();
+  cameraShakeTimer=Math.max(cameraShakeTimer,0.18);
+  document.getElementById('redOverlay').classList.add('active');
+  setTimeout(()=>{ if(!(monsters.some(m=>m.mode==='attack'))) document.getElementById('redOverlay').classList.remove('active'); },200);
+  beep(120,0.15,0.32,'sawtooth');
+  player.invulnTimer=Math.max(player.invulnTimer,0.5);
+  if(player.hp<=0){ catchPlayer(); }
+}
+function updateHealthUI(){
+  const el=document.getElementById('hpFill');
+  if(el) el.style.width=Math.max(0,player.hp)+'%';
+}
 function catchPlayer(){
   if(gameOverFlag||gameWinFlag) return;
   gameOverFlag=true; gameRunning=false;
