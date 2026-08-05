@@ -82,6 +82,17 @@
     transition:opacity .15s ease;}
   .dashBtn:active{transform:scale(0.92);}
 
+  .slideBtn{position:fixed;bottom:190px;right:36px;width:56px;height:56px;border-radius:50%;
+    background:rgba(90,170,220,0.28);border:2px solid #6fbfe0;display:flex;align-items:center;
+    justify-content:center;font-size:1.4rem;pointer-events:auto;z-index:40;cursor:pointer;
+    transition:opacity .15s ease;}
+  .slideBtn:active{transform:scale(0.92);}
+
+  .crouchBtn{position:fixed;bottom:220px;left:40px;width:52px;height:52px;border-radius:10px;
+    background:rgba(255,255,255,0.08);border:2px solid rgba(255,255,255,0.35);display:flex;
+    align-items:center;justify-content:center;font-size:1.3rem;pointer-events:auto;z-index:40;cursor:pointer;}
+  .crouchBtn.active{background:rgba(217,164,65,0.35);border-color:var(--amber);}
+
   #lookDragZone{position:fixed;top:0;right:0;width:58%;height:100%;z-index:15;pointer-events:auto;}
 
   .prompt{position:fixed;bottom:78px;left:50%;transform:translateX(-50%);
@@ -142,6 +153,8 @@
   <div id="lookDragZone"></div>
   <div class="fireBigBtn" id="btnFire">🔫</div>
   <div class="dashBtn" id="btnDash">💨</div>
+  <div class="slideBtn" id="btnSlide">🛷</div>
+  <div class="crouchBtn" id="btnCrouch">🧎</div>
 </div>
 
 <div class="overlay" id="screenStart">
@@ -160,6 +173,8 @@
       <li>🔃 پرکردن مجدد: دکمه‌ی 🔃 یا کلید R</li>
       <li>1️⃣2️⃣ تعویض اسلحه: آیکون‌های پایین یا کلید ۱ / ۲</li>
       <li>💨 فرار سریع: دکمه‌ی کهربایی یا Q — یه قدم سریع عقب، با کمی مصونیت</li>
+      <li>🛷 سر خوردن: دکمه‌ی آبی یا X — یه سر خوردن سریع به جلو</li>
+      <li>🧎 نشستن: دکمه‌ی مربعی یا C — پشت سنگر کوتاه‌تر دیده می‌شی</li>
       <li>🎯 هدف: هر ۹ تا ربات رو شکار کن، بعد برگرد سمت دروازه‌ی حیاط</li>
     </ul>
     <button class="primary" id="btnStart">ورود به حیاط</button>
@@ -201,6 +216,7 @@ const CELL=4;
 const GCOLS=11, GROWS=21;
 const HEDGE_H=2.7;
 const EYE_H=1.65;
+const CROUCH_H=1.0;
 const PLAYER_R=0.4;
 const MAX_SPEED=3.9;
 const MONSTER_SPEED=1.6, MONSTER_CHASE=2.55;
@@ -240,8 +256,11 @@ function buildMazeGrid(){
   carve(0,17,1,2,2);   // broken back wall, west pocket #2
   carve(10,17,1,2,2);  // broken back wall, east pocket #2
   maze[12][5]=6;       // wrecked car cover
+  maze[13][7]=6;       // wrecked car cover
   maze[15][6]=6;       // wrecked car cover
+  maze[16][4]=6;       // wrecked car cover
   maze[18][5]=6;       // wrecked car cover
+  maze[19][7]=6;       // wrecked car cover
 }
 function gridToWorld(gx,gy){ return {x:gx*CELL+CELL/2, z:gy*CELL+CELL/2}; }
 function isOpenGrid(gx,gy){
@@ -910,7 +929,7 @@ function spawnItems(){
 }
 
 /* ================= PLAYER / HANDS ================= */
-let player={x:0,z:0,yaw:0,pitch:0,flashlightOn:false,battery:100,walkT:0,dashTimer:0,dashCooldown:0,dashDX:0,dashDZ:0,invulnTimer:0,vx:0,vz:0,recoilKick:0,hp:100,maxHp:100};
+let player={x:0,z:0,yaw:0,pitch:0,flashlightOn:false,battery:100,walkT:0,dashTimer:0,dashCooldown:0,dashDX:0,dashDZ:0,invulnTimer:0,vx:0,vz:0,recoilKick:0,hp:100,maxHp:100,crouching:false,eyeOffset:0,slideTimer:0,slideCooldown:0,slideDX:0,slideDZ:0};
 const handGroup=new THREE.Group();
 camera.add(handGroup);
 
@@ -1575,12 +1594,54 @@ function doDash(){
   beep(320,0.08,0.18,'triangle');
   updateDashUI();
 }
+function doSlide(){
+  if(!gameRunning) return;
+  if(player.slideCooldown>0 || player.slideTimer>0 || player.dashTimer>0) return;
+  let dirVec;
+  const speedNow=Math.hypot(player.vx,player.vz);
+  if(speedNow>0.3){
+    dirVec=new THREE.Vector3(player.vx,0,player.vz).normalize();
+  } else {
+    dirVec=new THREE.Vector3(0,0,-1).applyEuler(new THREE.Euler(0,player.yaw,0));
+  }
+  const slideSpeed=8.5;
+  player.slideDX=dirVec.x*slideSpeed;
+  player.slideDZ=dirVec.z*slideSpeed;
+  player.slideTimer=0.42;
+  player.slideCooldown=2.2;
+  player.crouching=true;
+  cameraShakeTimer=Math.max(cameraShakeTimer,0.1);
+  beep(260,0.1,0.16,'triangle');
+  updateSlideUI();
+}
+function updateSlideUI(){
+  const btn=document.getElementById('btnSlide');
+  if(!btn) return;
+  btn.style.opacity = player.slideCooldown>0 ? '0.35' : '1';
+}
+function toggleCrouch(){
+  if(!gameRunning) return;
+  player.crouching=!player.crouching;
+  updateCrouchUI();
+}
+function updateCrouchUI(){
+  const btn=document.getElementById('btnCrouch');
+  if(!btn) return;
+  btn.classList.toggle('active', player.crouching);
+}
 function updateDashUI(){
   const btn=document.getElementById('btnDash');
   if(!btn) return;
   btn.style.opacity = player.dashCooldown>0 ? '0.35' : '1';
 }
 document.getElementById('btnDash').addEventListener('pointerdown', e=>{ e.preventDefault(); doDash(); });
+document.getElementById('btnSlide').addEventListener('pointerdown', e=>{ e.preventDefault(); doSlide(); });
+document.getElementById('btnCrouch').addEventListener('pointerdown', e=>{ e.preventDefault(); toggleCrouch(); });
+window.addEventListener('keydown', e=>{
+  const k=e.key.toLowerCase();
+  if(k==='x'){ doSlide(); }
+  if(k==='c'){ toggleCrouch(); }
+});
 window.addEventListener('keydown', e=>{
   if(e.key.toLowerCase()==='q' || e.key==='Shift'){ doDash(); }
 });
@@ -1601,6 +1662,7 @@ function resetGame(){
   player.dashTimer=0; player.dashCooldown=0; player.invulnTimer=0;
   player.vx=0; player.vz=0; player.recoilKick=0;
   player.hp=player.maxHp; updateHealthUI();
+  player.crouching=false; player.eyeOffset=0; player.slideTimer=0; player.slideCooldown=0;
 
   spawnMonsters();
 
@@ -1661,13 +1723,23 @@ function update(dt){
     if(canMoveTo(newX,player.z,PLAYER_R)) player.x=newX;
     if(canMoveTo(player.x,newZ,PLAYER_R)) player.z=newZ;
     player.walkT+=dt*14;
+  } else if(player.slideTimer>0){
+    player.slideTimer=Math.max(0,player.slideTimer-dt);
+    player.crouching=true;
+    const decel=1-Math.min(1,dt*2.2);
+    player.slideDX*=decel; player.slideDZ*=decel;
+    const newX=player.x+player.slideDX*dt, newZ=player.z+player.slideDZ*dt;
+    if(canMoveTo(newX,player.z,PLAYER_R)) player.x=newX; else player.slideDX=0;
+    if(canMoveTo(player.x,newZ,PLAYER_R)) player.z=newZ; else player.slideDZ=0;
+    player.walkT+=dt*14;
+    if(player.slideTimer<=0 && !keysDown['c']) player.crouching=false;
   } else {
     let desiredVX=0, desiredVZ=0;
     if(moving){
       const nx=mx/(Math.hypot(mx,mz)||1), nz=mz/(Math.hypot(mx,mz)||1);
       const forward=new THREE.Vector3(0,0,1).applyEuler(new THREE.Euler(0,player.yaw,0));
       const right=new THREE.Vector3(1,0,0).applyEuler(new THREE.Euler(0,player.yaw,0));
-      const targetSpeed=MAX_SPEED*mag;
+      const targetSpeed=MAX_SPEED*mag*(player.crouching?0.5:1);
       desiredVX=(forward.x*nz + right.x*nx)*targetSpeed;
       desiredVZ=(forward.z*nz + right.z*nx)*targetSpeed;
     }
@@ -1680,6 +1752,7 @@ function update(dt){
     const curSpeed=Math.hypot(player.vx,player.vz);
     if(curSpeed>0.05) player.walkT+=dt*8*Math.min(1,curSpeed/MAX_SPEED);
   }
+  if(player.slideCooldown>0) player.slideCooldown=Math.max(0,player.slideCooldown-dt);
 
   if(player.flashlightOn){
     player.battery=Math.max(0,player.battery-7*dt);
@@ -1689,12 +1762,16 @@ function update(dt){
   }
   document.getElementById('battFill').style.width=player.battery+'%';
   updateDashUI();
+  updateSlideUI();
+  updateCrouchUI();
   const spot=handGroup.userData.spot, fill=handGroup.userData.fillLight, lens=handGroup.userData.lens;
   spot.intensity = player.flashlightOn ? 2.4 : 0;
   fill.intensity = player.flashlightOn ? 0.35 : 0;
   lens.material.color.setHex(player.flashlightOn?0xfff3c4:0x333333);
 
-  camera.position.set(player.x, EYE_H + Math.sin(player.walkT)*0.035, player.z);
+  const targetEyeOffset = player.crouching ? (EYE_H-CROUCH_H) : 0;
+  player.eyeOffset += (targetEyeOffset-player.eyeOffset)*Math.min(1,dt*8);
+  camera.position.set(player.x, EYE_H - player.eyeOffset + Math.sin(player.walkT)*0.035, player.z);
   camera.rotation.y=player.yaw;
   if(player.recoilKick>0) player.recoilKick=Math.max(0,player.recoilKick-dt*0.9);
   camera.rotation.x=player.pitch - player.recoilKick;
@@ -1759,11 +1836,14 @@ function updateShooterBot(m,dt){
   const mx=m.mesh.position.x, mz=m.mesh.position.z;
   const dist=Math.hypot(player.x-mx, player.z-mz);
   if(m.fireTimer===undefined) m.fireTimer=Math.random()*1.5;
+  if(m.homeX===undefined){ m.homeX=mx; m.homeZ=mz; }
+  if(m.wanderTimer===undefined) m.wanderTimer=0;
 
   let canSee=false;
   if(dist<16){
     const eyeY=1.87;
-    const dir=new THREE.Vector3(player.x-mx, EYE_H-eyeY, player.z-mz);
+    const playerEyeY=EYE_H-player.eyeOffset;
+    const dir=new THREE.Vector3(player.x-mx, playerEyeY-eyeY, player.z-mz);
     const flatDist=dir.length();
     dir.normalize();
     losRaycaster.set(new THREE.Vector3(mx,eyeY,mz), dir);
@@ -1780,11 +1860,25 @@ function updateShooterBot(m,dt){
       const tip=m.mesh.userData.rifleTip;
       const origin = tip? tip.getWorldPosition(new THREE.Vector3()) : m.mesh.position.clone().add(new THREE.Vector3(0,1.4,0));
       beep(210+Math.random()*40,0.09,0.25,'square');
-      spawnTracer(origin, new THREE.Vector3(player.x, EYE_H, player.z));
+      spawnTracer(origin, new THREE.Vector3(player.x, EYE_H-player.eyeOffset, player.z));
       if(Math.random()<0.5 && player.invulnTimer<=0) damagePlayer(9);
     }
   } else {
     m.mode='idle';
+    m.wanderTimer-=dt;
+    if(!m.wanderTarget || m.wanderTimer<=0){
+      const ang=Math.random()*Math.PI*2, r=0.7+Math.random()*1.3;
+      m.wanderTarget={x:m.homeX+Math.cos(ang)*r, z:m.homeZ+Math.sin(ang)*r};
+      m.wanderTimer=2+Math.random()*2.5;
+    }
+    const dx=m.wanderTarget.x-mx, dz=m.wanderTarget.z-mz, len=Math.hypot(dx,dz);
+    if(len>0.15){
+      const spd=MONSTER_SPEED*m.speedMul;
+      const nx=mx+(dx/len)*spd*dt, nz=mz+(dz/len)*spd*dt;
+      if(canMoveTo(nx,mz,0.3)) m.mesh.position.x=nx;
+      if(canMoveTo(m.mesh.position.x,nz,0.3)) m.mesh.position.z=nz;
+      m.mesh.rotation.y=Math.atan2(dx,dz);
+    }
   }
   m.mesh.userData.eyeLight.intensity = m.mode==='attack'?1.1:0.5;
 }
