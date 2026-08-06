@@ -187,6 +187,7 @@
   <div class="weaponHud">
     <div class="wIcon active" id="wPistol">🔫</div>
     <div class="wIcon locked" id="wShotgun">💥</div>
+    <div class="wIcon locked" id="wSniper">🎯</div>
     <div id="ammoText">8/16</div>
     <div class="reloadBtn" id="btnReload">🔃</div>
   </div>
@@ -199,6 +200,8 @@
   <div class="grenadeBtn" id="btnGrenade">💣<span class="grenadeCountBadge" id="grenadeCount">3</span></div>
   <div class="crouchBtn" id="btnCrouch">🧎</div>
   <div class="jumpBtn" id="btnJump">⬆️</div>
+  <div class="zoomBtn" id="btnZoom">🔭</div>
+  <div class="scopeOverlay" id="scopeOverlay"><div class="scopeReticle"></div></div>
 </div>
 
 <div class="overlay" id="screenStart">
@@ -904,6 +907,29 @@ function scatterForest(){
 }
 scatterForest();
 
+/* ---- Distant ruined skyline (decorative, beyond the playable area) ---- */
+function buildSkyline(){
+  const centerX=GCOLS*CELL/2, centerZ=GROWS*CELL/2;
+  const buildingMat=new THREE.MeshStandardMaterial({map:buildWallTexture(), roughness:1});
+  const towerMat=new THREE.MeshStandardMaterial({map:buildRubbleTexture(), roughness:1});
+  const count=42;
+  for(let i=0;i<count;i++){
+    const ang=Math.random()*Math.PI*2;
+    const r=70+Math.random()*95;
+    const x=centerX+Math.cos(ang)*r, z=centerZ+Math.sin(ang)*r;
+    const w=4+Math.random()*7, d=4+Math.random()*7;
+    const h=8+Math.random()*34;
+    const broken=Math.random()<0.4;
+    const mat = broken ? towerMat : buildingMat;
+    const bld=new THREE.Mesh(new THREE.BoxGeometry(w,h,d), mat);
+    bld.position.set(x, h/2 - (broken?Math.random()*3:0), z);
+    bld.rotation.y=Math.random()*Math.PI*2;
+    if(broken) bld.rotation.z=(Math.random()-0.5)*0.06;
+    scene.add(bld);
+  }
+}
+buildSkyline();
+
 /* ---- Ground clutter ---- */
 function scatterClutter(){
   const openCells=[];
@@ -1017,6 +1043,11 @@ function makeItemMesh(type){
   const stock=new THREE.Mesh(new THREE.BoxGeometry(0.3,0.09,0.09), new THREE.MeshStandardMaterial({color:0x4a2f1c, roughness:0.8}));
   stock.position.set(-0.35,-0.03,0);
   g.add(stock);
+  if(type==='sniper'){
+    const scope=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,0.18,8), new THREE.MeshStandardMaterial({color:0x111111, metalness:0.7}));
+    scope.rotation.z=Math.PI/2; scope.position.set(-0.05,0.05,0);
+    g.add(scope);
+  }
   return g;
 }
 function spawnItems(){
@@ -1024,6 +1055,7 @@ function spawnItems(){
   const defs=[
     {type:'battery', cell:[3,2]},
     {type:'shotgun', cell:[3,6]},
+    {type:'sniper', cell:[5,26]},
   ];
   defs.forEach(d=>{
     const w=gridToWorld(d.cell[0], d.cell[1]);
@@ -1185,6 +1217,33 @@ function buildHand(mirror){
   sgMuzzle.position.set(-0.3,-0.24,-0.9);
   handGroup.add(sgMuzzle);
   handGroup.userData.shotgunMuzzle=sgMuzzle;
+
+  /* ---- Sniper rifle (left hand, hidden until found) ---- */
+  const sniperGroup=new THREE.Group();
+  const snBarrel=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.024,0.85,8), gunMat);
+  snBarrel.rotation.z=Math.PI/2; snBarrel.position.set(0,0.01,-0.35);
+  sniperGroup.add(snBarrel);
+  const snScope=new THREE.Mesh(new THREE.CylinderGeometry(0.028,0.028,0.32,10), new THREE.MeshStandardMaterial({color:0x111111, metalness:0.7, roughness:0.3}));
+  snScope.rotation.z=Math.PI/2; snScope.position.set(0,0.08,-0.15);
+  sniperGroup.add(snScope);
+  const snLensFront=new THREE.Mesh(new THREE.CircleGeometry(0.026,10), new THREE.MeshBasicMaterial({color:0x2a5a8a}));
+  snLensFront.rotation.y=Math.PI/2; snLensFront.position.set(0.16,0.08,-0.15);
+  sniperGroup.add(snLensFront);
+  const snStock=new THREE.Mesh(new THREE.BoxGeometry(0.07,0.13,0.5), woodStockMat);
+  snStock.position.set(0,-0.03,0.25);
+  sniperGroup.add(snStock);
+  const snBolt=new THREE.Mesh(new THREE.CylinderGeometry(0.014,0.014,0.09,6), gunMat);
+  snBolt.rotation.z=Math.PI/2.2; snBolt.position.set(0.03,0.02,0.05);
+  sniperGroup.add(snBolt);
+  sniperGroup.position.set(-0.29,-0.26,-0.42);
+  sniperGroup.visible=false;
+  handGroup.add(sniperGroup);
+  handGroup.userData.sniperGroup=sniperGroup;
+  handGroup.userData.snBaseZ=sniperGroup.position.z;
+  const snMuzzle=new THREE.PointLight(0xfff2b0,0,7,2);
+  snMuzzle.position.set(-0.29,-0.25,-1.0);
+  handGroup.add(snMuzzle);
+  handGroup.userData.sniperMuzzle=snMuzzle;
 
   const handL=buildHand(-1);
   handL.rotation.set(0.15,-Math.PI/2,-0.1);
@@ -1369,8 +1428,11 @@ function updateJumpscareZones(){
 let activeWeapon='pistol';
 let weapons={
   pistol:{mag:8, magMax:8, reserve:Infinity, cooldown:0, recoil:0, flashTimer:0, reloading:false, reloadTime:1.1, dmg:1, range:22, fireRate:0.28},
-  shotgun:{unlocked:false, mag:2, magMax:2, reserve:0, cooldown:0, recoil:0, flashTimer:0, reloading:false, reloadTime:1.6, dmg:3, range:7, pellets:6, spread:0.11, fireRate:0.85}
+  shotgun:{unlocked:false, mag:2, magMax:2, reserve:0, cooldown:0, recoil:0, flashTimer:0, reloading:false, reloadTime:1.6, dmg:3, range:7, pellets:6, spread:0.11, fireRate:0.85},
+  sniper:{unlocked:false, mag:1, magMax:1, reserve:Infinity, cooldown:0, recoil:0, flashTimer:0, reloading:false, reloadTime:1.9, dmg:10, range:60, fireRate:1.3}
 };
+let zoomed=false;
+const NORMAL_FOV=72, ZOOM_FOV=20;
 const raycaster=new THREE.Raycaster();
 let grenadeCount=3;
 
@@ -1502,16 +1564,33 @@ function updateWeaponIcons(){
   document.getElementById('wPistol').classList.toggle('active', activeWeapon==='pistol');
   document.getElementById('wShotgun').classList.toggle('active', activeWeapon==='shotgun');
   document.getElementById('wShotgun').classList.toggle('locked', !weapons.shotgun.unlocked);
+  const snEl=document.getElementById('wSniper');
+  if(snEl){
+    snEl.classList.toggle('active', activeWeapon==='sniper');
+    snEl.classList.toggle('locked', !weapons.sniper.unlocked);
+  }
 }
 function switchWeapon(name){
   if(!gameRunning) return;
   if(name==='shotgun' && !weapons.shotgun.unlocked){ showPrompt('هنوز شات‌گان رو پیدا نکردی',1.2); return; }
+  if(name==='sniper' && !weapons.sniper.unlocked){ showPrompt('هنوز اسنایپر رو پیدا نکردی',1.2); return; }
   if(activeWeapon===name) return;
+  if(zoomed) toggleZoom();
   activeWeapon=name;
   handGroup.userData.gunGroup.visible = (name==='pistol');
   handGroup.userData.shotgunGroup.visible = (name==='shotgun');
+  handGroup.userData.sniperGroup.visible = (name==='sniper');
   updateAmmoUI();
   updateWeaponIcons();
+}
+function toggleZoom(){
+  if(!gameRunning) return;
+  if(activeWeapon!=='sniper'){ zoomed=false; }
+  else { zoomed=!zoomed; }
+  camera.fov = zoomed ? ZOOM_FOV : NORMAL_FOV;
+  camera.updateProjectionMatrix();
+  document.getElementById('scopeOverlay').classList.toggle('active', zoomed);
+  document.getElementById('crosshair').classList.toggle('hidden', zoomed);
 }
 function reloadWeapon(){
   if(!gameRunning) return;
@@ -1544,15 +1623,34 @@ function fireWeapon(){
   w.cooldown=w.fireRate;
   w.mag--;
   w.recoil=1;
-  w.flashTimer= activeWeapon==='shotgun'?0.09:0.06;
+  w.flashTimer= activeWeapon==='shotgun'?0.09:(activeWeapon==='sniper'?0.1:0.06);
   updateAmmoUI();
-  player.recoilKick=Math.min(0.24, player.recoilKick + (activeWeapon==='shotgun'?0.1:0.035));
+  player.recoilKick=Math.min(0.28, player.recoilKick + (activeWeapon==='shotgun'?0.1:(activeWeapon==='sniper'?0.18:0.035)));
 
   const alive=monsters.filter(m=>m.mode!=='dead');
 
   if(activeWeapon==='pistol'){
     beep(140,0.1,0.3,'square'); beep(1400,0.05,0.08,'square');
     beep(400+Math.random()*120,0.06,0.14,'sawtooth');
+    raycaster.far=w.range;
+    raycaster.setFromCamera(new THREE.Vector2(0,0), camera);
+    const rayOrigin=raycaster.ray.origin.clone(), rayDir=raycaster.ray.direction.clone();
+    let best=null;
+    alive.forEach(m=>{
+      const hits=raycaster.intersectObject(m.mesh,true);
+      if(hits.length>0 && (!best || hits[0].distance<best.dist)){ best={m,dist:hits[0].distance,point:hits[0].point}; }
+    });
+    if(best){
+      damageMonster(best.m, w.dmg, best.point);
+      spawnTracer(rayOrigin, best.point);
+    } else {
+      spawnEnvImpact();
+      spawnTracer(rayOrigin, rayOrigin.clone().addScaledVector(rayDir, w.range));
+    }
+  } else if(activeWeapon==='sniper'){
+    beep(60,0.09,0.16,'square');
+    beep(900,0.28,0.32,'sawtooth');
+    setTimeout(()=>beep(200,0.35,0.18,'sawtooth'),40);
     raycaster.far=w.range;
     raycaster.setFromCamera(new THREE.Vector2(0,0), camera);
     const rayOrigin=raycaster.ray.origin.clone(), rayDir=raycaster.ray.direction.clone();
@@ -2054,6 +2152,7 @@ function update(dt){
       if(it.type==='battery'){ player.battery=Math.min(100,player.battery+40); showPrompt('باتری شارژ شد',1.3); }
       else if(it.type==='pistolAmmo'){ weapons.pistol.reserve+=8; showPrompt('فشنگ تپانچه پیدا شد',1.3); if(activeWeapon==='pistol') updateAmmoUI(); }
       else if(it.type==='shotgun'){ weapons.shotgun.unlocked=true; weapons.shotgun.reserve=Infinity; showPrompt('شات‌گان پیدا شد!',1.6); switchWeapon('shotgun'); }
+      else if(it.type==='sniper'){ weapons.sniper.unlocked=true; showPrompt('تفنگ اسنایپر پیدا شد!',1.6); updateWeaponIcons(); }
       else if(it.type==='shotgunAmmo'){ weapons.shotgun.reserve+=4; showPrompt('فشنگ شات‌گان پیدا شد',1.3); if(activeWeapon==='shotgun') updateAmmoUI(); }
       sPickup();
     }
@@ -2079,7 +2178,7 @@ function update(dt){
 }
 
 function updateWeaponVisuals(dt){
-  ['pistol','shotgun'].forEach(name=>{
+  ['pistol','shotgun','sniper'].forEach(name=>{
     const w=weapons[name];
     if(w.cooldown>0) w.cooldown=Math.max(0,w.cooldown-dt);
     if(w.recoil>0) w.recoil=Math.max(0,w.recoil-dt*6);
@@ -2087,10 +2186,13 @@ function updateWeaponVisuals(dt){
   });
   const gunGroup=handGroup.userData.gunGroup, muzzleFlash=handGroup.userData.muzzleFlash;
   const sgGroup=handGroup.userData.shotgunGroup, sgMuzzle=handGroup.userData.shotgunMuzzle;
+  const snGroup=handGroup.userData.sniperGroup, snMuzzle=handGroup.userData.sniperMuzzle;
   if(gunGroup) gunGroup.position.z = handGroup.userData.gunBaseZ + (activeWeapon==='pistol'?weapons.pistol.recoil*0.06:0);
   if(muzzleFlash) muzzleFlash.intensity = (activeWeapon==='pistol' && weapons.pistol.flashTimer>0) ? 3.2 : 0;
   if(sgGroup) sgGroup.position.z = handGroup.userData.sgBaseZ + (activeWeapon==='shotgun'?weapons.shotgun.recoil*0.09:0);
   if(sgMuzzle) sgMuzzle.intensity = (activeWeapon==='shotgun' && weapons.shotgun.flashTimer>0) ? 4 : 0;
+  if(snGroup) snGroup.position.z = handGroup.userData.snBaseZ + (activeWeapon==='sniper'?weapons.sniper.recoil*0.11:0);
+  if(snMuzzle) snMuzzle.intensity = (activeWeapon==='sniper' && weapons.sniper.flashTimer>0) ? 4.5 : 0;
 }
 
 const losRaycaster=new THREE.Raycaster();
