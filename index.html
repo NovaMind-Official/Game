@@ -1,18 +1,18 @@
 <!DOCTYPE html>
-<html lang="fa" dir="rtl">
+<html lang="en" dir="ltr">
 <head>
 <meta charset="UTF-8">
-<title>شکارچی خانه‌ی متروکه</title>
+<title>Ruined House Hunter</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Creepster&family=Vazirmatn:wght@400;600;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Creepster&family=Special+Elite&display=swap" rel="stylesheet">
 <style>
   :root{
     --blood:#7a1f1f; --blood-bright:#b3342f; --amber:#d9a441; --bone:#cfc9ba; --line:#2a2f27; --panel:#12161388;
   }
   *{box-sizing:border-box; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none;}
   html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#000;
-    font-family:'Vazirmatn',serif; color:var(--bone); touch-action:none;}
+    font-family:'Special Elite',monospace; color:var(--bone); touch-action:none;}
   #game{position:fixed;inset:0;display:block;width:100%;height:100%;}
   .vignette{position:fixed;inset:0;pointer-events:none;z-index:5;
     background:radial-gradient(ellipse at center, transparent 45%, rgba(0,0,0,0.75) 100%);}
@@ -31,7 +31,7 @@
   .card ul{text-align:right;padding-right:18px;margin:12px 0;}
   .story{color:#9a9488;font-size:0.85rem;border-top:1px dashed var(--line);border-bottom:1px dashed var(--line);
     padding:10px 0;margin:12px 0;}
-  button.primary{font-family:'Vazirmatn',serif;font-weight:800;
+  button.primary{font-family:'Special Elite',monospace;font-weight:700;
     background:linear-gradient(180deg,var(--blood-bright),var(--blood));color:#fff0e8;border:none;
     padding:12px 30px;font-size:1rem;border-radius:4px;cursor:pointer;letter-spacing:1px;
     box-shadow:0 4px 0 #4d1414,0 6px 16px rgba(122,31,31,0.4);}
@@ -40,23 +40,31 @@
 
   /* HUD */
   #hud{position:fixed;inset:0;pointer-events:none;z-index:20;}
-  .hud-top{position:fixed;top:10px;right:12px;left:12px;display:flex;justify-content:space-between;}
-  .warn{background:var(--panel);border:1px solid var(--blood);border-radius:5px;padding:6px 12px;
-    font-size:0.78rem;color:var(--blood-bright);opacity:0;transition:opacity .25s ease;}
-  .warn.show{opacity:1;}
+  #warnBanner{position:fixed;top:10px;left:50%;transform:translateX(-50%);
+    background:var(--panel);border:1px solid var(--blood);border-radius:5px;padding:6px 14px;
+    font-size:0.78rem;color:var(--blood-bright);opacity:0;transition:opacity .25s ease;z-index:26;
+    white-space:nowrap;pointer-events:none;}
+  #warnBanner.show{opacity:1;}
+  .topRightCluster{position:fixed;top:10px;right:12px;display:flex;gap:10px;z-index:35;}
   .flashBtn{pointer-events:auto;background:var(--panel);border:1px solid var(--amber);border-radius:50%;
-    width:52px;height:52px;font-size:1.4rem;display:flex;align-items:center;justify-content:center;cursor:pointer;
-    z-index:35;position:relative;}
-  .battBar{position:fixed;top:70px;left:12px;background:var(--panel);border:1px solid var(--line);
-    border-radius:5px;padding:6px 10px;width:120px;}
-  .battLabel{font-size:0.65rem;color:#a9a396;margin-bottom:3px;}
-  .battTrack{width:100%;height:7px;background:#26221f;border-radius:4px;overflow:hidden;border:1px solid #000;}
-  .battFill{height:100%;background:linear-gradient(90deg,#a6742a,var(--amber));width:100%;}
+    width:52px;height:52px;font-size:1.4rem;display:flex;align-items:center;justify-content:center;cursor:pointer;}
+
+  .miniBadge{position:fixed;top:12px;display:flex;align-items:center;z-index:22;}
+  .badgeIcon{width:52px;height:52px;border-radius:50%;background:var(--panel);border:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0;}
+  .badgeSlide{max-width:0;overflow:hidden;transition:max-width .35s ease,margin-left .35s ease;
+    background:var(--panel);border:1px solid var(--line);border-radius:8px;height:34px;display:flex;
+    align-items:center;padding:0;margin-left:0;}
+  .miniBadge.open .badgeSlide{max-width:130px;margin-left:8px;padding:0 10px;}
+  .badgeTrack{width:100px;height:8px;background:#26221f;border-radius:4px;overflow:hidden;border:1px solid #000;flex-shrink:0;}
+  .badgeFill{height:100%;width:100%;}
+  #hpBadge{left:12px;}
+  #battBadge{left:12px;top:76px;}
 
   #crosshair{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
     color:rgba(255,255,255,0.75);font-size:1.1rem;font-family:monospace;z-index:22;
     text-shadow:0 0 4px rgba(0,0,0,0.9);}
-  .huntBox{position:fixed;top:70px;right:12px;background:var(--panel);border:1px solid var(--blood-bright);
+  .huntBox{position:fixed;top:76px;right:12px;background:var(--panel);border:1px solid var(--blood-bright);
     border-radius:5px;padding:6px 12px;font-size:0.85rem;color:var(--bone);z-index:22;}
 
   .weaponHud{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);display:flex;gap:10px;
@@ -97,6 +105,18 @@
     background:rgba(255,255,255,0.08);border:2px solid rgba(255,255,255,0.35);display:flex;
     align-items:center;justify-content:center;font-size:1.3rem;pointer-events:auto;z-index:40;cursor:pointer;}
   .jumpBtn:active{transform:scale(0.92);}
+
+  .zoomBtn{position:fixed;bottom:190px;right:100px;width:52px;height:52px;border-radius:50%;
+    background:rgba(90,170,220,0.28);border:2px solid #6fbfe0;display:flex;align-items:center;
+    justify-content:center;font-size:1.3rem;pointer-events:auto;z-index:40;cursor:pointer;}
+  .zoomBtn.active{background:rgba(217,164,65,0.4);border-color:var(--amber);}
+  .zoomBtn:active{transform:scale(0.92);}
+
+  .scopeOverlay{position:fixed;inset:0;pointer-events:none;z-index:19;opacity:0;transition:opacity .1s ease;
+    background:radial-gradient(circle at center, transparent 0, transparent 30%, #000 31%);}
+  .scopeOverlay.active{opacity:1;}
+  .scopeReticle{position:absolute;top:50%;left:50%;width:1px;height:100%;background:rgba(0,0,0,0.65);transform:translate(-50%,-50%);}
+  .scopeReticle::after{content:'';position:absolute;top:50%;left:50%;width:100vw;height:1px;background:rgba(0,0,0,0.65);transform:translate(-50%,-50%);}
 
   .grenadeBtn{position:fixed;bottom:118px;right:100px;width:52px;height:52px;border-radius:50%;
     background:rgba(122,31,31,0.32);border:2px solid var(--blood-bright);display:flex;align-items:center;
@@ -145,49 +165,51 @@
 <div id="redOverlay"></div>
 
 <div id="hud" class="hidden">
-  <div class="hud-top">
-    <div class="warn" id="warnBox">چیزی صدای تو را شنید...</div>
-    <div style="display:flex;gap:8px;">
-      <div class="flashBtn" id="btnFlash">🔦</div>
-      <div class="flashBtn" id="btnSettings">⚙️</div>
-    </div>
+  <div id="warnBanner">Something heard you...</div>
+  <div class="topRightCluster">
+    <div class="flashBtn" id="btnFlash">🔦</div>
+    <div class="flashBtn" id="btnSettings">⚙️</div>
   </div>
   <div class="settingsPanel hidden" id="settingsPanel">
     <div class="settingsRow">
-      <label>حساسیت چرخش دوربین</label>
+      <label>Look sensitivity</label>
       <input type="range" id="sensSlider" min="1" max="100" value="50">
       <span id="sensVal">50</span>
     </div>
     <div class="settingsRow">
-      <label>سرعت حرکت</label>
+      <label>Move speed</label>
       <input type="range" id="speedSlider" min="1" max="100" value="50">
       <span id="speedVal">50</span>
     </div>
     <div class="settingsRow">
-      <button id="btnEditLayout">جابه‌جایی دکمه‌ها: خاموش</button>
+      <button id="btnEditLayout">Move buttons: OFF</button>
     </div>
     <div class="settingsRow">
-      <button id="btnResetLayout">بازنشانی چیدمان</button>
+      <button id="btnTimeOfDay">☀️ Switch to Day</button>
     </div>
-    <div class="settingsRow"><small style="color:#8a857a;">وقتی «جابه‌جایی» روشنه، هر دکمه رو بکش و جای دلخواه بذار.</small></div>
+    <div class="settingsRow">
+      <button id="btnResetLayout">Reset layout</button>
+    </div>
+    <div class="settingsRow"><small style="color:#8a857a;">When "Move buttons" is on, drag any button anywhere you like.</small></div>
   </div>
   <div id="crosshair">+</div>
-  <div class="huntBox">🎯 هیولاها: <span id="monsterCount">0/13</span></div>
-  <div class="battBar" id="hpBar" style="top:12px;left:12px;border-color:var(--blood-bright);">
-    <div class="battLabel">سلامتی</div>
-    <div class="battTrack"><div class="battFill" id="hpFill" style="background:linear-gradient(90deg,#7a1f1f,#e05a4f);"></div></div>
+  <div class="huntBox">🎯 Bots: <span id="monsterCount">0/13</span></div>
+  <div class="miniBadge" id="hpBadge">
+    <div class="badgeIcon">❤️</div>
+    <div class="badgeSlide"><div class="badgeTrack"><div class="badgeFill" id="hpFill" style="background:linear-gradient(90deg,#7a1f1f,#e05a4f);"></div></div></div>
   </div>
-  <div class="battBar">
-    <div class="battLabel">باتری چراغ‌قوه</div>
-    <div class="battTrack"><div class="battFill" id="battFill"></div></div>
+  <div class="miniBadge" id="battBadge">
+    <div class="badgeIcon">🔋</div>
+    <div class="badgeSlide"><div class="badgeTrack"><div class="badgeFill" id="battFill" style="background:linear-gradient(90deg,#a6742a,var(--amber));"></div></div></div>
   </div>
 
   <div class="prompt" id="prompt"></div>
 
+
   <div class="weaponHud">
     <div class="wIcon active" id="wPistol">🔫</div>
-    <div class="wIcon locked" id="wShotgun">💥</div>
-    <div class="wIcon locked" id="wSniper">🎯</div>
+    <div class="wIcon" id="wShotgun">💥</div>
+    <div class="wIcon" id="wSniper">🎯</div>
     <div id="ammoText">8/16</div>
     <div class="reloadBtn" id="btnReload">🔃</div>
   </div>
@@ -206,43 +228,44 @@
 
 <div class="overlay" id="screenStart">
   <div class="card">
-    <h1>شکارچی خانه‌ی متروکه</h1>
+    <h1>Ruined House Hunter</h1>
     <div class="story">
-      یه خیابون پر از خونه‌های خراب و ماشین‌های سوخته، بعدش یه خونه‌ی متروکه سرِ راهت. ۹ تا ربات این محدوده رو گرفتن —
-      سه‌تاشون تو خونه با تبر می‌زنن، بقیه توی خیابون با تفنگ بهت شلیک می‌کنن. پشت ماشین‌ها و دیوارهای شکسته سنگر بگیر.
-      یه تپانچه داری با فشنگ نامحدود، ولی یه شات‌گان هم یه‌جای اون خونه قایم شده — پیداش کن.
+      A street full of ruined houses and burnt-out cars, then a derelict house at the end of it. 13 bots hold this ground —
+      three of them swing axes inside the house, the rest shoot at you from the street. Take cover behind cars and broken walls.
+      You start with a pistol, shotgun, and sniper rifle already in hand — all with unlimited ammo.
     </div>
     <ul>
-      <li>🕹 حرکت: جوی‌استیک چپ یا W A S D</li>
-      <li>👁 نگاه کردن: هرجای نیمه‌ی راست صفحه رو بکش (یا ماوس روی دسکتاپ)</li>
-      <li>🔦 چراغ‌قوه: دکمه‌ی گرد یا کلید F</li>
-      <li>🔫 شلیک: دکمه‌ی بزرگ قرمز پایین‌سمت‌راست یا Space</li>
-      <li>🔃 پرکردن مجدد: دکمه‌ی 🔃 یا کلید R</li>
-      <li>1️⃣2️⃣ تعویض اسلحه: آیکون‌های پایین یا کلید ۱ / ۲</li>
-      <li>💨 فرار سریع: دکمه‌ی کهربایی یا Q — یه قدم سریع عقب، با کمی مصونیت</li>
-      <li>🛷 سر خوردن: دکمه‌ی آبی یا X — یه سر خوردن سریع به جلو</li>
-      <li>🧎 نشستن: دکمه‌ی مربعی یا C — پشت سنگر کوتاه‌تر دیده می‌شی</li>
-      <li>💣 نارنجک: دکمه‌ی قرمز یا G — فقط ۳ تا داری، برای وقتی چندتا ربات کنار همن</li>
-      <li>⬆️ پرش: دکمه‌ی کنار دکمه‌ی نشستن یا J</li>
-      <li>🎯 هدف: هر ۱۳ تا ربات رو شکار کن، بعد برگرد سمت دروازه‌ی حیاط</li>
+      <li>🕹 Move: left joystick or W A S D</li>
+      <li>👁 Look: drag anywhere on the right half of the screen (or mouse on desktop)</li>
+      <li>🔦 Flashlight: round button or key F</li>
+      <li>🔫 Fire: big red button bottom-right or Space</li>
+      <li>🔃 Reload: 🔃 button or key R</li>
+      <li>1️⃣2️⃣ Switch weapon: bottom icons or key 1 / 2</li>
+      <li>💨 Quick dash: amber button or Q — a fast step back, with brief invulnerability</li>
+      <li>🛷 Slide: blue button or X — a fast forward slide</li>
+      <li>🧎 Crouch: square button or C — you’re shorter behind cover</li>
+      <li>💣 Grenade: red button or G — only 3, save them for grouped bots</li>
+      <li>⬆️ Jump: button next to crouch or J</li>
+      <li>🎯 Sniper: zoom with 🔭, Z, or right-click — fires either way</li>
+      <li>🎯 Goal: hunt down all 13 bots, then head back to the yard gate</li>
     </ul>
-    <button class="primary" id="btnStart">ورود به حیاط</button>
+    <button class="primary" id="btnStart">Enter the yard</button>
   </div>
 </div>
 
 <div class="overlay hidden" id="screenOver">
   <div class="card">
-    <h1>گرفتار شدی...</h1>
-    <p>یکی از سایه‌ها زودتر از تو رسید. دیگه راهی برای فرار نبود.</p>
-    <button class="primary" id="btnRestart1">تلاش دوباره</button>
+    <h1>You were caught...</h1>
+    <p>One of the shadows got there first. There was no way out.</p>
+    <button class="primary" id="btnRestart1">Try again</button>
   </div>
 </div>
 
 <div class="overlay hidden" id="screenWin">
   <div class="card">
-    <h1 style="color:#8fd98a;text-shadow:0 0 20px rgba(143,217,138,0.5);">شکار تمام شد!</h1>
-    <p>هر سه‌شون رو شکار کردی. دروازه‌ی حیاط پشت سرت بسته شد — این خونه دیگه خالی از سکنه‌ست.</p>
-    <button class="primary" id="btnRestart2">یک بار دیگر</button>
+    <h1 style="color:#8fd98a;text-shadow:0 0 20px rgba(143,217,138,0.5);">Hunt complete!</h1>
+    <p>You hunted down every last one. The yard gate closed behind you — this house is empty now.</p>
+    <button class="primary" id="btnRestart2">Play again</button>
   </div>
 </div>
 
@@ -256,7 +279,7 @@
 
 if(typeof THREE === 'undefined'){
   document.getElementById('screenStart').querySelector('.card').innerHTML =
-    '<h1>خطا</h1><p>کتابخانه‌ی سه‌بعدی بارگذاری نشد. اتصال اینترنت خود را بررسی کنید و صفحه را دوباره بارگذاری کنید.</p>';
+    '<h1>Error</h1><p>The 3D library failed to load. Check your internet connection and reload the page.</p>';
   return;
 }
 
@@ -350,7 +373,7 @@ if(renderer.toneMapping!==undefined){
 
 const scene=new THREE.Scene();
 scene.background=new THREE.Color(0x03040a);
-scene.fog=new THREE.FogExp2(0x03050a, 0.052);
+scene.fog=new THREE.FogExp2(0x03050a, 0.042);
 
 const camera=new THREE.PerspectiveCamera(72, window.innerWidth/window.innerHeight, 0.1, 400);
 camera.rotation.order='YXZ';
@@ -365,9 +388,9 @@ function resize(){
 window.addEventListener('resize', resize);
 
 /* ---- Lighting ---- */
-const hemi=new THREE.HemisphereLight(0x2a3550, 0x0a0d08, 0.55);
+const hemi=new THREE.HemisphereLight(0x2a3550, 0x0a0d08, 0.52);
 scene.add(hemi);
-const moonLight=new THREE.DirectionalLight(0x8fa6d9, 0.32);
+const moonLight=new THREE.DirectionalLight(0x8fa6d9, 0.55);
 moonLight.position.set(60,90,-40);
 moonLight.castShadow=true;
 moonLight.shadow.mapSize.set(1536,1536);
@@ -383,7 +406,8 @@ scene.add(moonTarget);
 moonLight.target=moonTarget;
 scene.add(moonLight);
 
-/* ---- Sky: stars + moon ---- */
+/* ---- Sky: stars + moon + sun (day/night toggle) ---- */
+let starsPoints=null, moonGroupRef=null, sunGroupRef=null;
 function buildStars(){
   const count=700;
   const positions=new Float32Array(count*3);
@@ -399,7 +423,8 @@ function buildStars(){
   geo.setAttribute('position', new THREE.BufferAttribute(positions,3));
   const mat=new THREE.PointsMaterial({color:0xffffff, size:1.3, sizeAttenuation:false, transparent:true, opacity:0.85});
   mat.fog=false;
-  scene.add(new THREE.Points(geo,mat));
+  starsPoints=new THREE.Points(geo,mat);
+  scene.add(starsPoints);
 }
 buildStars();
 
@@ -413,8 +438,53 @@ function buildMoon(){
   moonGroup.add(glow);
   moonGroup.position.set(90,100,-160);
   scene.add(moonGroup);
+  moonGroupRef=moonGroup;
 }
 buildMoon();
+
+function buildSun(){
+  const sunGroup=new THREE.Group();
+  const core=new THREE.Mesh(new THREE.SphereGeometry(11,20,20), new THREE.MeshBasicMaterial({color:0xfff6d8}));
+  core.material.fog=false;
+  sunGroup.add(core);
+  const glow=new THREE.Mesh(new THREE.SphereGeometry(19,20,20), new THREE.MeshBasicMaterial({color:0xffe9a8, transparent:true, opacity:0.35}));
+  glow.material.fog=false;
+  sunGroup.add(glow);
+  sunGroup.position.set(90,120,-140);
+  sunGroup.visible=false;
+  scene.add(sunGroup);
+  sunGroupRef=sunGroup;
+}
+buildSun();
+
+let timeOfDay='night';
+setTimeOfDay('day');
+{
+  const b=document.getElementById('btnTimeOfDay');
+  if(b) b.textContent='🌙 Switch to Night';
+}
+function setTimeOfDay(mode){
+  timeOfDay=mode;
+  if(mode==='day'){
+    scene.background=new THREE.Color(0x8fc7e8);
+    scene.fog.color.set(0x9fd2ec);
+    scene.fog.density=0.016;
+    hemi.color.set(0x9fc7e0); hemi.groundColor.set(0x3a3020); hemi.intensity=0.95;
+    moonLight.color.set(0xfff2d8); moonLight.intensity=1.15;
+    if(starsPoints) starsPoints.visible=false;
+    if(moonGroupRef) moonGroupRef.visible=false;
+    if(sunGroupRef) sunGroupRef.visible=true;
+  } else {
+    scene.background=new THREE.Color(0x03040a);
+    scene.fog.color.set(0x03050a);
+    scene.fog.density=0.042;
+    hemi.color.set(0x2a3550); hemi.groundColor.set(0x0a0d08); hemi.intensity=0.52;
+    moonLight.color.set(0x8fa6d9); moonLight.intensity=0.55;
+    if(starsPoints) starsPoints.visible=true;
+    if(moonGroupRef) moonGroupRef.visible=true;
+    if(sunGroupRef) sunGroupRef.visible=false;
+  }
+}
 
 /* ---- Detail material texture builders (procedural canvas, no external assets needed) ---- */
 function buildLeafTexture(){
@@ -836,14 +906,46 @@ function buildSpawnArmory(){
 }
 buildSpawnArmory();
 
+/* ---- Fire barrels: dramatic warm light pools scattered through the shadowed street ---- */
+const fireBarrels=[];
+function buildFireBarrel(gx,gy){
+  const w=gridToWorld(gx,gy);
+  const barrelMat=new THREE.MeshStandardMaterial({map:buildRustTexture(), roughness:0.9, metalness:0.3});
+  const barrel=new THREE.Mesh(new THREE.CylinderGeometry(0.28,0.24,0.7,10), barrelMat);
+  barrel.position.set(w.x,0.35,w.z);
+  barrel.castShadow=true;
+  scene.add(barrel);
+  const flame=new THREE.Mesh(new THREE.ConeGeometry(0.16,0.4,8), new THREE.MeshBasicMaterial({color:0xff8a2a, transparent:true, opacity:0.85}));
+  flame.position.set(w.x,0.75,w.z);
+  flame.material.fog=false;
+  scene.add(flame);
+  const light=new THREE.PointLight(0xff7a2a, 1.6, 9, 2);
+  light.position.set(w.x,0.9,w.z);
+  scene.add(light);
+  fireBarrels.push({flame, light, base:1.6, phase:Math.random()*10});
+}
+buildFireBarrel(6,14);
+buildFireBarrel(4,22);
+buildFireBarrel(7,26);
+
+/* ---- Cool accent light near the house entrance, for contrast against the warm interior lanterns ---- */
+{
+  const doorW=gridToWorld(5,7);
+  const coolLight=new THREE.PointLight(0x4a6fb0, 1.1, 8, 2);
+  coolLight.position.set(doorW.x-1.5, 2.4, doorW.z);
+  scene.add(coolLight);
+}
+
 /* ---- Grass tufts (yard) ---- */
+let grassInst=null, grassData=[];
+let grassFlinches=[];
 function scatterGrass(){
   const openCells=[];
   for(let gy=0;gy<GROWS;gy++) for(let gx=0;gx<GCOLS;gx++) if(maze[gy][gx]===1) openCells.push([gx,gy]);
   const perCell=3;
   const count=openCells.length*perCell;
-  const geo=new THREE.ConeGeometry(0.06,0.32,4);
-  const mat=new THREE.MeshStandardMaterial({color:0x394d22, roughness:1});
+  const geo=new THREE.ConeGeometry(0.075,0.52,5);
+  const mat=new THREE.MeshStandardMaterial({color:0x3f5527, roughness:1});
   const inst=new THREE.InstancedMesh(geo, mat, Math.max(count,1));
   const m=new THREE.Matrix4();
   let i=0;
@@ -851,18 +953,54 @@ function scatterGrass(){
     const w=gridToWorld(gx,gy);
     for(let k=0;k<perCell;k++){
       const ox=(Math.random()-0.5)*CELL*0.8, oz=(Math.random()-0.5)*CELL*0.8;
-      const s=0.6+Math.random()*0.8;
-      const pos=new THREE.Vector3(w.x+ox,0.15*s,w.z+oz);
-      const rot=new THREE.Euler((Math.random()-0.5)*0.3,Math.random()*Math.PI,(Math.random()-0.5)*0.3);
+      const s=0.7+Math.random()*0.9;
+      const pos=new THREE.Vector3(w.x+ox,0.24*s,w.z+oz);
+      const tiltX=(Math.random()-0.5)*0.3, tiltZ=(Math.random()-0.5)*0.3, rotY=Math.random()*Math.PI;
+      const rot=new THREE.Euler(tiltX,rotY,tiltZ);
       const scale=new THREE.Vector3(s,s,s);
       m.compose(pos, new THREE.Quaternion().setFromEuler(rot), scale);
-      inst.setMatrixAt(i,m); i++;
+      inst.setMatrixAt(i,m);
+      grassData.push({pos, tiltX, tiltZ, rotY, scale:s});
+      i++;
     }
   });
   inst.instanceMatrix.needsUpdate=true;
   scene.add(inst);
+  grassInst=inst;
 }
 scatterGrass();
+function triggerGrassFlinch(x,z,radius){
+  if(!grassInst) return;
+  for(let idx=0; idx<grassData.length; idx++){
+    const gd=grassData[idx];
+    const d=Math.hypot(gd.pos.x-x, gd.pos.z-z);
+    if(d<radius){
+      grassFlinches.push({idx, t:0, dir: Math.atan2(gd.pos.z-z, gd.pos.x-x)});
+    }
+  }
+}
+function updateGrassFlinches(dt){
+  if(grassFlinches.length===0) return;
+  const m=new THREE.Matrix4();
+  for(let i=grassFlinches.length-1; i>=0; i--){
+    const fl=grassFlinches[i];
+    fl.t+=dt;
+    const gd=grassData[fl.idx];
+    if(fl.t>0.5){
+      m.compose(gd.pos, new THREE.Quaternion().setFromEuler(new THREE.Euler(gd.tiltX,gd.rotY,gd.tiltZ)), new THREE.Vector3(gd.scale,gd.scale,gd.scale));
+      grassInst.setMatrixAt(fl.idx, m);
+      grassFlinches.splice(i,1);
+      continue;
+    }
+    const decay=Math.max(0,1-fl.t/0.5);
+    const bend=Math.sin(fl.t*22)*0.5*decay;
+    const extraX=Math.cos(fl.dir)*bend, extraZ=Math.sin(fl.dir)*bend;
+    const rot=new THREE.Euler(gd.tiltX+extraX, gd.rotY, gd.tiltZ+extraZ);
+    m.compose(gd.pos, new THREE.Quaternion().setFromEuler(rot), new THREE.Vector3(gd.scale,gd.scale,gd.scale));
+    grassInst.setMatrixAt(fl.idx, m);
+  }
+  grassInst.instanceMatrix.needsUpdate=true;
+}
 
 /* ---- Trees + bushes ---- */
 function makeTree(){
@@ -1054,8 +1192,6 @@ function spawnItems(){
   items=[];
   const defs=[
     {type:'battery', cell:[3,2]},
-    {type:'shotgun', cell:[3,6]},
-    {type:'sniper', cell:[5,26]},
   ];
   defs.forEach(d=>{
     const w=gridToWorld(d.cell[0], d.cell[1]);
@@ -1218,30 +1354,66 @@ function buildHand(mirror){
   handGroup.add(sgMuzzle);
   handGroup.userData.shotgunMuzzle=sgMuzzle;
 
-  /* ---- Sniper rifle (left hand, hidden until found) ---- */
+  /* ---- Sniper rifle (left hand): long, distinct silhouette with a real scope ---- */
   const sniperGroup=new THREE.Group();
-  const snBarrel=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.024,0.85,8), gunMat);
-  snBarrel.rotation.z=Math.PI/2; snBarrel.position.set(0,0.01,-0.35);
+  const snBarrel=new THREE.Mesh(new THREE.CylinderGeometry(0.018,0.026,1.35,10), gunMat);
+  snBarrel.rotation.z=Math.PI/2; snBarrel.position.set(0,0.01,-0.65);
   sniperGroup.add(snBarrel);
-  const snScope=new THREE.Mesh(new THREE.CylinderGeometry(0.028,0.028,0.32,10), new THREE.MeshStandardMaterial({color:0x111111, metalness:0.7, roughness:0.3}));
-  snScope.rotation.z=Math.PI/2; snScope.position.set(0,0.08,-0.15);
+  const snMuzzleBrake=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.09,8), gunMat);
+  snMuzzleBrake.rotation.z=Math.PI/2; snMuzzleBrake.position.set(0,0.01,-1.28);
+  sniperGroup.add(snMuzzleBrake);
+  const snBody=new THREE.Mesh(new THREE.BoxGeometry(0.08,0.09,0.5), gunMat);
+  snBody.position.set(0,0.0,-0.05);
+  sniperGroup.add(snBody);
+
+  const scopeMat=new THREE.MeshStandardMaterial({color:0x0d0d0d, metalness:0.75, roughness:0.25});
+  const snScope=new THREE.Mesh(new THREE.CylinderGeometry(0.032,0.032,0.55,14), scopeMat);
+  snScope.rotation.z=Math.PI/2; snScope.position.set(0,0.11,-0.2);
   sniperGroup.add(snScope);
-  const snLensFront=new THREE.Mesh(new THREE.CircleGeometry(0.026,10), new THREE.MeshBasicMaterial({color:0x2a5a8a}));
-  snLensFront.rotation.y=Math.PI/2; snLensFront.position.set(0.16,0.08,-0.15);
+  const snLensFront=new THREE.Mesh(new THREE.CylinderGeometry(0.038,0.038,0.02,14), new THREE.MeshStandardMaterial({color:0x1a3a6a, metalness:0.9, roughness:0.1, emissive:0x0a1a3a, emissiveIntensity:0.3}));
+  snLensFront.rotation.z=Math.PI/2; snLensFront.position.set(0,0.11,-0.47);
   sniperGroup.add(snLensFront);
-  const snStock=new THREE.Mesh(new THREE.BoxGeometry(0.07,0.13,0.5), woodStockMat);
-  snStock.position.set(0,-0.03,0.25);
+  const snLensRear=new THREE.Mesh(new THREE.CylinderGeometry(0.024,0.024,0.015,14), new THREE.MeshStandardMaterial({color:0x111111, metalness:0.8, roughness:0.15}));
+  snLensRear.rotation.z=Math.PI/2; snLensRear.position.set(0,0.11,0.075);
+  sniperGroup.add(snLensRear);
+  const turretMat=new THREE.MeshStandardMaterial({color:0x1c1c1c, metalness:0.6, roughness:0.4});
+  const snTurretTop=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,0.035,8), turretMat);
+  snTurretTop.position.set(0,0.145,-0.2);
+  sniperGroup.add(snTurretTop);
+  const snTurretSide=new THREE.Mesh(new THREE.CylinderGeometry(0.018,0.018,0.03,8), turretMat);
+  snTurretSide.rotation.x=Math.PI/2; snTurretSide.position.set(0.035,0.11,-0.28);
+  sniperGroup.add(snTurretSide);
+  const ringMat=new THREE.MeshStandardMaterial({color:0x2a2a2a, metalness:0.6});
+  [-0.32,-0.08].forEach(zp=>{
+    const ring=new THREE.Mesh(new THREE.TorusGeometry(0.036,0.008,6,12), ringMat);
+    ring.rotation.y=Math.PI/2; ring.position.set(0,0.11,zp);
+    sniperGroup.add(ring);
+  });
+
+  const snStock=new THREE.Mesh(new THREE.BoxGeometry(0.075,0.15,0.65), woodStockMat);
+  snStock.position.set(0,-0.04,0.42);
   sniperGroup.add(snStock);
-  const snBolt=new THREE.Mesh(new THREE.CylinderGeometry(0.014,0.014,0.09,6), gunMat);
-  snBolt.rotation.z=Math.PI/2.2; snBolt.position.set(0.03,0.02,0.05);
+  const snCheekRest=new THREE.Mesh(new THREE.BoxGeometry(0.07,0.05,0.3), woodStockMat);
+  snCheekRest.position.set(0,0.05,0.35);
+  sniperGroup.add(snCheekRest);
+  const snBolt=new THREE.Mesh(new THREE.CylinderGeometry(0.016,0.016,0.11,6), gunMat);
+  snBolt.rotation.z=Math.PI/2.2; snBolt.position.set(0.045,0.01,0.02);
   sniperGroup.add(snBolt);
-  sniperGroup.position.set(-0.29,-0.26,-0.42);
+  const bipodMat=new THREE.MeshStandardMaterial({color:0x1a1a1a, metalness:0.5});
+  [-1,1].forEach(side=>{
+    const leg=new THREE.Mesh(new THREE.CylinderGeometry(0.008,0.008,0.22,6), bipodMat);
+    leg.rotation.z=0.25*side;
+    leg.position.set(side*0.03,-0.05,-0.85);
+    sniperGroup.add(leg);
+  });
+
+  sniperGroup.position.set(-0.30,-0.27,-0.15);
   sniperGroup.visible=false;
   handGroup.add(sniperGroup);
   handGroup.userData.sniperGroup=sniperGroup;
   handGroup.userData.snBaseZ=sniperGroup.position.z;
   const snMuzzle=new THREE.PointLight(0xfff2b0,0,7,2);
-  snMuzzle.position.set(-0.29,-0.25,-1.0);
+  snMuzzle.position.set(-0.30,-0.26,-1.5);
   handGroup.add(snMuzzle);
   handGroup.userData.sniperMuzzle=snMuzzle;
 
@@ -1376,7 +1548,7 @@ function spawnMonsters(){
 }
 function updateMonsterCountUI(){
   const el=document.getElementById('monsterCount');
-  if(el) el.textContent=(monsters.length-monstersRemaining)+'/'+monsters.length+' شکار شده';
+  if(el) el.textContent=(monsters.length-monstersRemaining)+'/'+monsters.length+' hunted';
 }
 
 /* ================= JUMPSCARES ================= */
@@ -1428,8 +1600,8 @@ function updateJumpscareZones(){
 let activeWeapon='pistol';
 let weapons={
   pistol:{mag:8, magMax:8, reserve:Infinity, cooldown:0, recoil:0, flashTimer:0, reloading:false, reloadTime:1.1, dmg:1, range:22, fireRate:0.28},
-  shotgun:{unlocked:false, mag:2, magMax:2, reserve:0, cooldown:0, recoil:0, flashTimer:0, reloading:false, reloadTime:1.6, dmg:3, range:7, pellets:6, spread:0.11, fireRate:0.85},
-  sniper:{unlocked:false, mag:1, magMax:1, reserve:Infinity, cooldown:0, recoil:0, flashTimer:0, reloading:false, reloadTime:1.9, dmg:10, range:60, fireRate:1.3}
+  shotgun:{unlocked:true, mag:2, magMax:2, reserve:Infinity, cooldown:0, recoil:0, flashTimer:0, reloading:false, reloadTime:1.6, dmg:3, range:7, pellets:6, spread:0.11, fireRate:0.85},
+  sniper:{unlocked:true, mag:1, magMax:1, reserve:Infinity, cooldown:0, recoil:0, flashTimer:0, reloading:false, reloadTime:1.9, dmg:10, range:60, fireRate:1.3}
 };
 let zoomed=false;
 const NORMAL_FOV=72, ZOOM_FOV=20;
@@ -1462,7 +1634,7 @@ function updateGrenadeUI(){
 }
 function throwGrenade(){
   if(!gameRunning) return;
-  if(grenadeCount<=0){ showPrompt('نارنجک نداری!', 1.0); return; }
+  if(grenadeCount<=0){ showPrompt('Out of grenades!', 1.0); return; }
   grenadeCount--;
   updateGrenadeUI();
   const dir=new THREE.Vector3(0,0,-1).applyEuler(new THREE.Euler(player.pitch,player.yaw,0,'YXZ'));
@@ -1548,6 +1720,7 @@ function explodeGrenade(pos){
     damagePlayer(Math.round(22*(1-pd/(RADIUS*0.8))));
   }
   spawnBulletHole(pos, new THREE.Vector3(0,1,0));
+  triggerGrassFlinch(pos.x, pos.z, 3.6);
 }
 document.getElementById('btnGrenade').addEventListener('pointerdown', e=>{ e.preventDefault(); throwGrenade(); });
 window.addEventListener('keydown', e=>{
@@ -1572,8 +1745,8 @@ function updateWeaponIcons(){
 }
 function switchWeapon(name){
   if(!gameRunning) return;
-  if(name==='shotgun' && !weapons.shotgun.unlocked){ showPrompt('هنوز شات‌گان رو پیدا نکردی',1.2); return; }
-  if(name==='sniper' && !weapons.sniper.unlocked){ showPrompt('هنوز اسنایپر رو پیدا نکردی',1.2); return; }
+  if(name==='shotgun' && !weapons.shotgun.unlocked){ showPrompt("Haven't found the shotgun yet",1.2); return; }
+  if(name==='sniper' && !weapons.sniper.unlocked){ showPrompt("Haven't found the sniper yet",1.2); return; }
   if(activeWeapon===name) return;
   if(zoomed) toggleZoom();
   activeWeapon=name;
@@ -1591,6 +1764,9 @@ function toggleZoom(){
   camera.updateProjectionMatrix();
   document.getElementById('scopeOverlay').classList.toggle('active', zoomed);
   document.getElementById('crosshair').classList.toggle('hidden', zoomed);
+  if(renderer.toneMapping!==undefined){
+    renderer.toneMappingExposure = zoomed ? 1.55 : 1.15;
+  }
 }
 function reloadWeapon(){
   if(!gameRunning) return;
@@ -1601,7 +1777,7 @@ function reloadWeapon(){
   updateAmmoUI();
   beep(220,0.1,0.2,'triangle');
   setTimeout(()=>beep(260,0.12,0.2,'triangle'), 140);
-  showPrompt(activeWeapon==='pistol'?'در حال پرکردن خشاب...':'در حال پرکردن فشنگ...', w.reloadTime+0.2);
+  showPrompt(activeWeapon==='pistol'?'Reloading magazine...':'Reloading shells...', w.reloadTime+0.2);
   setTimeout(()=>{
     const need=w.magMax-w.mag;
     const take=Math.min(need,w.reserve);
@@ -1617,7 +1793,7 @@ function fireWeapon(){
   if(w.cooldown>0) return;
   if(w.mag<=0){
     beep(180,0.06,0.12,'square');
-    showPrompt('خشاب خالیه — R بزن', 1.0);
+    showPrompt('Magazine empty — press R', 1.0);
     return;
   }
   w.cooldown=w.fireRate;
@@ -1705,6 +1881,7 @@ function spawnEnvImpact(){
     const hit=envHits[0];
     const n = hit.face ? hit.face.normal.clone().transformDirection(hit.object.matrixWorld) : new THREE.Vector3(0,1,0);
     spawnBulletHole(hit.point, n);
+    if(hit.point.y<0.6) triggerGrassFlinch(hit.point.x, hit.point.z, 1.4);
   }
 }
 let bulletHoles=[];
@@ -1791,7 +1968,7 @@ function killMonster(m){
   },30);
   if(monstersRemaining<=0){
     gateLight.intensity=1.2;
-    showPrompt('همه رو شکار کردی! برو سمت دروازه', 3);
+    showPrompt('All hunted down! Head to the gate', 3);
   }
 }
 function spawnHitSpark(point){
@@ -1804,13 +1981,16 @@ document.getElementById('btnFire').addEventListener('pointerdown', e=>{ e.preven
 document.getElementById('btnReload').addEventListener('pointerdown', e=>{ e.preventDefault(); reloadWeapon(); });
 document.getElementById('wPistol').addEventListener('pointerdown', e=>{ e.preventDefault(); switchWeapon('pistol'); });
 document.getElementById('wShotgun').addEventListener('pointerdown', e=>{ e.preventDefault(); switchWeapon('shotgun'); });
+document.getElementById('wSniper').addEventListener('pointerdown', e=>{ e.preventDefault(); switchWeapon('sniper'); });
+document.getElementById('btnZoom').addEventListener('pointerdown', e=>{ e.preventDefault(); toggleZoom(); });
+canvas.addEventListener('contextmenu', e=>{ e.preventDefault(); toggleZoom(); });
 
 function tryOpenGate(){
   const d=Math.hypot(player.x-gateCellWorld.x, player.z-gateCellWorld.z);
   if(d<2.4 && monstersRemaining<=0 && !gameOverFlag && !gameWinFlag){
     winGame();
   } else if(d<2.4 && monstersRemaining>0){
-    showPrompt('هنوز '+monstersRemaining+' تا مونده — اول شکارشون کن', 1.4);
+    showPrompt(monstersRemaining+' left — hunt them down first', 1.4);
   }
 }
 
@@ -1897,6 +2077,8 @@ window.addEventListener('keydown', e=>{
   if(k==='r') reloadWeapon();
   if(k==='1') switchWeapon('pistol');
   if(k==='2') switchWeapon('shotgun');
+  if(k==='3') switchWeapon('sniper');
+  if(k==='z') toggleZoom();
   if(e.code==='Space' || e.key==='Enter'){ e.preventDefault(); fireWeapon(); }
 });
 window.addEventListener('keyup', e=>{ keysDown[e.key.toLowerCase()]=false; });
@@ -1999,6 +2181,7 @@ window.addEventListener('keydown', e=>{
 
 function toggleFlashlight(){
   if(player.battery>2){ player.flashlightOn=!player.flashlightOn; }
+  document.getElementById('battBadge').classList.toggle('open', player.flashlightOn);
 }
 document.getElementById('btnFlash').addEventListener('pointerdown', e=>{ e.preventDefault(); toggleFlashlight(); });
 
@@ -2013,8 +2196,12 @@ function resetGame(){
   player.dashTimer=0; player.dashCooldown=0; player.invulnTimer=0;
   player.vx=0; player.vz=0; player.recoilKick=0;
   player.hp=player.maxHp; updateHealthUI();
+  hpBadgeTimer=0;
+  document.getElementById('hpBadge').classList.remove('open');
+  document.getElementById('battBadge').classList.remove('open');
   player.crouching=false; player.eyeOffset=0; player.slideTimer=0; player.slideCooldown=0;
   grenades.forEach(gr=>scene.remove(gr.mesh));
+  grassFlinches=[];
   grenades=[];
   grenadeCount=3;
   updateGrenadeUI();
@@ -2024,9 +2211,14 @@ function resetGame(){
 
   activeWeapon='pistol';
   weapons.pistol={mag:8, magMax:8, reserve:Infinity, cooldown:0, recoil:0, flashTimer:0, reloading:false, reloadTime:1.1, dmg:1, range:22, fireRate:0.28};
-  weapons.shotgun={unlocked:false, mag:2, magMax:2, reserve:0, cooldown:0, recoil:0, flashTimer:0, reloading:false, reloadTime:1.6, dmg:3, range:7, pellets:6, spread:0.11, fireRate:0.85};
+  weapons.shotgun={unlocked:true, mag:2, magMax:2, reserve:Infinity, cooldown:0, recoil:0, flashTimer:0, reloading:false, reloadTime:1.6, dmg:3, range:7, pellets:6, spread:0.11, fireRate:0.85};
+  weapons.sniper={unlocked:true, mag:1, magMax:1, reserve:Infinity, cooldown:0, recoil:0, flashTimer:0, reloading:false, reloadTime:1.9, dmg:10, range:60, fireRate:1.3};
+  zoomed=false; camera.fov=NORMAL_FOV; camera.updateProjectionMatrix();
+  document.getElementById('scopeOverlay').classList.remove('active');
+  document.getElementById('crosshair').classList.remove('hidden');
   handGroup.userData.gunGroup.visible=true;
   handGroup.userData.shotgunGroup.visible=false;
+  handGroup.userData.sniperGroup.visible=false;
   updateAmmoUI();
   updateWeaponIcons();
 
@@ -2043,7 +2235,7 @@ function resetGame(){
 
   gameOverFlag=false; gameWinFlag=false;
   document.getElementById('redOverlay').classList.remove('active');
-  document.getElementById('warnBox').classList.remove('show');
+  document.getElementById('warnBanner').classList.remove('show');
   gameRunning=true;
 }
 
@@ -2117,6 +2309,10 @@ function update(dt){
     player.battery=Math.min(100,player.battery+9*dt);
   }
   document.getElementById('battFill').style.width=player.battery+'%';
+  if(hpBadgeTimer>0){
+    hpBadgeTimer-=dt;
+    if(hpBadgeTimer<=0) document.getElementById('hpBadge').classList.remove('open');
+  }
   updateDashUI();
   updateSlideUI();
   updateCrouchUI();
@@ -2149,11 +2345,11 @@ function update(dt){
     if(d<1.0){
       it.collected=true;
       scene.remove(it.mesh); scene.remove(it.light);
-      if(it.type==='battery'){ player.battery=Math.min(100,player.battery+40); showPrompt('باتری شارژ شد',1.3); }
-      else if(it.type==='pistolAmmo'){ weapons.pistol.reserve+=8; showPrompt('فشنگ تپانچه پیدا شد',1.3); if(activeWeapon==='pistol') updateAmmoUI(); }
-      else if(it.type==='shotgun'){ weapons.shotgun.unlocked=true; weapons.shotgun.reserve=Infinity; showPrompt('شات‌گان پیدا شد!',1.6); switchWeapon('shotgun'); }
-      else if(it.type==='sniper'){ weapons.sniper.unlocked=true; showPrompt('تفنگ اسنایپر پیدا شد!',1.6); updateWeaponIcons(); }
-      else if(it.type==='shotgunAmmo'){ weapons.shotgun.reserve+=4; showPrompt('فشنگ شات‌گان پیدا شد',1.3); if(activeWeapon==='shotgun') updateAmmoUI(); }
+      if(it.type==='battery'){ player.battery=Math.min(100,player.battery+40); showPrompt('Battery recharged',1.3); }
+      else if(it.type==='pistolAmmo'){ weapons.pistol.reserve+=8; showPrompt('Pistol ammo found',1.3); if(activeWeapon==='pistol') updateAmmoUI(); }
+      else if(it.type==='shotgun'){ weapons.shotgun.unlocked=true; weapons.shotgun.reserve=Infinity; showPrompt('Shotgun found!',1.6); switchWeapon('shotgun'); }
+      else if(it.type==='sniper'){ weapons.sniper.unlocked=true; showPrompt('Sniper rifle found!',1.6); updateWeaponIcons(); }
+      else if(it.type==='shotgunAmmo'){ weapons.shotgun.reserve+=4; showPrompt('Shotgun shells found',1.3); if(activeWeapon==='shotgun') updateAmmoUI(); }
       sPickup();
     }
   });
@@ -2161,7 +2357,7 @@ function update(dt){
   const gd=Math.hypot(player.x-gateCellWorld.x, player.z-gateCellWorld.z);
   if(gd<2.4){ tryOpenGate(); }
   if(gd<2.6 && promptTimer<=0){
-    document.getElementById('prompt').textContent = monstersRemaining<=0 ? 'دروازه باز شد — رد شو تا فرار کنی' : ('هنوز '+monstersRemaining+' تا مونده');
+    document.getElementById('prompt').textContent = monstersRemaining<=0 ? 'Gate is open — go through to escape' : (monstersRemaining+' left');
     document.getElementById('prompt').classList.add('show');
   } else if(gd>=2.6 && promptTimer<=0){
     document.getElementById('prompt').classList.remove('show');
@@ -2175,6 +2371,7 @@ function update(dt){
   updateJumpscareZones();
   updateBloodParticles(dt);
   updateGrenades(dt);
+  updateGrassFlinches(dt);
 }
 
 function updateWeaponVisuals(dt){
@@ -2313,10 +2510,10 @@ function updateOneMonster(m,dt,playerMoving,moveMag){
 }
 
 function updateWarnAll(){
-  const warnBox=document.getElementById('warnBox');
+  const warnBox=document.getElementById('warnBanner');
   const alive=monsters.filter(m=>m.mode!=='dead');
   const anyAttack=alive.some(m=>m.mode==='attack');
-  if(anyAttack){ warnBox.textContent='یکی داره حمله می‌کنه!'; warnBox.classList.add('show'); }
+  if(anyAttack){ warnBox.textContent='Something is attacking!'; warnBox.classList.add('show'); }
   else warnBox.classList.remove('show');
   document.getElementById('redOverlay').classList.toggle('active', anyAttack);
 }
@@ -2362,6 +2559,8 @@ function damagePlayer(amount){
   if(player.invulnTimer>0) return;
   player.hp=Math.max(0,player.hp-amount);
   updateHealthUI();
+  document.getElementById('hpBadge').classList.add('open');
+  hpBadgeTimer=4;
   cameraShakeTimer=Math.max(cameraShakeTimer,0.18);
   document.getElementById('redOverlay').classList.add('active');
   setTimeout(()=>{ if(!(monsters.some(m=>m.mode==='attack'))) document.getElementById('redOverlay').classList.remove('active'); },200);
@@ -2369,6 +2568,7 @@ function damagePlayer(amount){
   player.invulnTimer=Math.max(player.invulnTimer,0.5);
   if(player.hp<=0){ catchPlayer(); }
 }
+let hpBadgeTimer=0;
 function updateHealthUI(){
   const el=document.getElementById('hpFill');
   if(el) el.style.width=Math.max(0,player.hp)+'%';
@@ -2415,13 +2615,18 @@ function animate(){
   lanternMeshes.forEach((l,i)=>{
     l.light.intensity = l.base + Math.sin(performance.now()/220 + i*13)*0.15;
   });
+  fireBarrels.forEach(f=>{
+    const t=performance.now()/1000+f.phase;
+    f.light.intensity = f.base + Math.sin(t*9)*0.3 + Math.sin(t*23)*0.15;
+    f.flame.scale.set(1+Math.sin(t*11)*0.12, 1+Math.sin(t*7)*0.18, 1+Math.sin(t*13)*0.12);
+  });
   renderer.render(scene,camera);
   requestAnimationFrame(animate);
 }
 
 /* ================= SETTINGS + DRAGGABLE HUD LAYOUT ================= */
 let editMode=false;
-const DRAG_IDS=['btnFire','btnDash','btnSlide','btnCrouch','btnFlash','btnSettings','btnReload','wPistol','wShotgun','moveZone','btnGrenade','btnJump'];
+const DRAG_IDS=['btnFire','btnDash','btnSlide','btnCrouch','btnFlash','btnSettings','btnReload','wPistol','wShotgun','wSniper','moveZone','btnGrenade','btnJump','btnZoom'];
 
 function saveButtonPositions(){
   const data={};
@@ -2479,7 +2684,7 @@ document.addEventListener('pointerup', e=>{
 DRAG_IDS.forEach(id=>{ const el=document.getElementById(id); if(el) el.dataset.draggable='1'; });
 
 function saveSettings(){
-  try{ localStorage.setItem('houseShooterSettings', JSON.stringify({lookSensScale, speedScale:MAX_SPEED/BASE_MAX_SPEED})); }catch(e){}
+  try{ localStorage.setItem('houseShooterSettings', JSON.stringify({lookSensScale, speedScale:MAX_SPEED/BASE_MAX_SPEED, timeOfDay})); }catch(e){}
 }
 function loadSettings(){
   try{
@@ -2498,8 +2703,18 @@ function loadSettings(){
       s.value=Math.round(d.speedScale*50);
       document.getElementById('speedVal').textContent=s.value;
     }
+    if(d.timeOfDay){
+      setTimeOfDay(d.timeOfDay);
+      document.getElementById('btnTimeOfDay').textContent = d.timeOfDay==='day' ? '🌙 Switch to Night' : '☀️ Switch to Day';
+    }
   }catch(e){}
 }
+document.getElementById('btnTimeOfDay').addEventListener('click', ()=>{
+  const next = timeOfDay==='day' ? 'night' : 'day';
+  setTimeOfDay(next);
+  document.getElementById('btnTimeOfDay').textContent = next==='day' ? '🌙 Switch to Night' : '☀️ Switch to Day';
+  saveSettings();
+});
 document.getElementById('btnSettings').addEventListener('pointerdown', e=>{
   e.preventDefault();
   document.getElementById('settingsPanel').classList.toggle('hidden');
@@ -2519,7 +2734,7 @@ document.getElementById('speedSlider').addEventListener('input', e=>{
 document.getElementById('btnEditLayout').addEventListener('click', ()=>{
   editMode=!editMode;
   const btn=document.getElementById('btnEditLayout');
-  btn.textContent = editMode ? 'جابه‌جایی دکمه‌ها: روشن' : 'جابه‌جایی دکمه‌ها: خاموش';
+  btn.textContent = editMode ? 'Move buttons: ON' : 'Move buttons: OFF';
   btn.classList.toggle('active', editMode);
 });
 document.getElementById('btnResetLayout').addEventListener('click', ()=>{
