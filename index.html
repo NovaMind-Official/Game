@@ -152,6 +152,12 @@
     top:50%;left:50%;transform:translate(-50%,-50%);}
 
   #flashOverlay{position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:200;}
+  #levelBanner{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    pointer-events:none;z-index:150;opacity:0;transition:opacity .4s ease;background:rgba(3,3,4,0.5);}
+  #levelBanner.show{opacity:1;}
+  #levelBannerTitle{font-family:'Creepster',cursive;font-size:2.6rem;color:var(--blood-bright);
+    text-shadow:0 0 20px rgba(179,52,47,0.6);letter-spacing:2px;}
+  #levelBannerSub{font-size:0.95rem;color:var(--bone);margin-top:8px;}
 
   @media (max-width:700px){
     .stick-zone{width:110px;height:110px;bottom:100px;}
@@ -193,7 +199,7 @@
     <div class="settingsRow"><small style="color:#8a857a;">When "Move buttons" is on, drag any button anywhere you like.</small></div>
   </div>
   <div id="crosshair">+</div>
-  <div class="huntBox">🎯 Bots: <span id="monsterCount">0/13</span></div>
+  <div class="huntBox"><span id="monsterCount">Lv1/5</span></div>
   <div class="miniBadge" id="hpBadge">
     <div class="badgeIcon">❤️</div>
     <div class="badgeSlide"><div class="badgeTrack"><div class="badgeFill" id="hpFill" style="background:linear-gradient(90deg,#7a1f1f,#e05a4f);"></div></div></div>
@@ -230,7 +236,7 @@
   <div class="card">
     <h1>Ruined House Hunter</h1>
     <div class="story">
-      A street full of ruined houses and burnt-out cars, then a derelict house at the end of it. 13 bots hold this ground —
+      Past a burned-out gas station, a gutted corner store, and a collapsed church, a street full of ruined houses leads to a derelict house at the end. From level 2 on, one bot climbs to the roof and shoots down at you. 5 waves hold this ground, each nastier than the last —
       three of them swing axes inside the house, the rest shoot at you from the street. Take cover behind cars and broken walls.
       You start with a pistol, shotgun, and sniper rifle already in hand — all with unlimited ammo.
     </div>
@@ -247,7 +253,7 @@
       <li>💣 Grenade: red button or G — only 3, save them for grouped bots</li>
       <li>⬆️ Jump: button next to crouch or J</li>
       <li>🎯 Sniper: zoom with 🔭, Z, or right-click — fires either way</li>
-      <li>🎯 Goal: hunt down all 13 bots, then head back to the yard gate</li>
+      <li>🎯 Goal: clear all 5 levels — hunt every bot, then return to the yard gate to advance</li>
     </ul>
     <button class="primary" id="btnStart">Enter the yard</button>
   </div>
@@ -264,12 +270,16 @@
 <div class="overlay hidden" id="screenWin">
   <div class="card">
     <h1 style="color:#8fd98a;text-shadow:0 0 20px rgba(143,217,138,0.5);">Hunt complete!</h1>
-    <p>You hunted down every last one. The yard gate closed behind you — this house is empty now.</p>
+    <p>All 5 levels cleared. The yard gate closed behind you for the last time — this ground is finally quiet.</p>
     <button class="primary" id="btnRestart2">Play again</button>
   </div>
 </div>
 
 <div id="flashOverlay"></div>
+<div id="levelBanner">
+  <div id="levelBannerTitle">LEVEL 1 CLEAR</div>
+  <div id="levelBannerSub">Heading into level 2...</div>
+</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
@@ -289,6 +299,18 @@ const GCOLS=11, GROWS=29;
 const HEDGE_H=2.7;
 const EYE_H=1.65;
 const CROUCH_H=1.0;
+const STAIRS_X=33, STAIRS_Z0=10, STAIRS_Z1=5, ROOF_Y=3.0;
+function inRoofBounds(x,z){ return x>8 && x<36 && z>3 && z<17; }
+function updateStairs(){
+  if(Math.abs(player.x-STAIRS_X)<1.1 && player.z<=STAIRS_Z0+1 && player.z>=STAIRS_Z1-1){
+    const t=Math.max(0,Math.min(1,(STAIRS_Z0-player.z)/(STAIRS_Z0-STAIRS_Z1)));
+    player.floorY=t*ROOF_Y;
+  } else if(inRoofBounds(player.x,player.z) && player.floorY>ROOF_Y*0.5){
+    player.floorY=ROOF_Y;
+  } else if(!inRoofBounds(player.x,player.z) && player.floorY>0){
+    player.floorY=Math.max(0, player.floorY-3*0.016);
+  }
+}
 const PLAYER_R=0.4;
 const BASE_MAX_SPEED=3.9;
 let MAX_SPEED=3.9;
@@ -362,7 +384,7 @@ buildMazeGrid();
 /* ================= THREE SETUP ================= */
 const canvas=document.getElementById('game');
 const renderer=new THREE.WebGLRenderer({canvas:canvas, antialias:true});
-renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,1.5));
 if(renderer.outputEncoding!==undefined) renderer.outputEncoding=THREE.sRGBEncoding;
 renderer.shadowMap.enabled=true;
 renderer.shadowMap.type=THREE.PCFSoftShadowMap;
@@ -393,7 +415,7 @@ scene.add(hemi);
 const moonLight=new THREE.DirectionalLight(0x8fa6d9, 0.55);
 moonLight.position.set(60,90,-40);
 moonLight.castShadow=true;
-moonLight.shadow.mapSize.set(1536,1536);
+moonLight.shadow.mapSize.set(1024,1024);
 {
   const shCam=moonLight.shadow.camera;
   shCam.left=-8; shCam.right=GCOLS*CELL+8; shCam.top=8; shCam.bottom=-(GROWS*CELL+8);
@@ -852,6 +874,51 @@ function buildFurniture(){
 }
 buildFurniture();
 
+/* ---- Second floor: staircase + rooftop platform (reuses ground-floor collision footprint) ---- */
+function buildStairsAndRoof(){
+  const woodMat=new THREE.MeshStandardMaterial({map:buildWoodTexture(2,2), roughness:0.8});
+  const stepCount=10;
+  for(let i=0;i<stepCount;i++){
+    const t=i/(stepCount-1);
+    const z=STAIRS_Z0+(STAIRS_Z1-STAIRS_Z0)*t;
+    const y=ROOF_Y*t;
+    const step=new THREE.Mesh(new THREE.BoxGeometry(1.6,0.12,0.5), woodMat);
+    step.position.set(STAIRS_X, y+0.06, z);
+    step.castShadow=true; step.receiveShadow=true;
+    scene.add(step);
+  }
+  const railMat=new THREE.MeshStandardMaterial({color:0x2a2a2a, metalness:0.5, roughness:0.5});
+  [-0.85,0.85].forEach(side=>{
+    const rail=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.9,Math.hypot(STAIRS_Z0-STAIRS_Z1,ROOF_Y)), railMat);
+    rail.position.set(STAIRS_X+side, ROOF_Y/2+0.45, (STAIRS_Z0+STAIRS_Z1)/2);
+    rail.rotation.x=Math.atan2(ROOF_Y, STAIRS_Z0-STAIRS_Z1);
+    scene.add(rail);
+  });
+
+  const roofFloorMat=new THREE.MeshStandardMaterial({map:buildWoodTexture(4,4), roughness:0.85});
+  const roofFloor=new THREE.Mesh(new THREE.PlaneGeometry(28,16), roofFloorMat);
+  roofFloor.rotation.x=-Math.PI/2;
+  roofFloor.position.set(22, ROOF_Y, 8);
+  roofFloor.receiveShadow=true;
+  scene.add(roofFloor);
+
+  const parapetMat=new THREE.MeshStandardMaterial({map:buildWallTexture(), roughness:1});
+  function parapet(x,z,w,d){
+    const p=new THREE.Mesh(new THREE.BoxGeometry(w,0.55,d), parapetMat);
+    p.position.set(x, ROOF_Y+0.27, z);
+    p.castShadow=true; p.receiveShadow=true;
+    scene.add(p);
+  }
+  parapet(22, 0.3, 28, 0.3);
+  parapet(22, 15.7, 28, 0.3);
+  parapet(8.3, 8, 0.3, 16);
+  parapet(35.7, 8, 0.3, 16);
+}
+buildStairsAndRoof();
+
+/* ---- Rooftop bot: an elevated shooter that can rain fire down on the street ---- */
+const ROOFTOP_SPAWN={x:30, z:8, type:'shooter', baseY:ROOF_Y};
+
 /* ---- Decorative weapon rack near the safe spawn point ---- */
 function buildSpawnArmory(){
   const spawnW=gridToWorld(5,28);
@@ -906,6 +973,82 @@ function buildSpawnArmory(){
 }
 buildSpawnArmory();
 
+/* ---- Street landmarks: distinct silhouettes so the walk doesn't feel like one repeating corridor ---- */
+function buildGasStation(){
+  const poleMat=new THREE.MeshStandardMaterial({color:0x2a2a2a, metalness:0.5, roughness:0.5});
+  const canopyMat=new THREE.MeshStandardMaterial({map:buildRustTexture(), roughness:0.7});
+  const cx=23, cz=46;
+  [[-3,-2],[3,-2],[-3,2],[3,2]].forEach(([dx,dz])=>{
+    const pole=new THREE.Mesh(new THREE.CylinderGeometry(0.15,0.15,3.4,8), poleMat);
+    pole.position.set(cx+dx,1.7,cz+dz); pole.castShadow=true;
+    scene.add(pole);
+  });
+  const canopy=new THREE.Mesh(new THREE.BoxGeometry(7.4,0.3,5.2), canopyMat);
+  canopy.position.set(cx,3.4,cz); canopy.castShadow=true; canopy.receiveShadow=true;
+  scene.add(canopy);
+  const pumpMat=new THREE.MeshStandardMaterial({color:0xb3342f, roughness:0.6, metalness:0.2});
+  [-1.2,1.2].forEach(dx=>{
+    const pump=new THREE.Mesh(new THREE.BoxGeometry(0.5,1.3,0.4), pumpMat);
+    pump.position.set(cx+dx,0.65,cz); pump.castShadow=true;
+    scene.add(pump);
+    const hose=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.8,6), new THREE.MeshStandardMaterial({color:0x111111}));
+    hose.rotation.z=Math.PI/2.5; hose.position.set(cx+dx+0.3,0.9,cz);
+    scene.add(hose);
+  });
+  const signMat=new THREE.MeshStandardMaterial({color:0xd9a441, emissive:0x553300, emissiveIntensity:0.4, roughness:0.5});
+  const sign=new THREE.Mesh(new THREE.BoxGeometry(0.15,1.4,2.2), signMat);
+  sign.position.set(cx-3.3,2.4,cz); sign.castShadow=true;
+  scene.add(sign);
+  const signLight=new THREE.PointLight(0xffcf7a, 0.7, 6, 2);
+  signLight.position.set(cx-3.3,2.6,cz);
+  scene.add(signLight);
+}
+buildGasStation();
+
+function buildCornerStore(){
+  const wallMat=new THREE.MeshStandardMaterial({map:buildWallTexture(), roughness:1});
+  const cx=9, cz=78;
+  const facade=new THREE.Mesh(new THREE.BoxGeometry(0.4,3.2,6), wallMat);
+  facade.position.set(cx,1.6,cz); facade.castShadow=true; facade.receiveShadow=true;
+  scene.add(facade);
+  const windowMat=new THREE.MeshStandardMaterial({color:0x1a2a1a, emissive:0x111a08, emissiveIntensity:0.3, roughness:0.4});
+  [-1.8,1.8].forEach(dz=>{
+    const win=new THREE.Mesh(new THREE.PlaneGeometry(1.3,1.5), windowMat);
+    win.rotation.y=Math.PI/2; win.position.set(cx-0.21,1.7,cz+dz);
+    scene.add(win);
+  });
+  const signMat=new THREE.MeshStandardMaterial({color:0x6a1e1e, roughness:0.6});
+  const sign=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.7,5.6), signMat);
+  sign.position.set(cx-0.3,3.15,cz); sign.castShadow=true;
+  scene.add(sign);
+  const shelfLight=new THREE.PointLight(0x8fd98a, 0.5, 5, 2);
+  shelfLight.position.set(cx-1,1.8,cz);
+  scene.add(shelfLight);
+}
+buildCornerStore();
+
+function buildBurnedChurch(){
+  const wallMat=new THREE.MeshStandardMaterial({map:buildRubbleTexture(), roughness:1});
+  const cx=40, cz=99;
+  const nave=new THREE.Mesh(new THREE.BoxGeometry(5,4.5,8), wallMat);
+  nave.position.set(cx,2.25,cz); nave.castShadow=true; nave.receiveShadow=true;
+  scene.add(nave);
+  const spire=new THREE.Mesh(new THREE.ConeGeometry(2.0,6,4), wallMat);
+  spire.position.set(cx,4.5+3,cz-2); spire.rotation.y=Math.PI/4; spire.castShadow=true;
+  scene.add(spire);
+  const crossMat=new THREE.MeshStandardMaterial({color:0x1a1a1a, roughness:0.7});
+  const crossV=new THREE.Mesh(new THREE.BoxGeometry(0.15,1.3,0.15), crossMat);
+  crossV.position.set(cx,4.5+6.2,cz-2);
+  scene.add(crossV);
+  const crossH=new THREE.Mesh(new THREE.BoxGeometry(0.7,0.15,0.15), crossMat);
+  crossH.position.set(cx,4.5+6.6,cz-2); crossH.rotation.z=0.15;
+  scene.add(crossH);
+  const emberLight=new THREE.PointLight(0xff5a2a, 0.9, 8, 2);
+  emberLight.position.set(cx,1.2,cz);
+  scene.add(emberLight);
+}
+buildBurnedChurch();
+
 /* ---- Fire barrels: dramatic warm light pools scattered through the shadowed street ---- */
 const fireBarrels=[];
 function buildFireBarrel(gx,gy){
@@ -942,7 +1085,7 @@ let grassFlinches=[];
 function scatterGrass(){
   const openCells=[];
   for(let gy=0;gy<GROWS;gy++) for(let gx=0;gx<GCOLS;gx++) if(maze[gy][gx]===1) openCells.push([gx,gy]);
-  const perCell=3;
+  const perCell=2;
   const count=openCells.length*perCell;
   const geo=new THREE.ConeGeometry(0.075,0.52,5);
   const mat=new THREE.MeshStandardMaterial({color:0x3f5527, roughness:1});
@@ -1206,7 +1349,7 @@ function spawnItems(){
 }
 
 /* ================= PLAYER / HANDS ================= */
-let player={x:0,z:0,yaw:0,pitch:0,flashlightOn:false,battery:100,walkT:0,dashTimer:0,dashCooldown:0,dashDX:0,dashDZ:0,invulnTimer:0,vx:0,vz:0,recoilKick:0,hp:100,maxHp:100,crouching:false,eyeOffset:0,slideTimer:0,slideCooldown:0,slideDX:0,slideDZ:0,jumpY:0,jumpVel:0};
+let player={x:0,z:0,yaw:0,pitch:0,flashlightOn:false,battery:100,walkT:0,dashTimer:0,dashCooldown:0,dashDX:0,dashDZ:0,invulnTimer:0,vx:0,vz:0,recoilKick:0,hp:100,maxHp:100,crouching:false,eyeOffset:0,slideTimer:0,slideCooldown:0,slideDX:0,slideDZ:0,jumpY:0,jumpVel:0,floorY:0};
 const handGroup=new THREE.Group();
 camera.add(handGroup);
 
@@ -1518,6 +1661,8 @@ const monsterDefs=[
   {start:[7,1], patrol:[[7,1],[7,2],[5,3],[3,1],[3,2],[5,3]], type:'stalker'},
   {start:[3,6], patrol:[[3,6],[3,5],[5,3],[2,3],[5,3]], type:'brute'},
   {start:[6,6], patrol:[[6,6],[6,5],[5,3],[5,5],[5,3]], type:'crawler'},
+];
+const shooterDefs=[
   {start:[2,13], type:'shooter'},
   {start:[8,13], type:'shooter'},
   {start:[6,15], type:'shooter'},
@@ -1529,10 +1674,27 @@ const monsterDefs=[
   {start:[2,25], type:'shooter'},
   {start:[8,25], type:'shooter'},
 ];
+const LEVELS=[
+  {n:1, shooterCount:6,  accuracy:0.32, fireRateMul:1.35, speedMul:0.9},
+  {n:2, shooterCount:7,  accuracy:0.42, fireRateMul:1.15, speedMul:1.0},
+  {n:3, shooterCount:8,  accuracy:0.53, fireRateMul:1.0,  speedMul:1.15},
+  {n:4, shooterCount:9,  accuracy:0.65, fireRateMul:0.85, speedMul:1.3},
+  {n:5, shooterCount:10, accuracy:0.78, fireRateMul:0.7,  speedMul:1.5},
+];
+let levelIndex=0;
+function currentLevelCfg(){ return LEVELS[Math.min(levelIndex, LEVELS.length-1)]; }
+function shuffledCopy(arr){
+  const a=arr.slice();
+  for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
+  return a;
+}
 function spawnMonsters(){
   monsters.forEach(m=>scene.remove(m.mesh));
   monsters=[];
-  monsterDefs.forEach(def=>{
+  const cfg=currentLevelCfg();
+  const chosenShooters=shuffledCopy(shooterDefs).slice(0, Math.min(cfg.shooterCount, shooterDefs.length));
+  const allDefs=monsterDefs.concat(chosenShooters);
+  allDefs.forEach(def=>{
     const stats=MONSTER_TYPES[def.type];
     const mesh=buildMonster(def.type);
     const w=gridToWorld(def.start[0],def.start[1]);
@@ -1540,15 +1702,28 @@ function spawnMonsters(){
     scene.add(mesh);
     monsters.push({
       mesh, type:def.type, hp:stats.hp, mode:'idle',
-      speedMul:stats.speedMul, chaseMul:stats.chaseMul, catchR:stats.catchR
+      speedMul:stats.speedMul*cfg.speedMul, chaseMul:stats.chaseMul*cfg.speedMul, catchR:stats.catchR,
+      accuracy:cfg.accuracy, fireRateMul:cfg.fireRateMul, baseY:0
     });
   });
+  if(levelIndex>=1){
+    const rstats=MONSTER_TYPES.shooter;
+    const rmesh=buildMonster('shooter');
+    rmesh.position.set(ROOFTOP_SPAWN.x, ROOF_Y, ROOFTOP_SPAWN.z);
+    scene.add(rmesh);
+    monsters.push({
+      mesh:rmesh, type:'shooter', hp:rstats.hp, mode:'idle',
+      speedMul:rstats.speedMul*cfg.speedMul, chaseMul:rstats.chaseMul*cfg.speedMul, catchR:rstats.catchR,
+      accuracy:cfg.accuracy, fireRateMul:cfg.fireRateMul, baseY:ROOF_Y,
+      homeX:ROOFTOP_SPAWN.x, homeZ:ROOFTOP_SPAWN.z
+    });
+  }
   monstersRemaining=monsters.length;
   updateMonsterCountUI();
 }
 function updateMonsterCountUI(){
   const el=document.getElementById('monsterCount');
-  if(el) el.textContent=(monsters.length-monstersRemaining)+'/'+monsters.length+' hunted';
+  if(el) el.textContent='Lv'+(levelIndex+1)+'/5  '+(monsters.length-monstersRemaining)+'/'+monsters.length+' hunted';
 }
 
 /* ================= JUMPSCARES ================= */
@@ -1806,7 +1981,7 @@ function fireWeapon(){
   const alive=monsters.filter(m=>m.mode!=='dead');
 
   if(activeWeapon==='pistol'){
-    beep(140,0.1,0.3,'square'); beep(1400,0.05,0.08,'square');
+    sGunshotPistol();
     beep(400+Math.random()*120,0.06,0.14,'sawtooth');
     raycaster.far=w.range;
     raycaster.setFromCamera(new THREE.Vector2(0,0), camera);
@@ -1824,9 +1999,7 @@ function fireWeapon(){
       spawnTracer(rayOrigin, rayOrigin.clone().addScaledVector(rayDir, w.range));
     }
   } else if(activeWeapon==='sniper'){
-    beep(60,0.09,0.16,'square');
-    beep(900,0.28,0.32,'sawtooth');
-    setTimeout(()=>beep(200,0.35,0.18,'sawtooth'),40);
+    sGunshotSniper();
     raycaster.far=w.range;
     raycaster.setFromCamera(new THREE.Vector2(0,0), camera);
     const rayOrigin=raycaster.ray.origin.clone(), rayDir=raycaster.ray.direction.clone();
@@ -1843,7 +2016,7 @@ function fireWeapon(){
       spawnTracer(rayOrigin, rayOrigin.clone().addScaledVector(rayDir, w.range));
     }
   } else {
-    beep(90,0.22,0.45,'sawtooth'); beep(60,0.3,0.3,'sawtooth'); beep(45,0.35,0.25,'sawtooth');
+    sGunshotShotgun();
     raycaster.far=w.range;
     const hitSet=new Set();
     for(let i=0;i<w.pellets;i++){
@@ -1987,11 +2160,55 @@ canvas.addEventListener('contextmenu', e=>{ e.preventDefault(); toggleZoom(); })
 
 function tryOpenGate(){
   const d=Math.hypot(player.x-gateCellWorld.x, player.z-gateCellWorld.z);
-  if(d<2.4 && monstersRemaining<=0 && !gameOverFlag && !gameWinFlag){
-    winGame();
+  if(d<2.4 && monstersRemaining<=0 && !gameOverFlag && !gameWinFlag && !levelTransitioning){
+    if(levelIndex<LEVELS.length-1){ advanceLevel(); } else { winGame(); }
   } else if(d<2.4 && monstersRemaining>0){
     showPrompt(monstersRemaining+' left — hunt them down first', 1.4);
   }
+}
+let levelTransitioning=false;
+function advanceLevel(){
+  levelTransitioning=true;
+  gateLight.intensity=1.2;
+  const ld=gateGroup.userData.leftDoor, rd=gateGroup.userData.rightDoor;
+  let t=0;
+  const anim=setInterval(()=>{
+    t+=0.05; ld.rotation.y=-t*1.2; rd.rotation.y=t*1.2;
+    if(t>=1) clearInterval(anim);
+  },30);
+  sWin();
+  showLevelBanner('LEVEL '+(levelIndex+1)+' CLEAR', 'Heading into level '+(levelIndex+2)+'...');
+  setTimeout(()=>{
+    levelIndex++;
+    ld.rotation.y=0; rd.rotation.y=0;
+    gateLight.intensity=0;
+    spawnMonsters();
+    player.hp=Math.min(player.maxHp, player.hp+30); updateHealthUI();
+    const startW=gridToWorld(5,28);
+    player.x=startW.x; player.z=startW.z; player.yaw=Math.PI; player.pitch=0; player.floorY=0; player.jumpY=0;
+    if(timeOfDay==='night') applyLevelMood();
+    levelTransitioning=false;
+  }, 2200);
+}
+function applyLevelMood(){
+  const moods=[
+    {fog:0x03050a, sky:0x2a3550, ground:0x0a0d08},
+    {fog:0x140a12, sky:0x3a2a50, ground:0x150a10},
+    {fog:0x0a1414, sky:0x1a4050, ground:0x081010},
+    {fog:0x1a0505, sky:0x5a1a1a, ground:0x100505},
+    {fog:0x100800, sky:0x6a2a05, ground:0x1a0800},
+  ];
+  const mood=moods[Math.min(levelIndex, moods.length-1)];
+  scene.fog.color.set(mood.fog);
+  hemi.color.set(mood.sky);
+  hemi.groundColor.set(mood.ground);
+}
+function showLevelBanner(title, sub){
+  const el=document.getElementById('levelBanner');
+  document.getElementById('levelBannerTitle').textContent=title;
+  document.getElementById('levelBannerSub').textContent=sub||'';
+  el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'), 2000);
 }
 
 let promptTimer=0;
@@ -2028,12 +2245,73 @@ function beep(freq,dur,vol,type){
   o.connect(g).connect(audioCtx.destination);
   o.start(now); o.stop(now+dur);
 }
+let noiseBufferCache={};
+function getNoiseBuffer(duration){
+  const key=Math.round(duration*1000);
+  if(noiseBufferCache[key]) return noiseBufferCache[key];
+  const bufferSize=Math.max(1,Math.floor(audioCtx.sampleRate*duration));
+  const buffer=audioCtx.createBuffer(1,bufferSize,audioCtx.sampleRate);
+  const data=buffer.getChannelData(0);
+  for(let i=0;i<bufferSize;i++) data[i]=Math.random()*2-1;
+  noiseBufferCache[key]=buffer;
+  return buffer;
+}
+function playNoise(duration,volume,filterFreq,filterType,decayTime){
+  if(!audioCtx) return;
+  const src=audioCtx.createBufferSource();
+  src.buffer=getNoiseBuffer(duration);
+  const filter=audioCtx.createBiquadFilter();
+  filter.type=filterType||'lowpass';
+  filter.frequency.value=filterFreq||4000;
+  const gain=audioCtx.createGain();
+  const now=audioCtx.currentTime;
+  gain.gain.setValueAtTime(volume,now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now+(decayTime||duration));
+  src.connect(filter).connect(gain).connect(audioCtx.destination);
+  src.start(now);
+}
+function sGunshotPistol(){
+  playNoise(0.1,0.5,2400,'bandpass',0.08);
+  playNoise(0.15,0.3,450,'lowpass',0.13);
+  beep(1600,0.03,0.05,'square');
+}
+function sGunshotShotgun(){
+  playNoise(0.2,0.6,1100,'bandpass',0.15);
+  playNoise(0.28,0.45,280,'lowpass',0.24);
+}
+function sGunshotSniper(){
+  playNoise(0.05,0.35,3200,'bandpass',0.04);
+  playNoise(0.3,0.6,1600,'bandpass',0.22);
+  playNoise(0.42,0.5,220,'lowpass',0.36);
+}
+function sPlayerGrunt(){
+  if(!audioCtx) return;
+  playNoise(0.12,0.28,900,'bandpass',0.1);
+  const o=audioCtx.createOscillator(), g=audioCtx.createGain();
+  o.type='sawtooth';
+  const now=audioCtx.currentTime;
+  o.frequency.setValueAtTime(170,now);
+  o.frequency.exponentialRampToValueAtTime(85,now+0.16);
+  g.gain.setValueAtTime(0.22,now);
+  g.gain.exponentialRampToValueAtTime(0.001,now+0.2);
+  o.connect(g).connect(audioCtx.destination);
+  o.start(now); o.stop(now+0.22);
+}
 function sHeartbeat(){ beep(58,0.14,0.28,'sine'); }
 function sPickup(){ beep(660,0.09,0.16,'triangle'); setTimeout(()=>beep(880,0.11,0.13,'triangle'),70); }
 function sJumpscare(){ beep(110,0.55,0.4,'sawtooth'); beep(900,0.35,0.3,'square'); beep(70,0.7,0.35,'sawtooth'); }
 function sWin(){ [523,659,784].forEach((f,i)=>setTimeout(()=>beep(f,0.2,0.2,'triangle'),i*160)); }
-function sMonsterDeath(){ beep(200,0.3,0.3,'sawtooth'); setTimeout(()=>beep(90,0.4,0.25,'sawtooth'),120); }
-function sFleshHit(){ beep(170,0.09,0.3,'sawtooth'); setTimeout(()=>beep(85,0.14,0.24,'sawtooth'),35); }
+function sMonsterDeath(){ playNoise(0.18,0.4,500,'lowpass',0.16); beep(160,0.3,0.22,'sawtooth'); setTimeout(()=>beep(80,0.4,0.2,'sawtooth'),120); }
+function sFleshHit(){ playNoise(0.07,0.4,650,'lowpass',0.06); playNoise(0.1,0.22,2200,'bandpass',0.08);
+  const o=audioCtx? audioCtx.createOscillator():null;
+  if(o){
+    const g=audioCtx.createGain(); o.type='sawtooth';
+    const now=audioCtx.currentTime;
+    o.frequency.setValueAtTime(130,now); o.frequency.exponentialRampToValueAtTime(55,now+0.13);
+    g.gain.setValueAtTime(0.18,now); g.gain.exponentialRampToValueAtTime(0.001,now+0.15);
+    o.connect(g).connect(audioCtx.destination); o.start(now); o.stop(now+0.16);
+  }
+}
 let hbTimer=0.6;
 
 /* ================= JOYSTICKS ================= */
@@ -2126,11 +2404,11 @@ function doSlide(){
   } else {
     dirVec=new THREE.Vector3(0,0,-1).applyEuler(new THREE.Euler(0,player.yaw,0));
   }
-  const slideSpeed=8.5;
+  const slideSpeed=10.5;
   player.slideDX=dirVec.x*slideSpeed;
   player.slideDZ=dirVec.z*slideSpeed;
-  player.slideTimer=0.42;
-  player.slideCooldown=2.2;
+  player.slideTimer=0.62;
+  player.slideCooldown=2.4;
   player.crouching=true;
   cameraShakeTimer=Math.max(cameraShakeTimer,0.1);
   beep(260,0.1,0.16,'triangle');
@@ -2190,6 +2468,9 @@ let gameRunning=false, gameOverFlag=false, gameWinFlag=false;
 
 function resetGame(){
   buildMazeGrid();
+  levelIndex=0;
+  levelTransitioning=false;
+  if(timeOfDay==='night') applyLevelMood();
   const startW=gridToWorld(5,28);
   player.x=startW.x; player.z=startW.z; player.yaw=Math.PI; player.pitch=0;
   player.flashlightOn=false; player.battery=100; player.walkT=0;
@@ -2205,7 +2486,7 @@ function resetGame(){
   grenades=[];
   grenadeCount=3;
   updateGrenadeUI();
-  player.jumpY=0; player.jumpVel=0;
+  player.jumpY=0; player.jumpVel=0; player.floorY=0;
 
   spawnMonsters();
 
@@ -2274,7 +2555,7 @@ function update(dt){
   } else if(player.slideTimer>0){
     player.slideTimer=Math.max(0,player.slideTimer-dt);
     player.crouching=true;
-    const decel=1-Math.min(1,dt*2.2);
+    const decel=1-Math.min(1,dt*1.6);
     player.slideDX*=decel; player.slideDZ*=decel;
     const newX=player.x+player.slideDX*dt, newZ=player.z+player.slideDZ*dt;
     if(canMoveTo(newX,player.z,PLAYER_R)) player.x=newX; else player.slideDX=0;
@@ -2326,7 +2607,8 @@ function update(dt){
   player.jumpVel-=9.8*dt;
   player.jumpY=Math.max(0, player.jumpY+player.jumpVel*dt);
   if(player.jumpY<=0){ player.jumpY=0; if(player.jumpVel<0) player.jumpVel=0; }
-  camera.position.set(player.x, EYE_H - player.eyeOffset + player.jumpY + Math.sin(player.walkT)*0.035, player.z);
+  updateStairs();
+  camera.position.set(player.x, EYE_H - player.eyeOffset + player.jumpY + player.floorY + Math.sin(player.walkT)*0.035, player.z);
   camera.rotation.y=player.yaw;
   if(player.recoilKick>0) player.recoilKick=Math.max(0,player.recoilKick-dt*0.9);
   camera.rotation.x=player.pitch - player.recoilKick;
@@ -2416,16 +2698,23 @@ function updateShooterBot(m,dt){
     return;
   }
 
-  let canSee=false;
-  if(dist<16){
-    const eyeY=1.87;
-    const playerEyeY=EYE_H-player.eyeOffset;
-    const dir=new THREE.Vector3(player.x-mx, playerEyeY-eyeY, player.z-mz);
-    const flatDist=dir.length();
-    dir.normalize();
-    losRaycaster.set(new THREE.Vector3(mx,eyeY,mz), dir);
-    losRaycaster.far=Math.max(0.1,flatDist-0.4);
-    canSee = losRaycaster.intersectObjects(envTargets, true).length===0;
+  if(m.losCheckTimer===undefined) m.losCheckTimer=Math.random()*0.15;
+  m.losCheckTimer-=dt;
+  let canSee = m.lastCanSee||false;
+  if(m.losCheckTimer<=0){
+    m.losCheckTimer=0.15;
+    canSee=false;
+    if(dist<16){
+      const eyeY=(m.baseY||0)+1.87;
+      const playerEyeY=EYE_H-player.eyeOffset+player.floorY+player.jumpY;
+      const dir=new THREE.Vector3(player.x-mx, playerEyeY-eyeY, player.z-mz);
+      const flatDist=dir.length();
+      dir.normalize();
+      losRaycaster.set(new THREE.Vector3(mx,eyeY,mz), dir);
+      losRaycaster.far=Math.max(0.1,flatDist-0.4);
+      canSee = losRaycaster.intersectObjects(envTargets, true).length===0;
+    }
+    m.lastCanSee=canSee;
   }
 
   if(canSee){
@@ -2433,12 +2722,13 @@ function updateShooterBot(m,dt){
     m.mesh.rotation.y=Math.atan2(player.x-mx, player.z-mz);
     m.fireTimer-=dt;
     if(m.fireTimer<=0){
-      m.fireTimer=1.0+Math.random()*0.8;
+      m.fireTimer=(1.0+Math.random()*0.8)*(m.fireRateMul||1);
       const tip=m.mesh.userData.rifleTip;
       const origin = tip? tip.getWorldPosition(new THREE.Vector3()) : m.mesh.position.clone().add(new THREE.Vector3(0,1.4,0));
-      beep(210+Math.random()*40,0.09,0.25,'square');
-      spawnTracer(origin, new THREE.Vector3(player.x, EYE_H-player.eyeOffset, player.z));
-      if(Math.random()<0.5 && player.invulnTimer<=0) damagePlayer(9);
+      playNoise(0.08,0.35,1900,'bandpass',0.06);
+      playNoise(0.12,0.22,400,'lowpass',0.1);
+      spawnTracer(origin, new THREE.Vector3(player.x, EYE_H-player.eyeOffset+player.floorY+player.jumpY, player.z));
+      if(Math.random()<(m.accuracy||0.5) && player.invulnTimer<=0) damagePlayer(9);
     }
   } else {
     m.mode='idle';
@@ -2564,7 +2854,7 @@ function damagePlayer(amount){
   cameraShakeTimer=Math.max(cameraShakeTimer,0.18);
   document.getElementById('redOverlay').classList.add('active');
   setTimeout(()=>{ if(!(monsters.some(m=>m.mode==='attack'))) document.getElementById('redOverlay').classList.remove('active'); },200);
-  beep(120,0.15,0.32,'sawtooth');
+  sPlayerGrunt();
   player.invulnTimer=Math.max(player.invulnTimer,0.5);
   if(player.hp<=0){ catchPlayer(); }
 }
