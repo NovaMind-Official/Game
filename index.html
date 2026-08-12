@@ -191,6 +191,14 @@
       <button id="btnEditLayout">Move buttons: OFF</button>
     </div>
     <div class="settingsRow">
+      <label>Graphics quality</label>
+      <div style="display:flex;gap:6px;">
+        <button id="btnQualLow" style="flex:1;">Low</button>
+        <button id="btnQualMed" style="flex:1;">Medium</button>
+        <button id="btnQualHigh" style="flex:1;">High</button>
+      </div>
+    </div>
+    <div class="settingsRow">
       <button id="btnTimeOfDay">☀️ Switch to Day</button>
     </div>
     <div class="settingsRow">
@@ -432,6 +440,31 @@ window.addEventListener('resize', resize);
 
 /* ---- Post-processing: real bloom + vignette/grain, with safe fallback ---- */
 let composer=null, vignettePass=null;
+let bloomEnabled=true, graphicsQuality='medium';
+function applyGraphicsQuality(q){
+  graphicsQuality=q;
+  if(q==='low'){
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,1));
+    renderer.shadowMap.enabled=false;
+    bloomEnabled=false;
+  } else if(q==='high'){
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+    renderer.shadowMap.enabled=true;
+    bloomEnabled=true;
+    if(moonLight.shadow.mapSize.width!==2048){
+      moonLight.shadow.mapSize.set(2048,2048);
+      if(moonLight.shadow.map){ moonLight.shadow.map.dispose(); moonLight.shadow.map=null; }
+    }
+  } else {
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,1.5));
+    renderer.shadowMap.enabled=true;
+    bloomEnabled=true;
+    if(moonLight.shadow.mapSize.width!==1024){
+      moonLight.shadow.mapSize.set(1024,1024);
+      if(moonLight.shadow.map){ moonLight.shadow.map.dispose(); moonLight.shadow.map=null; }
+    }
+  }
+}
 const VignetteGrainShader={
   uniforms:{ tDiffuse:{value:null}, time:{value:0}, vignetteStrength:{value:0.55}, grainStrength:{value:0.045} },
   vertexShader:`varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
@@ -524,10 +557,10 @@ buildMoon();
 
 function buildSun(){
   const sunGroup=new THREE.Group();
-  const core=new THREE.Mesh(new THREE.SphereGeometry(11,20,20), new THREE.MeshBasicMaterial({color:0xfff6d8}));
+  const core=new THREE.Mesh(new THREE.SphereGeometry(11,20,20), new THREE.MeshBasicMaterial({color:0xe8d2a0}));
   core.material.fog=false;
   sunGroup.add(core);
-  const glow=new THREE.Mesh(new THREE.SphereGeometry(19,20,20), new THREE.MeshBasicMaterial({color:0xffe9a8, transparent:true, opacity:0.35}));
+  const glow=new THREE.Mesh(new THREE.SphereGeometry(19,20,20), new THREE.MeshBasicMaterial({color:0xdcc48a, transparent:true, opacity:0.22}));
   glow.material.fog=false;
   sunGroup.add(glow);
   sunGroup.position.set(90,120,-140);
@@ -546,14 +579,15 @@ setTimeOfDay('day');
 function setTimeOfDay(mode){
   timeOfDay=mode;
   if(mode==='day'){
-    scene.background=new THREE.Color(0x8fc7e8);
-    scene.fog.color.set(0x9fd2ec);
-    scene.fog.density=0.016;
-    hemi.color.set(0x9fc7e0); hemi.groundColor.set(0x3a3020); hemi.intensity=0.95;
-    moonLight.color.set(0xfff2d8); moonLight.intensity=1.15;
+    scene.background=new THREE.Color(0x6f8fa3);
+    scene.fog.color.set(0x7a9aac);
+    scene.fog.density=0.02;
+    hemi.color.set(0x7a99a8); hemi.groundColor.set(0x3a3020); hemi.intensity=0.62;
+    moonLight.color.set(0xe8dcc0); moonLight.intensity=0.7;
     if(starsPoints) starsPoints.visible=false;
     if(moonGroupRef) moonGroupRef.visible=false;
     if(sunGroupRef) sunGroupRef.visible=true;
+    if(renderer.toneMapping!==undefined) renderer.toneMappingExposure=0.92;
   } else {
     scene.background=new THREE.Color(0x03040a);
     scene.fog.color.set(0x03050a);
@@ -563,6 +597,7 @@ function setTimeOfDay(mode){
     if(starsPoints) starsPoints.visible=true;
     if(moonGroupRef) moonGroupRef.visible=true;
     if(sunGroupRef) sunGroupRef.visible=false;
+    if(renderer.toneMapping!==undefined) renderer.toneMappingExposure=1.15;
   }
 }
 
@@ -1144,6 +1179,65 @@ function buildBurnedChurch(){
   scene.add(emberLight);
 }
 buildBurnedChurch();
+
+/* ---- Crows: perched on rooftops/ruins, flee on approach or gunfire ---- */
+let crows=[];
+function buildCrow(x,y,z){
+  const g=new THREE.Group();
+  const bodyMat=new THREE.MeshStandardMaterial({color:0x0a0a0a, roughness:0.8});
+  const body=new THREE.Mesh(new THREE.SphereGeometry(0.08,6,6), bodyMat);
+  body.scale.set(1,0.8,1.4);
+  g.add(body);
+  const head=new THREE.Mesh(new THREE.SphereGeometry(0.045,6,6), bodyMat);
+  head.position.set(0,0.05,0.11);
+  g.add(head);
+  const wingMat=new THREE.MeshStandardMaterial({color:0x050505, side:THREE.DoubleSide});
+  const wingL=new THREE.Mesh(new THREE.ConeGeometry(0.06,0.22,3), wingMat);
+  wingL.rotation.z=Math.PI/2; wingL.rotation.y=0.3; wingL.position.set(-0.09,0.02,0);
+  g.add(wingL);
+  const wingR=wingL.clone(); wingR.position.x=0.09; wingR.rotation.y=-0.3;
+  g.add(wingR);
+  g.position.set(x,y,z);
+  scene.add(g);
+  return {mesh:g, wingL, wingR, home:{x,y,z}, flying:false, flyT:0};
+}
+function spawnCrows(){
+  crows.forEach(c=>scene.remove(c.mesh));
+  crows=[];
+  crows.push(buildCrow(22, ROOF_Y+0.55, 1.2));
+  crows.push(buildCrow(35.4, ROOF_Y+0.55, 9));
+  crows.push(buildCrow(40, 4.5+6+0.4, 97));
+  crows.push(buildCrow(23.5,3.65,45));
+  crows.push(buildCrow(9.3,3.3,78));
+}
+spawnCrows();
+function spookCrows(x,z,radius){
+  crows.forEach(c=>{
+    if(!c.flying){
+      const d=Math.hypot(x-c.mesh.position.x, z-c.mesh.position.z);
+      if(d<radius){ c.flying=true; c.flyT=0; }
+    }
+  });
+}
+function updateCrows(dt){
+  crows.forEach(c=>{
+    if(c.mesh.visible===false) return;
+    if(!c.flying){
+      const d=Math.hypot(player.x-c.mesh.position.x, player.z-c.mesh.position.z);
+      if(d<7){ c.flying=true; c.flyT=0; }
+      c.mesh.position.y=c.home.y+Math.sin(performance.now()/900+c.home.x)*0.01;
+    } else {
+      c.flyT+=dt;
+      c.mesh.position.y+=dt*2.2;
+      c.mesh.position.x+=Math.sin(c.flyT*3)*dt*1.5;
+      c.mesh.position.z-=dt*1.8;
+      const flap=Math.sin(c.flyT*22);
+      c.wingL.rotation.z=Math.PI/2+flap*0.6;
+      c.wingR.rotation.z=Math.PI/2-flap*0.6;
+      if(c.flyT>4) c.mesh.visible=false;
+    }
+  });
+}
 
 /* ---- Weather: rain, thunder/lightning, wind ---- */
 let weatherMode='clear';
@@ -2036,6 +2130,7 @@ function explodeGrenade(pos){
   playNoise(0.15,0.4,3000,'bandpass',0.12);
   beep(70,0.42,0.4,'sawtooth'); beep(48,0.6,0.3,'sawtooth');
   cameraShakeTimer=Math.max(cameraShakeTimer,0.4);
+  spookCrows(pos.x, pos.z, 24);
   jumpscareFlash();
   const flashLight=new THREE.PointLight(0xffaa33, 7, 13, 2);
   flashLight.position.copy(pos);
@@ -2161,6 +2256,7 @@ function fireWeapon(){
   updateAmmoUI();
   player.recoilKick=Math.min(0.28, player.recoilKick + (activeWeapon==='shotgun'?0.1:(activeWeapon==='sniper'?0.18:0.035)));
   runStats.shotsFired++;
+  spookCrows(player.x, player.z, 16);
 
   const alive=monsters.filter(m=>m.mode!=='dead');
 
@@ -2719,6 +2815,7 @@ function resetGame(){
   bulletHoles=[];
   bloodPools.forEach(p=>scene.remove(p));
   bloodPools=[];
+  spawnCrows();
   const startW=gridToWorld(5,28);
   player.x=startW.x; player.z=startW.z; player.yaw=Math.PI; player.pitch=0;
   player.flashlightOn=false; player.battery=100; player.walkT=0;
@@ -2906,6 +3003,7 @@ function update(dt){
   updateThunder(dt);
   updateWind(dt);
   updateCasings(dt);
+  updateCrows(dt);
 }
 
 function updateWeaponVisuals(dt){
@@ -3198,7 +3296,7 @@ function animate(){
     f.light.intensity = f.base + Math.sin(t*9)*0.3*windAmp + Math.sin(t*23)*0.15*windAmp;
     f.flame.scale.set(1+Math.sin(t*11)*0.12*windAmp, 1+Math.sin(t*7)*0.18*windAmp, 1+Math.sin(t*13)*0.12*windAmp);
   });
-  if(composer){
+  if(composer && bloomEnabled){
     if(vignettePass) vignettePass.uniforms.time.value=performance.now()/1000;
     composer.render();
   } else {
@@ -3267,7 +3365,7 @@ document.addEventListener('pointerup', e=>{
 DRAG_IDS.forEach(id=>{ const el=document.getElementById(id); if(el) el.dataset.draggable='1'; });
 
 function saveSettings(){
-  try{ localStorage.setItem('houseShooterSettings', JSON.stringify({lookSensScale, speedScale:MAX_SPEED/BASE_MAX_SPEED, timeOfDay})); }catch(e){}
+  try{ localStorage.setItem('houseShooterSettings', JSON.stringify({lookSensScale, speedScale:MAX_SPEED/BASE_MAX_SPEED, timeOfDay, graphicsQuality})); }catch(e){}
 }
 function loadSettings(){
   try{
@@ -3290,6 +3388,10 @@ function loadSettings(){
       setTimeOfDay(d.timeOfDay);
       document.getElementById('btnTimeOfDay').textContent = d.timeOfDay==='day' ? '🌙 Switch to Night' : '☀️ Switch to Day';
     }
+    if(d.graphicsQuality){
+      applyGraphicsQuality(d.graphicsQuality);
+      updateQualityButtons();
+    }
   }catch(e){}
 }
 document.getElementById('btnTimeOfDay').addEventListener('click', ()=>{
@@ -3299,6 +3401,17 @@ document.getElementById('btnTimeOfDay').addEventListener('click', ()=>{
   document.getElementById('btnTimeOfDay').textContent = next==='day' ? '🌙 Switch to Night' : '☀️ Switch to Day';
   saveSettings();
 });
+function updateQualityButtons(){
+  ['Low','Med','High'].forEach(k=>{
+    const id='btnQual'+k;
+    const q = k==='Low'?'low':(k==='Med'?'medium':'high');
+    document.getElementById(id).classList.toggle('active', graphicsQuality===q);
+  });
+}
+document.getElementById('btnQualLow').addEventListener('click', ()=>{ applyGraphicsQuality('low'); updateQualityButtons(); saveSettings(); });
+document.getElementById('btnQualMed').addEventListener('click', ()=>{ applyGraphicsQuality('medium'); updateQualityButtons(); saveSettings(); });
+document.getElementById('btnQualHigh').addEventListener('click', ()=>{ applyGraphicsQuality('high'); updateQualityButtons(); saveSettings(); });
+updateQualityButtons();
 document.getElementById('btnSettings').addEventListener('pointerdown', e=>{
   e.preventDefault();
   document.getElementById('settingsPanel').classList.toggle('hidden');
