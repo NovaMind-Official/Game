@@ -451,8 +451,8 @@ function applyGraphicsQuality(q){
     renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
     renderer.shadowMap.enabled=true;
     bloomEnabled=true;
-    if(moonLight.shadow.mapSize.width!==2048){
-      moonLight.shadow.mapSize.set(2048,2048);
+    if(moonLight.shadow.mapSize.width!==1536){
+      moonLight.shadow.mapSize.set(1536,1536);
       if(moonLight.shadow.map){ moonLight.shadow.map.dispose(); moonLight.shadow.map=null; }
     }
   } else {
@@ -464,6 +464,8 @@ function applyGraphicsQuality(q){
       if(moonLight.shadow.map){ moonLight.shadow.map.dispose(); moonLight.shadow.map=null; }
     }
   }
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  if(composer) composer.setSize(window.innerWidth, window.innerHeight);
 }
 const VignetteGrainShader={
   uniforms:{ tDiffuse:{value:null}, time:{value:0}, vignetteStrength:{value:0.55}, grainStrength:{value:0.045} },
@@ -488,7 +490,7 @@ function setupPostProcessing(){
   try{
     composer=new THREE.EffectComposer(renderer);
     composer.addPass(new THREE.RenderPass(scene, camera));
-    const bloomPass=new THREE.UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.5, 0.4, 0.72);
+    const bloomPass=new THREE.UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.32, 0.28, 0.86);
     composer.addPass(bloomPass);
     vignettePass=new THREE.ShaderPass(VignetteGrainShader);
     vignettePass.renderToScreen=true;
@@ -1179,6 +1181,18 @@ function buildBurnedChurch(){
   scene.add(emberLight);
 }
 buildBurnedChurch();
+
+/* ---- Proper disposal: without this, every mesh we create-and-discard (monsters, decals, tracers)
+   leaks GPU memory forever, and that buildup is what eventually causes multi-second stalls. ---- */
+function disposeObject3D(obj, keepMaterial){
+  obj.traverse(child=>{
+    if(child.geometry) child.geometry.dispose();
+    if(!keepMaterial && child.material){
+      if(Array.isArray(child.material)) child.material.forEach(mm=>mm.dispose());
+      else child.material.dispose();
+    }
+  });
+}
 
 /* ---- Crows: perched on rooftops/ruins, flee on approach or gunfire ---- */
 let crows=[];
@@ -1963,7 +1977,7 @@ function shuffledCopy(arr){
   return a;
 }
 function spawnMonsters(){
-  monsters.forEach(m=>scene.remove(m.mesh));
+  monsters.forEach(m=>{ disposeObject3D(m.mesh); scene.remove(m.mesh); });
   monsters=[];
   const cfg=currentLevelCfg();
   const chosenShooters=shuffledCopy(shooterDefs).slice(0, Math.min(cfg.shooterCount, shooterDefs.length));
@@ -2120,6 +2134,7 @@ function updateGrenades(dt){
     if(gr.fuse<=0 && !gr.exploded){
       gr.exploded=true;
       explodeGrenade(gr.mesh.position.clone());
+      disposeObject3D(gr.mesh);
       scene.remove(gr.mesh);
       grenades.splice(i,1);
     }
@@ -2332,7 +2347,7 @@ function spawnTracer(start,end){
   const mat=new THREE.LineBasicMaterial({color:0xfff3b0, transparent:true, opacity:0.85});
   const line=new THREE.Line(geo,mat);
   scene.add(line);
-  setTimeout(()=>scene.remove(line), 90);
+  setTimeout(()=>{ disposeObject3D(line); scene.remove(line); }, 90);
 }
 function spawnEnvImpact(){
   const envHits=raycaster.intersectObjects(envTargets, true);
@@ -2371,7 +2386,7 @@ function updateCasings(dt){
       }
     }
     c.life-=dt;
-    if(c.life<=0){ scene.remove(c.mesh); casings.splice(i,1); }
+    if(c.life<=0){ c.mesh.geometry.dispose(); scene.remove(c.mesh); casings.splice(i,1); }
   }
 }
 function spawnBulletHole(point, normal){
@@ -2384,7 +2399,7 @@ function spawnBulletHole(point, normal){
   bulletHoles.push(hole);
   if(bulletHoles.length>25){
     const old=bulletHoles.shift();
-    scene.remove(old);
+    disposeObject3D(old); scene.remove(old);
   }
 }
 let bloodParticles=[];
@@ -2398,7 +2413,7 @@ function spawnBloodPool(x,y,z){
   pool.position.set(x, y+0.025, z);
   scene.add(pool);
   bloodPools.push(pool);
-  if(bloodPools.length>18){ const old=bloodPools.shift(); scene.remove(old); }
+  if(bloodPools.length>18){ const old=bloodPools.shift(); disposeObject3D(old); scene.remove(old); }
 }
 function spawnBloodBurst(point){
   for(let i=0;i<9;i++){
@@ -2422,6 +2437,7 @@ function updateBloodParticles(dt){
     bp.mesh.position.addScaledVector(bp.vel, dt);
     bp.life-=dt;
     if(bp.life<=0 || bp.mesh.position.y<0.01){
+      disposeObject3D(bp.mesh);
       scene.remove(bp.mesh);
       bloodParticles.splice(i,1);
     }
@@ -2467,7 +2483,7 @@ function killMonster(m){
     t+=0.05;
     m.mesh.rotation.x=Math.min(Math.PI/2, t*3);
     m.mesh.position.y=startY-t*0.3;
-    if(t>=1){ clearInterval(iv); scene.remove(m.mesh); }
+    if(t>=1){ clearInterval(iv); disposeObject3D(m.mesh); scene.remove(m.mesh); }
   },30);
   if(monstersRemaining<=0 && !levelTransitioning && !gameOverFlag && !gameWinFlag){
     if(levelIndex<LEVELS.length-1){
@@ -2482,7 +2498,7 @@ function spawnHitSpark(point){
   const spark=new THREE.Mesh(new THREE.SphereGeometry(0.06,8,8), new THREE.MeshBasicMaterial({color:0xff5533}));
   spark.position.copy(point);
   scene.add(spark);
-  setTimeout(()=>scene.remove(spark),140);
+  setTimeout(()=>{ disposeObject3D(spark); scene.remove(spark); },140);
 }
 document.getElementById('btnFire').addEventListener('pointerdown', e=>{ e.preventDefault(); fireWeapon(); });
 document.getElementById('btnReload').addEventListener('pointerdown', e=>{ e.preventDefault(); reloadWeapon(); });
@@ -2809,11 +2825,11 @@ function resetGame(){
   if(timeOfDay==='night') applyLevelMood();
   setWeather('clear');
   runStats={startTime:Date.now(), shotsFired:0, shotsHit:0, grenadesUsed:0, totalKills:0, hitsTaken:0};
-  casings.forEach(c=>scene.remove(c.mesh));
+  casings.forEach(c=>{ c.mesh.geometry.dispose(); scene.remove(c.mesh); });
   casings=[];
-  bulletHoles.forEach(h=>scene.remove(h));
+  bulletHoles.forEach(h=>{ disposeObject3D(h); scene.remove(h); });
   bulletHoles=[];
-  bloodPools.forEach(p=>scene.remove(p));
+  bloodPools.forEach(p=>{ disposeObject3D(p); scene.remove(p); });
   bloodPools=[];
   spawnCrows();
   const startW=gridToWorld(5,28);
@@ -2826,7 +2842,7 @@ function resetGame(){
   document.getElementById('hpBadge').classList.remove('open');
   document.getElementById('battBadge').classList.remove('open');
   player.crouching=false; player.eyeOffset=0; player.slideTimer=0; player.slideCooldown=0;
-  grenades.forEach(gr=>scene.remove(gr.mesh));
+  grenades.forEach(gr=>{ disposeObject3D(gr.mesh); scene.remove(gr.mesh); });
   grassFlinches=[];
   grenades=[];
   grenadeCount=3;
@@ -3004,6 +3020,24 @@ function update(dt){
   updateWind(dt);
   updateCasings(dt);
   updateCrows(dt);
+  updateDebrisCulling(dt);
+}
+let cullTimer=0;
+function updateDebrisCulling(dt){
+  cullTimer-=dt;
+  if(cullTimer>0) return;
+  cullTimer=0.5;
+  const CULL_DIST=38;
+  const cullList=(arr,getPos)=>{
+    arr.forEach(item=>{
+      const p=getPos(item);
+      const mesh=item.mesh||item;
+      mesh.visible = Math.hypot(player.x-p.x, player.z-p.z) < CULL_DIST;
+    });
+  };
+  cullList(bulletHoles, o=>o.position);
+  cullList(bloodPools, o=>o.position);
+  cullList(casings, c=>c.mesh.position);
 }
 
 function updateWeaponVisuals(dt){
@@ -3101,9 +3135,11 @@ function updateShooterBot(m,dt){
 }
 
 function updateOneMonster(m,dt,playerMoving,moveMag){
+  const roughDist=Math.hypot(player.x-m.mesh.position.x, player.z-m.mesh.position.z);
+  if(roughDist>40) return;
   if(m.type==='shooter'){ updateShooterBot(m,dt); return; }
   const mx=m.mesh.position.x, mz=m.mesh.position.z;
-  const dist=Math.hypot(player.x-mx, player.z-mz);
+  const dist=roughDist;
 
   if(m.homeX===undefined){ m.homeX=mx; m.homeZ=mz; }
   if(m.swingTimer===undefined) m.swingTimer=0;
