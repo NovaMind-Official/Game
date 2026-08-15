@@ -451,8 +451,8 @@ function applyGraphicsQuality(q){
     renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
     renderer.shadowMap.enabled=true;
     bloomEnabled=true;
-    if(moonLight.shadow.mapSize.width!==1536){
-      moonLight.shadow.mapSize.set(1536,1536);
+    if(moonLight.shadow.mapSize.width!==2048){
+      moonLight.shadow.mapSize.set(2048,2048);
       if(moonLight.shadow.map){ moonLight.shadow.map.dispose(); moonLight.shadow.map=null; }
     }
   } else {
@@ -490,7 +490,7 @@ function setupPostProcessing(){
   try{
     composer=new THREE.EffectComposer(renderer);
     composer.addPass(new THREE.RenderPass(scene, camera));
-    const bloomPass=new THREE.UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.32, 0.28, 0.86);
+    const bloomPass=new THREE.UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.4, 0.34, 0.84);
     composer.addPass(bloomPass);
     vignettePass=new THREE.ShaderPass(VignetteGrainShader);
     vignettePass.renderToScreen=true;
@@ -545,10 +545,10 @@ buildStars();
 
 function buildMoon(){
   const moonGroup=new THREE.Group();
-  const core=new THREE.Mesh(new THREE.SphereGeometry(9,20,20), new THREE.MeshBasicMaterial({color:0xf3ecd8}));
+  const core=new THREE.Mesh(new THREE.SphereGeometry(9,32,32), new THREE.MeshBasicMaterial({color:0xf3ecd8}));
   core.material.fog=false;
   moonGroup.add(core);
-  const glow=new THREE.Mesh(new THREE.SphereGeometry(13,20,20), new THREE.MeshBasicMaterial({color:0xdcd2a8, transparent:true, opacity:0.18}));
+  const glow=new THREE.Mesh(new THREE.SphereGeometry(13,32,32), new THREE.MeshBasicMaterial({color:0xdcd2a8, transparent:true, opacity:0.18}));
   glow.material.fog=false;
   moonGroup.add(glow);
   moonGroup.position.set(90,100,-160);
@@ -605,7 +605,7 @@ function setTimeOfDay(mode){
 
 /* ---- Detail material texture builders (procedural canvas, no external assets needed) ---- */
 function buildLeafTexture(){
-  const size=128;
+  const size=256;
   const c=document.createElement('canvas'); c.width=c.height=size;
   const tctx=c.getContext('2d');
   tctx.fillStyle='#0d160a'; tctx.fillRect(0,0,size,size);
@@ -624,10 +624,11 @@ function buildLeafTexture(){
   const tex=new THREE.CanvasTexture(c);
   tex.wrapS=THREE.RepeatWrapping; tex.wrapT=THREE.RepeatWrapping;
   tex.repeat.set(2,2);
+  tex.anisotropy=renderer.capabilities.getMaxAnisotropy?renderer.capabilities.getMaxAnisotropy():1;
   return tex;
 }
 function buildWallTexture(){
-  const size=256;
+  const size=384;
   const c=document.createElement('canvas'); c.width=c.height=size;
   const tctx=c.getContext('2d');
   tctx.fillStyle='#453c2e'; tctx.fillRect(0,0,size,size);
@@ -655,10 +656,11 @@ function buildWallTexture(){
   const tex=new THREE.CanvasTexture(c);
   tex.wrapS=THREE.RepeatWrapping; tex.wrapT=THREE.RepeatWrapping;
   tex.repeat.set(1.4,1);
+  tex.anisotropy=renderer.capabilities.getMaxAnisotropy?renderer.capabilities.getMaxAnisotropy():1;
   return tex;
 }
 function buildWoodTexture(repeatX,repeatY){
-  const w=256,h=256;
+  const w=384,h=384;
   const c=document.createElement('canvas'); c.width=w; c.height=h;
   const tctx=c.getContext('2d');
   const planks=8;
@@ -679,10 +681,11 @@ function buildWoodTexture(repeatX,repeatY){
   const tex=new THREE.CanvasTexture(c);
   tex.wrapS=THREE.RepeatWrapping; tex.wrapT=THREE.RepeatWrapping;
   tex.repeat.set(repeatX||GCOLS,repeatY||GROWS);
+  tex.anisotropy=renderer.capabilities.getMaxAnisotropy?renderer.capabilities.getMaxAnisotropy():1;
   return tex;
 }
 function buildFabricTexture(hex){
-  const size=128;
+  const size=192;
   const c=document.createElement('canvas'); c.width=c.height=size;
   const tctx=c.getContext('2d');
   tctx.fillStyle=hex; tctx.fillRect(0,0,size,size);
@@ -696,10 +699,11 @@ function buildFabricTexture(hex){
     tctx.fillRect(Math.random()*size,Math.random()*size,2,2);
   }
   const tex=new THREE.CanvasTexture(c);
+  tex.anisotropy=renderer.capabilities.getMaxAnisotropy?renderer.capabilities.getMaxAnisotropy():1;
   return tex;
 }
 function buildRustTexture(){
-  const size=128;
+  const size=192;
   const c=document.createElement('canvas'); c.width=c.height=size;
   const tctx=c.getContext('2d');
   tctx.fillStyle='#2a2a2a'; tctx.fillRect(0,0,size,size);
@@ -710,12 +714,13 @@ function buildRustTexture(){
     tctx.fillRect(x,y,2,2);
   }
   const tex=new THREE.CanvasTexture(c);
+  tex.anisotropy=renderer.capabilities.getMaxAnisotropy?renderer.capabilities.getMaxAnisotropy():1;
   return tex;
 }
 
 /* ---- Ground ---- */
 function buildNoiseTexture(){
-  const size=256;
+  const size=384;
   const c=document.createElement('canvas'); c.width=c.height=size;
   const tctx=c.getContext('2d');
   tctx.fillStyle='#1c2416'; tctx.fillRect(0,0,size,size);
@@ -729,6 +734,7 @@ function buildNoiseTexture(){
   const tex=new THREE.CanvasTexture(c);
   tex.wrapS=THREE.RepeatWrapping; tex.wrapT=THREE.RepeatWrapping;
   tex.repeat.set(GCOLS*2,GROWS*2);
+  tex.anisotropy=renderer.capabilities.getMaxAnisotropy?renderer.capabilities.getMaxAnisotropy():1;
   return tex;
 }
 const groundW=GCOLS*CELL+80, groundD=GROWS*CELL+80;
@@ -741,7 +747,7 @@ scene.add(ground);
 
 /* ---- Boundary (dense forest/hedge around the house+yard; rubble in the street) ---- */
 function buildRubbleTexture(){
-  const size=256;
+  const size=384;
   const c=document.createElement('canvas'); c.width=c.height=size;
   const tctx=c.getContext('2d');
   tctx.fillStyle='#3a3833'; tctx.fillRect(0,0,size,size);
@@ -763,6 +769,7 @@ function buildRubbleTexture(){
   const tex=new THREE.CanvasTexture(c);
   tex.wrapS=THREE.RepeatWrapping; tex.wrapT=THREE.RepeatWrapping;
   tex.repeat.set(1.3,1);
+  tex.anisotropy=renderer.capabilities.getMaxAnisotropy?renderer.capabilities.getMaxAnisotropy():1;
   return tex;
 }
 const hedgeGeo=new THREE.BoxGeometry(CELL*0.98, HEDGE_H, CELL*0.98);
@@ -1133,6 +1140,7 @@ function buildCrackTexture(){
     tctx.stroke();
   }
   const tex=new THREE.CanvasTexture(c);
+  tex.anisotropy=renderer.capabilities.getMaxAnisotropy?renderer.capabilities.getMaxAnisotropy():1;
   return tex;
 }
 function buildCornerStore(){
@@ -1716,64 +1724,168 @@ function buildHand(mirror){
   handGroup.userData.fillLight=fillLight;
   camera.add(fillLight);
 
-  const gunMat=new THREE.MeshStandardMaterial({color:0x1e1e22, metalness:0.7, roughness:0.35});
+  const gunMat=new THREE.MeshStandardMaterial({color:0x16171b, metalness:0.85, roughness:0.28});
+  const slideMat=new THREE.MeshStandardMaterial({color:0x0f1013, metalness:0.9, roughness:0.22});
+  const frameMat=new THREE.MeshStandardMaterial({color:0x24211d, metalness:0.15, roughness:0.75});
+  const smallMetal=new THREE.MeshStandardMaterial({color:0x2a2a2a, metalness:0.75, roughness:0.35});
+  const brassMat=new THREE.MeshStandardMaterial({color:0xc7943c, metalness:0.85, roughness:0.3});
 
-  /* ---- Pistol (left hand) ---- */
+  /* ---- Pistol (left hand): striker-pistol silhouette, separate slide/frame, controls, texture ---- */
   const gunGroup=new THREE.Group();
-  const slide=new THREE.Mesh(new THREE.BoxGeometry(0.09,0.09,0.32), gunMat);
-  slide.position.set(0,0.02,-0.08);
+
+  // Slide (upper, blued steel) with beveled front and rear
+  const slide=new THREE.Mesh(new THREE.BoxGeometry(0.084,0.075,0.3), slideMat);
+  slide.position.set(0,0.035,-0.07);
   gunGroup.add(slide);
-  const grip=new THREE.Mesh(new THREE.BoxGeometry(0.07,0.18,0.09), gunMat);
-  grip.rotation.x=-0.35;
-  grip.position.set(0,-0.11,0.06);
+  const slideFront=new THREE.Mesh(new THREE.CylinderGeometry(0.038,0.042,0.05,10), slideMat);
+  slideFront.rotation.x=Math.PI/2; slideFront.position.set(0,0.035,-0.225);
+  gunGroup.add(slideFront);
+  const barrel=new THREE.Mesh(new THREE.CylinderGeometry(0.018,0.02,0.1,10), gunMat);
+  barrel.rotation.x=Math.PI/2; barrel.position.set(0,0.035,-0.26);
+  gunGroup.add(barrel);
+  // Slide serrations (both ends) - thin grooves for grip texture
+  for(let i=0;i<6;i++){
+    const groove=new THREE.Mesh(new THREE.BoxGeometry(0.088,0.006,0.006), smallMetal);
+    groove.position.set(0,0.035,0.03+i*0.012);
+    gunGroup.add(groove);
+  }
+  // Ejection port cutout (visual recess, top of slide)
+  const ejPort=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.015,0.09), new THREE.MeshStandardMaterial({color:0x050505, metalness:0.6, roughness:0.6}));
+  ejPort.position.set(0,0.073,-0.04);
+  gunGroup.add(ejPort);
+  // Frame (lower, textured polymer)
+  const frame=new THREE.Mesh(new THREE.BoxGeometry(0.075,0.05,0.22), frameMat);
+  frame.position.set(0,-0.006,0.01);
+  gunGroup.add(frame);
+  // Grip with stipple texture (small nubs)
+  const grip=new THREE.Mesh(new THREE.BoxGeometry(0.068,0.17,0.088), frameMat);
+  grip.rotation.x=-0.32;
+  grip.position.set(0,-0.11,0.075);
   gunGroup.add(grip);
-  const magBase=new THREE.Mesh(new THREE.BoxGeometry(0.055,0.025,0.075), new THREE.MeshStandardMaterial({color:0x111111, metalness:0.5, roughness:0.5}));
-  magBase.position.set(0,-0.21,0.1);
+  for(let gx=-1;gx<=1;gx+=2){
+    for(let gy=0;gy<4;gy++){
+      const nub=new THREE.Mesh(new THREE.SphereGeometry(0.004,4,4), frameMat);
+      nub.position.set(gx*0.032, -0.06-gy*0.032, 0.075+0.006*gy);
+      gunGroup.add(nub);
+    }
+  }
+  // Backstrap / beavertail
+  const backstrap=new THREE.Mesh(new THREE.BoxGeometry(0.07,0.06,0.03), slideMat);
+  backstrap.rotation.x=-0.32; backstrap.position.set(0,0.005,0.16);
+  gunGroup.add(backstrap);
+  // Hammer (small, at rear of slide)
+  const hammer=new THREE.Mesh(new THREE.TorusGeometry(0.018,0.006,6,10,Math.PI*1.4), smallMetal);
+  hammer.rotation.y=Math.PI/2; hammer.position.set(0,0.05,0.09);
+  gunGroup.add(hammer);
+  const magBase=new THREE.Mesh(new THREE.BoxGeometry(0.058,0.028,0.08), smallMetal);
+  magBase.position.set(0,-0.21,0.09);
   gunGroup.add(magBase);
-  const triggerGuard=new THREE.Mesh(new THREE.TorusGeometry(0.032,0.006,6,10,Math.PI*1.3), gunMat);
+  const magBody=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.05,0.07), new THREE.MeshStandardMaterial({color:0x161616, metalness:0.6, roughness:0.4}));
+  magBody.position.set(0,-0.18,0.085);
+  gunGroup.add(magBody);
+  const triggerGuard=new THREE.Mesh(new THREE.TorusGeometry(0.032,0.007,6,12,Math.PI*1.3), frameMat);
   triggerGuard.rotation.z=Math.PI/2;
-  triggerGuard.position.set(0,-0.03,0.02);
+  triggerGuard.position.set(0,-0.03,0.03);
   gunGroup.add(triggerGuard);
-  const trigger=new THREE.Mesh(new THREE.BoxGeometry(0.008,0.03,0.012), new THREE.MeshStandardMaterial({color:0x111111}));
-  trigger.position.set(0,-0.035,0.02);
+  const trigger=new THREE.Mesh(new THREE.BoxGeometry(0.008,0.032,0.014), smallMetal);
+  trigger.position.set(0,-0.033,0.03);
   gunGroup.add(trigger);
-  const rearSight=new THREE.Mesh(new THREE.BoxGeometry(0.02,0.015,0.02), gunMat);
-  rearSight.position.set(0,0.075,0.03);
-  gunGroup.add(rearSight);
-  const frontSight=new THREE.Mesh(new THREE.BoxGeometry(0.012,0.015,0.012), gunMat);
-  frontSight.position.set(0,0.075,-0.22);
+  // Takedown lever / slide release (small side lever)
+  const slideRelease=new THREE.Mesh(new THREE.BoxGeometry(0.014,0.018,0.03), smallMetal);
+  slideRelease.position.set(0.042,0.0,-0.02);
+  gunGroup.add(slideRelease);
+  // Sights: rear notch (two posts) + front post with contrast dot
+  const rearSightL=new THREE.Mesh(new THREE.BoxGeometry(0.012,0.018,0.018), gunMat);
+  rearSightL.position.set(-0.02,0.078,0.06);
+  gunGroup.add(rearSightL);
+  const rearSightR=rearSightL.clone(); rearSightR.position.x=0.02;
+  gunGroup.add(rearSightR);
+  const frontSight=new THREE.Mesh(new THREE.BoxGeometry(0.012,0.018,0.012), gunMat);
+  frontSight.position.set(0,0.078,-0.245);
   gunGroup.add(frontSight);
+  const frontSightDot=new THREE.Mesh(new THREE.SphereGeometry(0.004,6,6), new THREE.MeshBasicMaterial({color:0xffd23f}));
+  frontSightDot.position.set(0,0.083,-0.238);
+  gunGroup.add(frontSightDot);
+  // Accessory rail under barrel (small ridges)
+  const rail=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.012,0.08), frameMat);
+  rail.position.set(0,-0.02,-0.16);
+  gunGroup.add(rail);
+
   gunGroup.position.set(-0.29,-0.26,-0.55);
   handGroup.add(gunGroup);
   handGroup.userData.gunGroup=gunGroup;
   handGroup.userData.gunBaseZ=gunGroup.position.z;
 
   const muzzleFlash=new THREE.PointLight(0xfff2b0, 0, 5, 2);
-  muzzleFlash.position.set(-0.29,-0.24,-0.81);
+  muzzleFlash.position.set(-0.29,-0.24,-0.86);
   handGroup.add(muzzleFlash);
   handGroup.userData.muzzleFlash=muzzleFlash;
 
-  /* ---- Shotgun (left hand, hidden until found) ---- */
-  const woodStockMat=new THREE.MeshStandardMaterial({color:0x4a2f1c, roughness:0.8});
+  /* ---- Shotgun (left hand, hidden until found): pump-action, distinct barrel/mag tube, grooved forend ---- */
+  const woodStockMat=new THREE.MeshStandardMaterial({color:0x4a2f1c, roughness:0.75, metalness:0.05});
+  const sgReceiverMat=new THREE.MeshStandardMaterial({color:0x232323, metalness:0.65, roughness:0.38});
+  const sgMatteMat=new THREE.MeshStandardMaterial({color:0x181818, metalness:0.55, roughness:0.5});
   const shotgunGroup=new THREE.Group();
-  const sgBarrel=new THREE.Mesh(new THREE.CylinderGeometry(0.026,0.026,0.42,8), gunMat);
-  sgBarrel.rotation.z=Math.PI/2; sgBarrel.position.set(0,0.03,-0.18);
+
+  // Barrel (top, smooth blued steel)
+  const sgBarrel=new THREE.Mesh(new THREE.CylinderGeometry(0.023,0.025,0.46,12), gunMat);
+  sgBarrel.rotation.z=Math.PI/2; sgBarrel.position.set(0,0.045,-0.2);
   shotgunGroup.add(sgBarrel);
-  const sgBarrel2=sgBarrel.clone(); sgBarrel2.position.y=-0.005;
-  shotgunGroup.add(sgBarrel2);
+  const sgMuzzleRing=new THREE.Mesh(new THREE.TorusGeometry(0.024,0.004,6,12), smallMetal);
+  sgMuzzleRing.rotation.y=Math.PI/2; sgMuzzleRing.position.set(0,0.045,-0.43);
+  shotgunGroup.add(sgMuzzleRing);
+  const sgBead=new THREE.Mesh(new THREE.SphereGeometry(0.005,6,6), new THREE.MeshBasicMaterial({color:0xffd23f}));
+  sgBead.position.set(0,0.062,-0.42);
+  shotgunGroup.add(sgBead);
+  // Magazine tube (below barrel, slightly slimmer)
+  const sgMagTube=new THREE.Mesh(new THREE.CylinderGeometry(0.016,0.016,0.4,10), sgMatteMat);
+  sgMagTube.rotation.z=Math.PI/2; sgMagTube.position.set(0,-0.008,-0.16);
+  shotgunGroup.add(sgMagTube);
+  // Pump foregrip (grooved, slides on mag tube)
+  const sgPumpMat=new THREE.MeshStandardMaterial({color:0x3a2519, roughness:0.7});
+  const sgPumpCore=new THREE.Mesh(new THREE.CylinderGeometry(0.028,0.028,0.15,10), sgPumpMat);
+  sgPumpCore.rotation.z=Math.PI/2; sgPumpCore.position.set(0,-0.008,-0.06);
+  shotgunGroup.add(sgPumpCore);
+  for(let i=0;i<7;i++){
+    const groove=new THREE.Mesh(new THREE.TorusGeometry(0.03,0.0035,5,10), sgPumpMat);
+    groove.rotation.y=Math.PI/2; groove.position.set(0,-0.008,-0.11+i*0.016);
+    shotgunGroup.add(groove);
+  }
   const sgStock=new THREE.Mesh(new THREE.BoxGeometry(0.09,0.1,0.28), woodStockMat);
   sgStock.position.set(0,-0.05,0.13);
   shotgunGroup.add(sgStock);
-  const sgPump=new THREE.Mesh(new THREE.BoxGeometry(0.1,0.07,0.14), gunMat);
-  sgPump.position.set(0,-0.01,-0.05);
-  shotgunGroup.add(sgPump);
-  const sgReceiver=new THREE.Mesh(new THREE.BoxGeometry(0.085,0.09,0.16), new THREE.MeshStandardMaterial({color:0x2a2a2a, metalness:0.6, roughness:0.4}));
-  sgReceiver.position.set(0,0.0,0.05);
+  const sgButtpad=new THREE.Mesh(new THREE.BoxGeometry(0.095,0.11,0.02), new THREE.MeshStandardMaterial({color:0x111111, roughness:0.9}));
+  sgButtpad.position.set(0,-0.05,0.275);
+  shotgunGroup.add(sgButtpad);
+  const sgReceiver=new THREE.Mesh(new THREE.BoxGeometry(0.088,0.095,0.17), sgReceiverMat);
+  sgReceiver.position.set(0,0.0,0.02);
   shotgunGroup.add(sgReceiver);
-  const sgTriggerGuard=new THREE.Mesh(new THREE.TorusGeometry(0.03,0.006,6,10,Math.PI*1.3), gunMat);
+  // Ejection port with visible brass shell
+  const sgEjPort=new THREE.Mesh(new THREE.BoxGeometry(0.02,0.04,0.06), new THREE.MeshStandardMaterial({color:0x050505}));
+  sgEjPort.position.set(0.045,0.01,0.02);
+  shotgunGroup.add(sgEjPort);
+  const sgShell=new THREE.Mesh(new THREE.CylinderGeometry(0.012,0.012,0.05,10), brassMat);
+  sgShell.rotation.z=Math.PI/2.3; sgShell.position.set(0.05,0.005,0.02);
+  shotgunGroup.add(sgShell);
+  const sgTriggerGuard=new THREE.Mesh(new THREE.TorusGeometry(0.03,0.007,6,12,Math.PI*1.3), sgReceiverMat);
   sgTriggerGuard.rotation.z=Math.PI/2;
   sgTriggerGuard.position.set(0,-0.06,0.02);
   shotgunGroup.add(sgTriggerGuard);
+  const sgTrigger=new THREE.Mesh(new THREE.BoxGeometry(0.008,0.03,0.012), smallMetal);
+  sgTrigger.position.set(0,-0.062,0.02);
+  shotgunGroup.add(sgTrigger);
+  const sgSafety=new THREE.Mesh(new THREE.CylinderGeometry(0.008,0.008,0.09,8), smallMetal);
+  sgSafety.rotation.z=Math.PI/2; sgSafety.position.set(0,0.02,0.06);
+  shotgunGroup.add(sgSafety);
+  // Sling swivels
+  const swivelMat=new THREE.MeshStandardMaterial({color:0x1a1a1a, metalness:0.6, roughness:0.4});
+  const swivel1=new THREE.Mesh(new THREE.TorusGeometry(0.012,0.003,5,10), swivelMat);
+  swivel1.position.set(0,-0.06,0.24);
+  shotgunGroup.add(swivel1);
+  const swivel2=new THREE.Mesh(new THREE.TorusGeometry(0.012,0.003,5,10), swivelMat);
+  swivel2.position.set(0,-0.03,-0.3);
+  shotgunGroup.add(swivel2);
+
   shotgunGroup.position.set(-0.3,-0.27,-0.5);
   shotgunGroup.visible=false;
   handGroup.add(shotgunGroup);
@@ -1781,62 +1893,126 @@ function buildHand(mirror){
   handGroup.userData.sgBaseZ=shotgunGroup.position.z;
 
   const sgMuzzle=new THREE.PointLight(0xfff2b0,0,6.5,2);
-  sgMuzzle.position.set(-0.3,-0.24,-0.9);
+  sgMuzzle.position.set(-0.3,-0.22,-0.93);
   handGroup.add(sgMuzzle);
   handGroup.userData.shotgunMuzzle=sgMuzzle;
 
-  /* ---- Sniper rifle (left hand): long, distinct silhouette with a real scope ---- */
+  /* ---- Sniper rifle (left hand): fluted barrel, distinct receiver, ported brake, honeycomb scope ---- */
   const sniperGroup=new THREE.Group();
-  const snBarrel=new THREE.Mesh(new THREE.CylinderGeometry(0.018,0.026,1.35,10), gunMat);
-  snBarrel.rotation.z=Math.PI/2; snBarrel.position.set(0,0.01,-0.65);
+  // Fluted barrel: main taper + ring flutes for a machined look, thinner than before
+  const snBarrel=new THREE.Mesh(new THREE.CylinderGeometry(0.015,0.022,1.15,14), gunMat);
+  snBarrel.rotation.z=Math.PI/2; snBarrel.position.set(0,0.008,-0.6);
   sniperGroup.add(snBarrel);
-  const snMuzzleBrake=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.09,8), gunMat);
-  snMuzzleBrake.rotation.z=Math.PI/2; snMuzzleBrake.position.set(0,0.01,-1.28);
+  for(let i=0;i<9;i++){
+    const flute=new THREE.Mesh(new THREE.TorusGeometry(0.0185,0.0018,5,12), smallMetal);
+    flute.rotation.y=Math.PI/2; flute.position.set(0,0.008,-0.15-i*0.11);
+    sniperGroup.add(flute);
+  }
+  // Ported muzzle brake (stepped, with visible port holes)
+  const snMuzzleBrake=new THREE.Mesh(new THREE.CylinderGeometry(0.026,0.022,0.12,10), smallMetal);
+  snMuzzleBrake.rotation.z=Math.PI/2; snMuzzleBrake.position.set(0,0.008,-1.16);
   sniperGroup.add(snMuzzleBrake);
-  const snBody=new THREE.Mesh(new THREE.BoxGeometry(0.08,0.09,0.5), gunMat);
-  snBody.position.set(0,0.0,-0.05);
-  sniperGroup.add(snBody);
+  for(let i=0;i<3;i++){
+    [-1,1].forEach(side=>{
+      const port=new THREE.Mesh(new THREE.BoxGeometry(0.012,0.008,0.018), new THREE.MeshStandardMaterial({color:0x030303}));
+      port.position.set(side*0.024,0.008,-1.1-i*0.03);
+      sniperGroup.add(port);
+    });
+  }
+  const snMuzzleTip=new THREE.Mesh(new THREE.CylinderGeometry(0.028,0.028,0.02,10), gunMat);
+  snMuzzleTip.rotation.z=Math.PI/2; snMuzzleTip.position.set(0,0.008,-1.22);
+  sniperGroup.add(snMuzzleTip);
+  // Receiver: distinct blocky action separate from the slim barrel
+  const snReceiver=new THREE.Mesh(new THREE.BoxGeometry(0.085,0.09,0.32), sgReceiverMat);
+  snReceiver.position.set(0,0.0,0.02);
+  sniperGroup.add(snReceiver);
+  const snReceiverTop=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.02,0.3), smallMetal);
+  snReceiverTop.position.set(0,0.055,0.02);
+  sniperGroup.add(snReceiverTop);
+  // Picatinny rail ridges under the scope
+  for(let i=0;i<8;i++){
+    const ridge=new THREE.Mesh(new THREE.BoxGeometry(0.045,0.008,0.012), smallMetal);
+    ridge.position.set(0,0.068,-0.28+i*0.06);
+    sniperGroup.add(ridge);
+  }
 
-  const scopeMat=new THREE.MeshStandardMaterial({color:0x0d0d0d, metalness:0.75, roughness:0.25});
-  const snScope=new THREE.Mesh(new THREE.CylinderGeometry(0.032,0.032,0.55,14), scopeMat);
-  snScope.rotation.z=Math.PI/2; snScope.position.set(0,0.11,-0.2);
+  const scopeMat=new THREE.MeshStandardMaterial({color:0x0a0a0a, metalness:0.8, roughness:0.2});
+  const snScope=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.5,16), scopeMat);
+  snScope.rotation.z=Math.PI/2; snScope.position.set(0,0.115,-0.2);
   sniperGroup.add(snScope);
-  const snLensFront=new THREE.Mesh(new THREE.CylinderGeometry(0.038,0.038,0.02,14), new THREE.MeshStandardMaterial({color:0x1a3a6a, metalness:0.9, roughness:0.1, emissive:0x0a1a3a, emissiveIntensity:0.3}));
-  snLensFront.rotation.z=Math.PI/2; snLensFront.position.set(0,0.11,-0.47);
+  // Objective bell (larger front housing) + honeycomb anti-glare sunshade
+  const snObjective=new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.036,0.09,16), scopeMat);
+  snObjective.rotation.z=Math.PI/2; snObjective.position.set(0,0.115,-0.44);
+  sniperGroup.add(snObjective);
+  const snSunshade=new THREE.Mesh(new THREE.CylinderGeometry(0.041,0.041,0.06,16,1,true), new THREE.MeshStandardMaterial({color:0x050505, metalness:0.4, roughness:0.7, side:THREE.DoubleSide}));
+  snSunshade.rotation.z=Math.PI/2; snSunshade.position.set(0,0.115,-0.51);
+  sniperGroup.add(snSunshade);
+  const snLensFront=new THREE.Mesh(new THREE.CylinderGeometry(0.036,0.036,0.015,16), new THREE.MeshStandardMaterial({color:0x1a4a8a, metalness:0.9, roughness:0.08, emissive:0x0d2a5a, emissiveIntensity:0.4}));
+  snLensFront.rotation.z=Math.PI/2; snLensFront.position.set(0,0.115,-0.485);
   sniperGroup.add(snLensFront);
-  const snLensRear=new THREE.Mesh(new THREE.CylinderGeometry(0.024,0.024,0.015,14), new THREE.MeshStandardMaterial({color:0x111111, metalness:0.8, roughness:0.15}));
-  snLensRear.rotation.z=Math.PI/2; snLensRear.position.set(0,0.11,0.075);
+  // Eyepiece bell (rear, smaller) + ocular lens
+  const snEyepiece=new THREE.Mesh(new THREE.CylinderGeometry(0.026,0.03,0.06,16), scopeMat);
+  snEyepiece.rotation.z=Math.PI/2; snEyepiece.position.set(0,0.115,0.078);
+  sniperGroup.add(snEyepiece);
+  const snLensRear=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,0.012,16), new THREE.MeshStandardMaterial({color:0x0d1a10, metalness:0.85, roughness:0.12, emissive:0x0a2a12, emissiveIntensity:0.25}));
+  snLensRear.rotation.z=Math.PI/2; snLensRear.position.set(0,0.115,0.108);
   sniperGroup.add(snLensRear);
-  const turretMat=new THREE.MeshStandardMaterial({color:0x1c1c1c, metalness:0.6, roughness:0.4});
-  const snTurretTop=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,0.035,8), turretMat);
-  snTurretTop.position.set(0,0.145,-0.2);
+  const turretMat=new THREE.MeshStandardMaterial({color:0x1c1c1c, metalness:0.65, roughness:0.35});
+  const snTurretTop=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,0.04,10), turretMat);
+  snTurretTop.position.set(0,0.15,-0.2);
   sniperGroup.add(snTurretTop);
-  const snTurretSide=new THREE.Mesh(new THREE.CylinderGeometry(0.018,0.018,0.03,8), turretMat);
-  snTurretSide.rotation.x=Math.PI/2; snTurretSide.position.set(0.035,0.11,-0.28);
+  for(let i=0;i<8;i++){
+    const notch=new THREE.Mesh(new THREE.BoxGeometry(0.004,0.008,0.004), turretMat);
+    const a=(i/8)*Math.PI*2;
+    notch.position.set(Math.cos(a)*0.02,0.17,-0.2+Math.sin(a)*0.02);
+    sniperGroup.add(notch);
+  }
+  const snTurretSide=new THREE.Mesh(new THREE.CylinderGeometry(0.018,0.018,0.032,10), turretMat);
+  snTurretSide.rotation.x=Math.PI/2; snTurretSide.position.set(0.038,0.115,-0.28);
   sniperGroup.add(snTurretSide);
-  const ringMat=new THREE.MeshStandardMaterial({color:0x2a2a2a, metalness:0.6});
+  const ringMat=new THREE.MeshStandardMaterial({color:0x2a2a2a, metalness:0.65, roughness:0.3});
   [-0.32,-0.08].forEach(zp=>{
-    const ring=new THREE.Mesh(new THREE.TorusGeometry(0.036,0.008,6,12), ringMat);
-    ring.rotation.y=Math.PI/2; ring.position.set(0,0.11,zp);
+    const ring=new THREE.Mesh(new THREE.TorusGeometry(0.034,0.009,8,14), ringMat);
+    ring.rotation.y=Math.PI/2; ring.position.set(0,0.115,zp);
     sniperGroup.add(ring);
+    const ringBase=new THREE.Mesh(new THREE.BoxGeometry(0.02,0.03,0.02), ringMat);
+    ringBase.position.set(0,0.075,zp);
+    sniperGroup.add(ringBase);
   });
 
-  const snStock=new THREE.Mesh(new THREE.BoxGeometry(0.075,0.15,0.65), woodStockMat);
-  snStock.position.set(0,-0.04,0.42);
+  const snStock=new THREE.Mesh(new THREE.BoxGeometry(0.075,0.15,0.62), woodStockMat);
+  snStock.position.set(0,-0.04,0.4);
   sniperGroup.add(snStock);
-  const snCheekRest=new THREE.Mesh(new THREE.BoxGeometry(0.07,0.05,0.3), woodStockMat);
-  snCheekRest.position.set(0,0.05,0.35);
+  const snCheekRest=new THREE.Mesh(new THREE.BoxGeometry(0.07,0.05,0.28), new THREE.MeshStandardMaterial({color:0x2a1c10, roughness:0.7}));
+  snCheekRest.position.set(0,0.055,0.32);
   sniperGroup.add(snCheekRest);
-  const snBolt=new THREE.Mesh(new THREE.CylinderGeometry(0.016,0.016,0.11,6), gunMat);
-  snBolt.rotation.z=Math.PI/2.2; snBolt.position.set(0.045,0.01,0.02);
+  const snCheekKnob=new THREE.Mesh(new THREE.CylinderGeometry(0.01,0.01,0.05,8), smallMetal);
+  snCheekKnob.rotation.x=Math.PI/2; snCheekKnob.position.set(0.042,0.06,0.42);
+  sniperGroup.add(snCheekKnob);
+  const snButtpad=new THREE.Mesh(new THREE.BoxGeometry(0.08,0.16,0.02), new THREE.MeshStandardMaterial({color:0x0d0d0d, roughness:0.9}));
+  snButtpad.position.set(0,-0.04,0.71);
+  sniperGroup.add(snButtpad);
+  // Bolt handle: shaft + ball knob, angled out for realism
+  const snBolt=new THREE.Mesh(new THREE.CylinderGeometry(0.012,0.014,0.1,8), smallMetal);
+  snBolt.rotation.z=Math.PI/2.15; snBolt.rotation.y=0.3; snBolt.position.set(0.055,0.015,0.0);
   sniperGroup.add(snBolt);
-  const bipodMat=new THREE.MeshStandardMaterial({color:0x1a1a1a, metalness:0.5});
+  const snBoltKnob=new THREE.Mesh(new THREE.SphereGeometry(0.016,10,10), smallMetal);
+  snBoltKnob.position.set(0.095,0.0,0.03);
+  sniperGroup.add(snBoltKnob);
+  const bipodMat=new THREE.MeshStandardMaterial({color:0x1a1a1a, metalness:0.55, roughness:0.4});
   [-1,1].forEach(side=>{
-    const leg=new THREE.Mesh(new THREE.CylinderGeometry(0.008,0.008,0.22,6), bipodMat);
+    const leg=new THREE.Mesh(new THREE.CylinderGeometry(0.008,0.008,0.22,8), bipodMat);
     leg.rotation.z=0.25*side;
     leg.position.set(side*0.03,-0.05,-0.85);
     sniperGroup.add(leg);
+    const foot=new THREE.Mesh(new THREE.SphereGeometry(0.012,6,6), bipodMat);
+    foot.position.set(side*0.075,-0.15,-0.85);
+    sniperGroup.add(foot);
   });
+  // Sling swivel
+  const snSwivel=new THREE.Mesh(new THREE.TorusGeometry(0.013,0.0035,5,10), smallMetal);
+  snSwivel.position.set(0,-0.05,0.66);
+  sniperGroup.add(snSwivel);
 
   sniperGroup.position.set(-0.30,-0.27,-0.15);
   sniperGroup.visible=false;
