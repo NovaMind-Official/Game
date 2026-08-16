@@ -224,6 +224,7 @@
     <div class="wIcon active" id="wPistol">🔫</div>
     <div class="wIcon" id="wShotgun">💥</div>
     <div class="wIcon" id="wSniper">🎯</div>
+    <div class="wIcon" id="wRifle">🔥</div>
     <div id="ammoText">8/16</div>
     <div class="reloadBtn" id="btnReload">🔃</div>
   </div>
@@ -572,6 +573,47 @@ function buildSun(){
 }
 buildSun();
 
+function buildCloudTexture(){
+  const size=512;
+  const c=document.createElement('canvas'); c.width=c.height=size;
+  const tctx=c.getContext('2d');
+  tctx.clearRect(0,0,size,size);
+  const puffCount=26;
+  for(let i=0;i<puffCount;i++){
+    const cx=Math.random()*size, cy=Math.random()*size;
+    const r=40+Math.random()*90;
+    const grad=tctx.createRadialGradient(cx,cy,0,cx,cy,r);
+    const a=0.35+Math.random()*0.35;
+    grad.addColorStop(0, `rgba(255,255,255,${a})`);
+    grad.addColorStop(0.6, `rgba(255,255,255,${a*0.4})`);
+    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    tctx.fillStyle=grad;
+    tctx.beginPath(); tctx.arc(cx,cy,r,0,Math.PI*2); tctx.fill();
+  }
+  const tex=new THREE.CanvasTexture(c);
+  tex.wrapS=tex.wrapT=THREE.RepeatWrapping;
+  tex.anisotropy=renderer.capabilities.getMaxAnisotropy?renderer.capabilities.getMaxAnisotropy():1;
+  return tex;
+}
+let cloudLayerA=null, cloudLayerB=null;
+function buildClouds(){
+  const tex1=buildCloudTexture();
+  const tex2=buildCloudTexture();
+  tex1.repeat.set(2.4,2.4);
+  tex2.repeat.set(1.6,1.6);
+  const matA=new THREE.MeshBasicMaterial({map:tex1, transparent:true, opacity:0.5, depthWrite:false});
+  matA.fog=false;
+  const matB=new THREE.MeshBasicMaterial({map:tex2, transparent:true, opacity:0.32, depthWrite:false});
+  matB.fog=false;
+  cloudLayerA=new THREE.Mesh(new THREE.PlaneGeometry(420,420), matA);
+  cloudLayerA.rotation.x=-Math.PI/2; cloudLayerA.position.y=68;
+  scene.add(cloudLayerA);
+  cloudLayerB=new THREE.Mesh(new THREE.PlaneGeometry(500,500), matB);
+  cloudLayerB.rotation.x=-Math.PI/2; cloudLayerB.position.y=82;
+  scene.add(cloudLayerB);
+}
+buildClouds();
+
 let timeOfDay='night';
 setTimeOfDay('day');
 {
@@ -590,6 +632,8 @@ function setTimeOfDay(mode){
     if(moonGroupRef) moonGroupRef.visible=false;
     if(sunGroupRef) sunGroupRef.visible=true;
     if(renderer.toneMapping!==undefined) renderer.toneMappingExposure=0.92;
+    if(cloudLayerA){ cloudLayerA.material.color.set(0xffffff); cloudLayerA.material.opacity=0.55; }
+    if(cloudLayerB){ cloudLayerB.material.color.set(0xffffff); cloudLayerB.material.opacity=0.35; }
   } else {
     scene.background=new THREE.Color(0x03040a);
     scene.fog.color.set(0x03050a);
@@ -600,6 +644,8 @@ function setTimeOfDay(mode){
     if(moonGroupRef) moonGroupRef.visible=true;
     if(sunGroupRef) sunGroupRef.visible=false;
     if(renderer.toneMapping!==undefined) renderer.toneMappingExposure=1.15;
+    if(cloudLayerA){ cloudLayerA.material.color.set(0x2a3550); cloudLayerA.material.opacity=0.4; }
+    if(cloudLayerB){ cloudLayerB.material.color.set(0x1a2038); cloudLayerB.material.opacity=0.28; }
   }
 }
 
@@ -1076,26 +1122,57 @@ function buildSpawnArmory(){
 buildSpawnArmory();
 
 /* ---- Street landmarks: distinct silhouettes so the walk doesn't feel like one repeating corridor ---- */
+let warehouseLight=null, gasStationLight=null, cornerStoreLight=null, churchLight=null;
 function buildGasStation(){
-  const poleMat=new THREE.MeshStandardMaterial({color:0x2a2a2a, metalness:0.5, roughness:0.5});
+  const poleMat=new THREE.MeshStandardMaterial({map:buildRustTexture(), color:0x3a3a3a, metalness:0.55, roughness:0.5});
   const canopyMat=new THREE.MeshStandardMaterial({map:buildRustTexture(), roughness:0.7});
   const cx=23, cz=46;
   [[-3,-2],[3,-2],[-3,2],[3,2]].forEach(([dx,dz])=>{
-    const pole=new THREE.Mesh(new THREE.CylinderGeometry(0.15,0.15,3.4,8), poleMat);
+    const pole=new THREE.Mesh(new THREE.CylinderGeometry(0.15,0.18,3.4,10), poleMat);
     pole.position.set(cx+dx,1.7,cz+dz); pole.castShadow=true;
     scene.add(pole);
+    const poleBase=new THREE.Mesh(new THREE.CylinderGeometry(0.24,0.24,0.12,10), poleMat);
+    poleBase.position.set(cx+dx,0.06,cz+dz);
+    scene.add(poleBase);
   });
   const canopy=new THREE.Mesh(new THREE.BoxGeometry(7.4,0.3,5.2), canopyMat);
   canopy.position.set(cx,3.4,cz); canopy.castShadow=true; canopy.receiveShadow=true;
   scene.add(canopy);
+  const fasciaMat=new THREE.MeshStandardMaterial({color:0xb3342f, roughness:0.6});
+  const fascia=new THREE.Mesh(new THREE.BoxGeometry(7.6,0.25,0.1), fasciaMat);
+  fascia.position.set(cx,3.15,cz-2.6);
+  scene.add(fascia);
+  // Diagonal support gussets under the canopy corners
+  [[-3,-2],[3,-2],[-3,2],[3,2]].forEach(([dx,dz])=>{
+    const gusset=new THREE.Mesh(new THREE.BoxGeometry(0.04,0.5,0.5), poleMat);
+    gusset.rotation.x=Math.PI/4;
+    gusset.position.set(cx+dx*0.85,3.0,cz+dz*0.72);
+    scene.add(gusset);
+  });
   const pumpMat=new THREE.MeshStandardMaterial({color:0xb3342f, roughness:0.6, metalness:0.2});
+  const displayMat=new THREE.MeshStandardMaterial({color:0x0a0f0a, emissive:0x1a3a1a, emissiveIntensity:0.5});
   [-1.2,1.2].forEach(dx=>{
     const pump=new THREE.Mesh(new THREE.BoxGeometry(0.5,1.3,0.4), pumpMat);
     pump.position.set(cx+dx,0.65,cz); pump.castShadow=true;
     scene.add(pump);
-    const hose=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.8,6), new THREE.MeshStandardMaterial({color:0x111111}));
-    hose.rotation.z=Math.PI/2.5; hose.position.set(cx+dx+0.3,0.9,cz);
+    // Digital price/display panel
+    const display=new THREE.Mesh(new THREE.PlaneGeometry(0.34,0.2), displayMat);
+    display.position.set(cx+dx,1.05,cz+0.21);
+    scene.add(display);
+    // Base plinth
+    const plinth=new THREE.Mesh(new THREE.BoxGeometry(0.6,0.1,0.5), new THREE.MeshStandardMaterial({color:0x1a1a1a, roughness:0.9}));
+    plinth.position.set(cx+dx,0.05,cz);
+    scene.add(plinth);
+    const hose=new THREE.Mesh(new THREE.CylinderGeometry(0.025,0.025,0.75,6), new THREE.MeshStandardMaterial({color:0x111111}));
+    hose.rotation.z=Math.PI/2.3; hose.position.set(cx+dx+0.32,0.85,cz);
     scene.add(hose);
+    // Nozzle handle at the end of the hose
+    const nozzle=new THREE.Mesh(new THREE.BoxGeometry(0.09,0.18,0.07), new THREE.MeshStandardMaterial({color:0x1a1a1a, metalness:0.4, roughness:0.5}));
+    nozzle.position.set(cx+dx+0.62,0.62,cz);
+    scene.add(nozzle);
+    const nozzleTip=new THREE.Mesh(new THREE.CylinderGeometry(0.015,0.02,0.12,6), new THREE.MeshStandardMaterial({color:0x2a2a2a, metalness:0.6}));
+    nozzleTip.rotation.z=Math.PI/2; nozzleTip.position.set(cx+dx+0.68,0.55,cz);
+    scene.add(nozzleTip);
   });
   const signMat=new THREE.MeshStandardMaterial({color:0xd9a441, emissive:0x553300, emissiveIntensity:0.4, roughness:0.5});
   const sign=new THREE.Mesh(new THREE.BoxGeometry(0.15,1.4,2.2), signMat);
@@ -1104,6 +1181,28 @@ function buildGasStation(){
   const signLight=new THREE.PointLight(0xffcf7a, 0.7, 6, 2);
   signLight.position.set(cx-3.3,2.6,cz);
   scene.add(signLight);
+  gasStationLight=signLight;
+  // Oil stain decal on the ground under the pumps
+  const stainMat=new THREE.MeshBasicMaterial({color:0x080808, transparent:true, opacity:0.5});
+  const stain=new THREE.Mesh(new THREE.CircleGeometry(1.4,16), stainMat);
+  stain.rotation.x=-Math.PI/2; stain.position.set(cx,0.015,cz+0.3);
+  scene.add(stain);
+  // Stacked old tires beside the station
+  const tireMat=new THREE.MeshStandardMaterial({color:0x0d0d0d, roughness:0.9});
+  for(let i=0;i<3;i++){
+    const tire=new THREE.Mesh(new THREE.TorusGeometry(0.32,0.13,8,14), tireMat);
+    tire.rotation.x=Math.PI/2; tire.position.set(cx+3.6,0.13+i*0.24,cz-2.4);
+    tire.castShadow=true;
+    scene.add(tire);
+  }
+  // Small cashier booth
+  const boothMat=new THREE.MeshStandardMaterial({map:buildWallTexture(), roughness:0.9});
+  const booth=new THREE.Mesh(new THREE.BoxGeometry(1.4,2.2,1.4), boothMat);
+  booth.position.set(cx+3.4,1.1,cz+2.6); booth.castShadow=true; booth.receiveShadow=true;
+  scene.add(booth);
+  const boothWin=new THREE.Mesh(new THREE.PlaneGeometry(0.9,0.7), new THREE.MeshStandardMaterial({color:0x1a2a2a, emissive:0x0a1a15, emissiveIntensity:0.35}));
+  boothWin.position.set(cx+3.4,1.4,cz+1.89);
+  scene.add(boothWin);
 }
 buildGasStation();
 
@@ -1145,10 +1244,15 @@ function buildCrackTexture(){
 }
 function buildCornerStore(){
   const wallMat=new THREE.MeshStandardMaterial({map:buildWallTexture(), roughness:1});
+  const trimMat=new THREE.MeshStandardMaterial({map:buildRustTexture(), color:0x3a3530, metalness:0.4, roughness:0.6});
   const cx=9, cz=78;
   const facade=new THREE.Mesh(new THREE.BoxGeometry(0.4,3.2,6), wallMat);
   facade.position.set(cx,1.6,cz); facade.castShadow=true; facade.receiveShadow=true;
   scene.add(facade);
+  // Roofline coping trim
+  const coping=new THREE.Mesh(new THREE.BoxGeometry(0.55,0.15,6.2), trimMat);
+  coping.position.set(cx,3.18,cz); coping.castShadow=true;
+  scene.add(coping);
   const windowMat=new THREE.MeshStandardMaterial({color:0x1a2a1a, emissive:0x111a08, emissiveIntensity:0.3, roughness:0.4});
   [-1.8,1.8].forEach(dz=>{
     const win=new THREE.Mesh(new THREE.PlaneGeometry(1.3,1.5), windowMat);
@@ -1157,14 +1261,55 @@ function buildCornerStore(){
     const crack=new THREE.Mesh(new THREE.PlaneGeometry(1.3,1.5), new THREE.MeshBasicMaterial({map:buildCrackTexture(), transparent:true}));
     crack.rotation.y=Math.PI/2; crack.position.set(cx-0.19,1.7,cz+dz);
     scene.add(crack);
+    // Window frame mullions (cross-bar + surrounding trim)
+    const frameH=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.06,1.4), trimMat);
+    frameH.position.set(cx-0.22,1.7,cz+dz); scene.add(frameH);
+    const frameV=new THREE.Mesh(new THREE.BoxGeometry(0.05,1.6,0.06), trimMat);
+    frameV.position.set(cx-0.22,1.7,cz+dz); scene.add(frameV);
+    const sill=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.06,1.5), trimMat);
+    sill.position.set(cx-0.25,0.92,cz+dz); scene.add(sill);
+    // Dark interior shelf silhouettes glimpsed through the glass
+    const shelf=new THREE.Mesh(new THREE.BoxGeometry(0.3,0.9,1.1), new THREE.MeshStandardMaterial({color:0x0a0a08, roughness:1}));
+    shelf.position.set(cx-0.5,1.5,cz+dz); scene.add(shelf);
   });
+  // Entrance door with glass pane + frame + push bar
+  const doorFrame2=new THREE.Mesh(new THREE.BoxGeometry(0.1,2.3,1.1), trimMat);
+  doorFrame2.position.set(cx-0.22,1.15,cz); scene.add(doorFrame2);
+  const doorGlass=new THREE.Mesh(new THREE.PlaneGeometry(0.9,2.0), new THREE.MeshStandardMaterial({color:0x0d1a12, emissive:0x0a150c, emissiveIntensity:0.2, transparent:true, opacity:0.85}));
+  doorGlass.rotation.y=Math.PI/2; doorGlass.position.set(cx-0.26,1.15,cz);
+  scene.add(doorGlass);
+  const pushBar=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,0.7,6), new THREE.MeshStandardMaterial({color:0x555550, metalness:0.6}));
+  pushBar.rotation.z=Math.PI/2; pushBar.position.set(cx-0.29,1.1,cz);
+  scene.add(pushBar);
+  // Wall-mounted AC unit + drainpipe for grime/realism
+  const acUnit=new THREE.Mesh(new THREE.BoxGeometry(0.35,0.4,0.7), new THREE.MeshStandardMaterial({color:0xa8a89a, roughness:0.7}));
+  acUnit.position.set(cx-0.35,2.7,cz-2.6); scene.add(acUnit);
+  const drainpipe=new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,3.2,8), trimMat);
+  drainpipe.position.set(cx-0.24,1.6,cz+2.9); scene.add(drainpipe);
   const signMat=new THREE.MeshStandardMaterial({color:0x6a1e1e, roughness:0.6});
   const sign=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.7,5.6), signMat);
   sign.position.set(cx-0.3,3.15,cz); sign.castShadow=true;
   scene.add(sign);
+  // Tattered awning over the entrance, sagging and torn
+  const awningMat=new THREE.MeshStandardMaterial({map:buildFabricTexture('#6a2a1e'), roughness:0.95, side:THREE.DoubleSide});
+  const awning=new THREE.Mesh(new THREE.PlaneGeometry(1.3,1.0,4,3), awningMat);
+  const awPos=awning.geometry.attributes.position;
+  for(let i=0;i<awPos.count;i++){
+    const y=awPos.getY(i);
+    awPos.setZ(i, (Math.random()-0.5)*0.1 + Math.abs(y)*0.15);
+  }
+  awning.geometry.computeVertexNormals();
+  awning.rotation.y=Math.PI/2; awning.rotation.z=0.35;
+  awning.position.set(cx-0.6,2.55,cz);
+  awning.castShadow=true;
+  scene.add(awning);
+  const awningFrame=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,1.1,6), trimMat);
+  awningFrame.position.set(cx-0.25,2.85,cz);
+  scene.add(awningFrame);
   const shelfLight=new THREE.PointLight(0x8fd98a, 0.5, 5, 2);
   shelfLight.position.set(cx-1,1.8,cz);
   scene.add(shelfLight);
+  cornerStoreLight=shelfLight;
 }
 buildCornerStore();
 
@@ -1187,8 +1332,80 @@ function buildBurnedChurch(){
   const emberLight=new THREE.PointLight(0xff5a2a, 0.9, 8, 2);
   emberLight.position.set(cx,1.2,cz);
   scene.add(emberLight);
+  churchLight=emberLight;
 }
 buildBurnedChurch();
+
+/* ---- Industrial warehouse: a new distinct set-piece for the later levels ---- */
+function buildWarehouse(){
+  const cx=35, cz=64;
+  const corrugatedMat=new THREE.MeshStandardMaterial({map:buildRustTexture(), color:0x8a8f92, roughness:0.75, metalness:0.55});
+  const frameMat2=new THREE.MeshStandardMaterial({color:0x2a2a28, metalness:0.6, roughness:0.5});
+  // Main shed: barrel-vault roof approximation using a half-cylinder + side walls
+  const shed=new THREE.Mesh(new THREE.CylinderGeometry(3.6,3.6,9,10,1,true,0,Math.PI), corrugatedMat);
+  shed.rotation.z=Math.PI/2; shed.rotation.y=Math.PI/2;
+  shed.position.set(cx,3.6,cz); shed.castShadow=true; shed.receiveShadow=true;
+  scene.add(shed);
+  const wallEndMat=new THREE.MeshStandardMaterial({map:buildRustTexture(), color:0x6a6f6f, roughness:0.8});
+  [-4.5,4.5].forEach(dz=>{
+    const endWall=new THREE.Mesh(new THREE.CircleGeometry(3.6,10,0,Math.PI), wallEndMat);
+    endWall.rotation.y = dz>0? Math.PI/2 : -Math.PI/2;
+    endWall.position.set(cx,3.6,cz+dz);
+    endWall.castShadow=true;
+    scene.add(endWall);
+  });
+  // Steel frame ribs along the vault
+  for(let i=0;i<6;i++){
+    const rib=new THREE.Mesh(new THREE.TorusGeometry(3.6,0.06,6,14,Math.PI), frameMat2);
+    rib.rotation.z=Math.PI/2; rib.rotation.y=Math.PI/2;
+    rib.position.set(cx,3.6,cz-4+i*1.6);
+    scene.add(rib);
+  }
+  // Rolling door (front face, partly open, dark interior glimpse)
+  const doorFrame=new THREE.Mesh(new THREE.BoxGeometry(0.15,3.0,2.6), frameMat2);
+  doorFrame.position.set(cx-3.55,1.5,cz-0.2); doorFrame.castShadow=true;
+  scene.add(doorFrame);
+  for(let i=0;i<6;i++){
+    const slat=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.42,2.5), new THREE.MeshStandardMaterial({color:0x3a3a38, metalness:0.5, roughness:0.6}));
+    slat.position.set(cx-3.58,0.4+i*0.44,cz-0.2);
+    scene.add(slat);
+  }
+  const doorGap=new THREE.Mesh(new THREE.PlaneGeometry(2.4,1.1), new THREE.MeshBasicMaterial({color:0x030303}));
+  doorGap.rotation.y=Math.PI/2; doorGap.position.set(cx-3.6,0.55,cz-0.2);
+  scene.add(doorGap);
+  // Hazard stripe band
+  const stripeMat=new THREE.MeshStandardMaterial({color:0xd9a441, roughness:0.6});
+  const stripe=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.25,7), stripeMat);
+  stripe.position.set(cx-3.58,1.9,cz); scene.add(stripe);
+  // Interior/exterior clutter: stacked crates + barrels near the entrance
+  const crateMat=new THREE.MeshStandardMaterial({map:buildWoodTexture(1,1), roughness:0.85});
+  const cratePositions=[[-2.6,-2.4],[-2.2,-2.2],[-2.6,-1.6],[-1.8,-3.0]];
+  cratePositions.forEach(([dx,dz],i)=>{
+    const s=0.55+((i%2)*0.1);
+    const crate=new THREE.Mesh(new THREE.BoxGeometry(s,s,s), crateMat);
+    crate.position.set(cx+dx,s/2,cz+dz); crate.rotation.y=Math.random()*Math.PI;
+    crate.castShadow=true; crate.receiveShadow=true;
+    scene.add(crate);
+  });
+  const barrelMat=new THREE.MeshStandardMaterial({map:buildRustTexture(), color:0x3a5a3a, roughness:0.8, metalness:0.35});
+  [[-1.2,-2.6],[-0.8,-2.9]].forEach(([dx,dz])=>{
+    const barrel=new THREE.Mesh(new THREE.CylinderGeometry(0.34,0.34,0.85,12), barrelMat);
+    barrel.position.set(cx+dx,0.42,cz+dz); barrel.castShadow=true;
+    scene.add(barrel);
+  });
+  // Overhead sodium work-light for the industrial mood (dim by default, brightens on its themed level)
+  warehouseLight=new THREE.PointLight(0xffb347, 0.35, 9, 2);
+  warehouseLight.position.set(cx,3.0,cz);
+  scene.add(warehouseLight);
+  // Hanging chain + hook detail
+  const chain=new THREE.Mesh(new THREE.CylinderGeometry(0.015,0.015,1.2,5), frameMat2);
+  chain.position.set(cx,4.9,cz);
+  scene.add(chain);
+  const hook=new THREE.Mesh(new THREE.TorusGeometry(0.08,0.015,5,10,Math.PI*1.4), frameMat2);
+  hook.position.set(cx,4.3,cz);
+  scene.add(hook);
+}
+buildWarehouse();
 
 /* ---- Proper disposal: without this, every mesh we create-and-discard (monsters, decals, tracers)
    leaks GPU memory forever, and that buildup is what eventually causes multi-second stalls. ---- */
@@ -1369,41 +1586,86 @@ buildFireBarrel(7,26);
   scene.add(coolLight);
 }
 
-/* ---- Grass tufts (yard) ---- */
-let grassInst=null, grassData=[];
+/* ---- Grass tufts (yard): blade-shaped with tip gradient + hue variation across 3 batches ---- */
+let grassInsts=[], grassData=[];
 let grassFlinches=[];
+function buildBladeGeometry(){
+  // Two crossed tapered blades so grass reads as full-bodied from any viewing angle
+  const halfW=0.045, h=0.55;
+  // Each blade: 4 verts (base-left, base-right, tip-left≈tip, tip-right≈tip) tapering to a point
+  const positions=[], colors=[], indices=[];
+  function addBlade(rotY){
+    const cosr=Math.cos(rotY), sinr=Math.sin(rotY);
+    const verts=[
+      [-halfW,0,0], [halfW,0,0],
+      [-halfW*0.12,h*0.55,0], [halfW*0.12,h*0.55,0],
+      [0,h,0]
+    ];
+    const base=positions.length/3;
+    verts.forEach(([x,y,z])=>{
+      const rx=x*cosr - z*sinr, rz=x*sinr + z*cosr;
+      positions.push(rx,y,rz);
+      const t=y/h;
+      colors.push(0.18+t*0.25, 0.30+t*0.32, 0.10+t*0.10);
+    });
+    indices.push(base,base+1,base+2, base+1,base+3,base+2, base+2,base+3,base+4);
+  }
+  addBlade(0);
+  addBlade(Math.PI/2);
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions,3));
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(colors,3));
+  geo.setIndex(indices);
+  geo.computeVertexNormals();
+  return geo;
+}
 function scatterGrass(){
   const openCells=[];
   for(let gy=0;gy<GROWS;gy++) for(let gx=0;gx<GCOLS;gx++) if(maze[gy][gx]===1) openCells.push([gx,gy]);
-  const perCell=2;
-  const count=openCells.length*perCell;
-  const geo=new THREE.ConeGeometry(0.075,0.52,5);
-  const mat=new THREE.MeshStandardMaterial({color:0x3f5527, roughness:1});
-  const inst=new THREE.InstancedMesh(geo, mat, Math.max(count,1));
-  const m=new THREE.Matrix4();
-  let i=0;
+  const perCell=3;
+  const bladeGeo=buildBladeGeometry();
+  const tints=[0x3f5527, 0x4a6430, 0x38481f];
+  const mats=tints.map(hex=>new THREE.MeshStandardMaterial({color:hex, roughness:1, side:THREE.DoubleSide, vertexColors:true}));
+  const perBatch=[[],[],[]];
   openCells.forEach(([gx,gy])=>{
     const w=gridToWorld(gx,gy);
     for(let k=0;k<perCell;k++){
-      const ox=(Math.random()-0.5)*CELL*0.8, oz=(Math.random()-0.5)*CELL*0.8;
-      const s=0.7+Math.random()*0.9;
-      const pos=new THREE.Vector3(w.x+ox,0.24*s,w.z+oz);
-      const tiltX=(Math.random()-0.5)*0.3, tiltZ=(Math.random()-0.5)*0.3, rotY=Math.random()*Math.PI;
-      const rot=new THREE.Euler(tiltX,rotY,tiltZ);
-      const scale=new THREE.Vector3(s,s,s);
-      m.compose(pos, new THREE.Quaternion().setFromEuler(rot), scale);
-      inst.setMatrixAt(i,m);
-      grassData.push({pos, tiltX, tiltZ, rotY, scale:s});
-      i++;
+      const ox=(Math.random()-0.5)*CELL*0.85, oz=(Math.random()-0.5)*CELL*0.85;
+      const s=0.75+Math.random()*1.0;
+      const pos=new THREE.Vector3(w.x+ox,0,w.z+oz);
+      const tiltX=(Math.random()-0.5)*0.22, tiltZ=(Math.random()-0.5)*0.22, rotY=Math.random()*Math.PI;
+      perBatch[Math.floor(Math.random()*3)].push({pos,tiltX,tiltZ,rotY,scale:s});
     }
   });
-  inst.instanceMatrix.needsUpdate=true;
-  scene.add(inst);
-  grassInst=inst;
+  const m=new THREE.Matrix4();
+  perBatch.forEach((list,bi)=>{
+    const inst=new THREE.InstancedMesh(bladeGeo, mats[bi], Math.max(list.length,1));
+    list.forEach((gd,i)=>{
+      const rot=new THREE.Euler(gd.tiltX,gd.rotY,gd.tiltZ);
+      const scale=new THREE.Vector3(gd.scale,gd.scale,gd.scale);
+      m.compose(gd.pos, new THREE.Quaternion().setFromEuler(rot), scale);
+      inst.setMatrixAt(i,m);
+    });
+    inst.instanceMatrix.needsUpdate=true;
+    scene.add(inst);
+    grassInsts.push(inst);
+  });
+  // Rebuild a flat index for flinch lookups: [{inst, idx, pos, tiltX, tiltZ, rotY, scale}]
+  grassData=[];
+  grassInsts.forEach(inst=>{
+    for(let idx=0; idx<inst.count; idx++){
+      const mm=new THREE.Matrix4();
+      inst.getMatrixAt(idx,mm);
+      const pos=new THREE.Vector3(); const q=new THREE.Quaternion(); const scl=new THREE.Vector3();
+      mm.decompose(pos,q,scl);
+      const e=new THREE.Euler().setFromQuaternion(q);
+      grassData.push({inst, idx, pos, tiltX:e.x, tiltZ:e.z, rotY:e.y, scale:scl.x});
+    }
+  });
 }
 scatterGrass();
 function triggerGrassFlinch(x,z,radius){
-  if(!grassInst) return;
+  if(grassInsts.length===0) return;
   for(let idx=0; idx<grassData.length; idx++){
     const gd=grassData[idx];
     const d=Math.hypot(gd.pos.x-x, gd.pos.z-z);
@@ -1415,13 +1677,15 @@ function triggerGrassFlinch(x,z,radius){
 function updateGrassFlinches(dt){
   if(grassFlinches.length===0) return;
   const m=new THREE.Matrix4();
+  const touched=new Set();
   for(let i=grassFlinches.length-1; i>=0; i--){
     const fl=grassFlinches[i];
     fl.t+=dt;
     const gd=grassData[fl.idx];
+    touched.add(gd.inst);
     if(fl.t>0.5){
       m.compose(gd.pos, new THREE.Quaternion().setFromEuler(new THREE.Euler(gd.tiltX,gd.rotY,gd.tiltZ)), new THREE.Vector3(gd.scale,gd.scale,gd.scale));
-      grassInst.setMatrixAt(fl.idx, m);
+      gd.inst.setMatrixAt(gd.idx, m);
       grassFlinches.splice(i,1);
       continue;
     }
@@ -1430,9 +1694,9 @@ function updateGrassFlinches(dt){
     const extraX=Math.cos(fl.dir)*bend, extraZ=Math.sin(fl.dir)*bend;
     const rot=new THREE.Euler(gd.tiltX+extraX, gd.rotY, gd.tiltZ+extraZ);
     m.compose(gd.pos, new THREE.Quaternion().setFromEuler(rot), new THREE.Vector3(gd.scale,gd.scale,gd.scale));
-    grassInst.setMatrixAt(fl.idx, m);
+    gd.inst.setMatrixAt(gd.idx, m);
   }
-  grassInst.instanceMatrix.needsUpdate=true;
+  touched.forEach(inst=>{ inst.instanceMatrix.needsUpdate=true; });
 }
 
 /* ---- Trees + bushes ---- */
@@ -1535,15 +1799,103 @@ function scatterClutter(){
 }
 scatterClutter();
 
+/* ---- Street realism props: manholes, cracked pavement, utility poles with wires ---- */
+function scatterStreetDetail(){
+  const streetCells=[];
+  for(let gy=STREET_START_ROW;gy<GROWS;gy++) for(let gx=0;gx<GCOLS;gx++) if(maze[gy][gx]===1) streetCells.push([gx,gy]);
+  const shuffled=streetCells.slice().sort(()=>Math.random()-0.5);
+
+  const manholeMat=new THREE.MeshStandardMaterial({map:buildRustTexture(), color:0x2a2a28, metalness:0.5, roughness:0.6});
+  shuffled.slice(0,6).forEach(cell=>{
+    const w=gridToWorld(cell[0],cell[1]);
+    const manhole=new THREE.Mesh(new THREE.CylinderGeometry(0.42,0.42,0.03,16), manholeMat);
+    manhole.position.set(w.x,0.016,w.z);
+    manhole.receiveShadow=true;
+    scene.add(manhole);
+    // Radial ridge pattern for a bit of relief detail
+    for(let i=0;i<8;i++){
+      const spoke=new THREE.Mesh(new THREE.BoxGeometry(0.03,0.01,0.34), manholeMat);
+      spoke.rotation.y=(i/8)*Math.PI*2;
+      spoke.position.set(w.x,0.032,w.z);
+      scene.add(spoke);
+    }
+  });
+
+  const crackMat=new THREE.MeshBasicMaterial({map:buildCrackTexture(), transparent:true, opacity:0.6});
+  shuffled.slice(6,16).forEach(cell=>{
+    const w=gridToWorld(cell[0],cell[1]);
+    const ox=(Math.random()-0.5)*CELL*0.6, oz=(Math.random()-0.5)*CELL*0.6;
+    const patch=new THREE.Mesh(new THREE.PlaneGeometry(1.6,1.6), crackMat);
+    patch.rotation.x=-Math.PI/2; patch.rotation.z=Math.random()*Math.PI;
+    patch.position.set(w.x+ox,0.017,w.z+oz);
+    scene.add(patch);
+  });
+
+  // Utility poles with a crossbar and sagging catenary wires, spaced along the street edge
+  const poleMat2=new THREE.MeshStandardMaterial({map:buildRustTexture(), color:0x3a2f22, roughness:0.9});
+  const wireMat=new THREE.MeshBasicMaterial({color:0x111111});
+  const poleSpots=shuffled.slice(16,20);
+  const poleTops=[];
+  poleSpots.forEach(cell=>{
+    const w=gridToWorld(cell[0],cell[1]);
+    const pole=new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.13,4.2,8), poleMat2);
+    pole.position.set(w.x,2.1,w.z); pole.castShadow=true;
+    scene.add(pole);
+    const crossbar=new THREE.Mesh(new THREE.BoxGeometry(1.3,0.06,0.06), poleMat2);
+    crossbar.position.set(w.x,4.0,w.z);
+    scene.add(crossbar);
+    [-0.55,0.55].forEach(dx=>{
+      const insulator=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.04,0.1,6), new THREE.MeshStandardMaterial({color:0x1a1a1a}));
+      insulator.position.set(w.x+dx,4.07,w.z);
+      scene.add(insulator);
+    });
+    poleTops.push({x:w.x,y:4.0,z:w.z});
+  });
+  // Connect consecutive poles with a drooping wire (simple multi-segment catenary approximation)
+  for(let i=0;i<poleTops.length-1;i++){
+    const a=poleTops[i], b=poleTops[i+1];
+    const segs=8;
+    const pts=[];
+    for(let s=0;s<=segs;s++){
+      const t=s/segs;
+      const x=a.x+(b.x-a.x)*t, z=a.z+(b.z-a.z)*t;
+      const sag=Math.sin(t*Math.PI)*0.5;
+      pts.push(new THREE.Vector3(x, a.y+(b.y-a.y)*t - sag, z));
+    }
+    const wireGeo=new THREE.BufferGeometry().setFromPoints(pts);
+    const wire=new THREE.Line(wireGeo, wireMat);
+    scene.add(wire);
+  }
+}
+scatterStreetDetail();
+
 /* ---- Lanterns ---- */
 const lanternMeshes=[];
 function placeLantern(gx,gy){
   const w=gridToWorld(gx,gy);
-  const post=new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,1.6,6), new THREE.MeshStandardMaterial({color:0x1a1a1a}));
-  post.position.set(w.x,0.8,w.z);
+  const metalMat=new THREE.MeshStandardMaterial({map:buildRustTexture(), color:0x2a2620, metalness:0.6, roughness:0.55});
+  const post=new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.06,1.55,10), metalMat);
+  post.position.set(w.x,0.78,w.z); post.castShadow=true;
   scene.add(post);
-  const bulb=new THREE.Mesh(new THREE.SphereGeometry(0.11,8,8), new THREE.MeshBasicMaterial({color:0xffcf7a}));
-  bulb.position.set(w.x,1.65,w.z);
+  const base=new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.11,0.12,10), metalMat);
+  base.position.set(w.x,0.06,w.z); base.castShadow=true;
+  scene.add(base);
+  // Mounting arm curving out from the pole to the lamp head
+  const arm=new THREE.Mesh(new THREE.TorusGeometry(0.14,0.02,6,10,Math.PI/2), metalMat);
+  arm.position.set(w.x,1.55,w.z); arm.rotation.y=Math.random()*Math.PI*2;
+  scene.add(arm);
+  // Cage/hood housing around the bulb
+  const hood=new THREE.Mesh(new THREE.ConeGeometry(0.16,0.1,10,1,true), metalMat);
+  hood.position.set(w.x,1.72,w.z);
+  scene.add(hood);
+  for(let i=0;i<5;i++){
+    const bar=new THREE.Mesh(new THREE.CylinderGeometry(0.006,0.006,0.16,4), metalMat);
+    const a=(i/5)*Math.PI*2;
+    bar.position.set(w.x+Math.cos(a)*0.1,1.62,w.z+Math.sin(a)*0.1);
+    scene.add(bar);
+  }
+  const bulb=new THREE.Mesh(new THREE.SphereGeometry(0.11,10,10), new THREE.MeshBasicMaterial({color:0xffcf7a}));
+  bulb.position.set(w.x,1.62,w.z);
   bulb.material.fog=false;
   scene.add(bulb);
   const light=new THREE.PointLight(0xffb84d, 0.85, 6.5, 2);
@@ -1829,26 +2181,26 @@ function buildHand(mirror){
 
   // Barrel (top, smooth blued steel)
   const sgBarrel=new THREE.Mesh(new THREE.CylinderGeometry(0.023,0.025,0.46,12), gunMat);
-  sgBarrel.rotation.z=Math.PI/2; sgBarrel.position.set(0,0.045,-0.2);
+  sgBarrel.rotation.x=Math.PI/2; sgBarrel.position.set(0,0.045,-0.2);
   shotgunGroup.add(sgBarrel);
   const sgMuzzleRing=new THREE.Mesh(new THREE.TorusGeometry(0.024,0.004,6,12), smallMetal);
-  sgMuzzleRing.rotation.y=Math.PI/2; sgMuzzleRing.position.set(0,0.045,-0.43);
+  sgMuzzleRing.position.set(0,0.045,-0.43);
   shotgunGroup.add(sgMuzzleRing);
   const sgBead=new THREE.Mesh(new THREE.SphereGeometry(0.005,6,6), new THREE.MeshBasicMaterial({color:0xffd23f}));
   sgBead.position.set(0,0.062,-0.42);
   shotgunGroup.add(sgBead);
   // Magazine tube (below barrel, slightly slimmer)
   const sgMagTube=new THREE.Mesh(new THREE.CylinderGeometry(0.016,0.016,0.4,10), sgMatteMat);
-  sgMagTube.rotation.z=Math.PI/2; sgMagTube.position.set(0,-0.008,-0.16);
+  sgMagTube.rotation.x=Math.PI/2; sgMagTube.position.set(0,-0.008,-0.16);
   shotgunGroup.add(sgMagTube);
   // Pump foregrip (grooved, slides on mag tube)
   const sgPumpMat=new THREE.MeshStandardMaterial({color:0x3a2519, roughness:0.7});
   const sgPumpCore=new THREE.Mesh(new THREE.CylinderGeometry(0.028,0.028,0.15,10), sgPumpMat);
-  sgPumpCore.rotation.z=Math.PI/2; sgPumpCore.position.set(0,-0.008,-0.06);
+  sgPumpCore.rotation.x=Math.PI/2; sgPumpCore.position.set(0,-0.008,-0.06);
   shotgunGroup.add(sgPumpCore);
   for(let i=0;i<7;i++){
     const groove=new THREE.Mesh(new THREE.TorusGeometry(0.03,0.0035,5,10), sgPumpMat);
-    groove.rotation.y=Math.PI/2; groove.position.set(0,-0.008,-0.11+i*0.016);
+    groove.position.set(0,-0.008,-0.11+i*0.016);
     shotgunGroup.add(groove);
   }
   const sgStock=new THREE.Mesh(new THREE.BoxGeometry(0.09,0.1,0.28), woodStockMat);
@@ -1901,16 +2253,16 @@ function buildHand(mirror){
   const sniperGroup=new THREE.Group();
   // Fluted barrel: main taper + ring flutes for a machined look, thinner than before
   const snBarrel=new THREE.Mesh(new THREE.CylinderGeometry(0.015,0.022,1.15,14), gunMat);
-  snBarrel.rotation.z=Math.PI/2; snBarrel.position.set(0,0.008,-0.6);
+  snBarrel.rotation.x=Math.PI/2; snBarrel.position.set(0,0.008,-0.6);
   sniperGroup.add(snBarrel);
   for(let i=0;i<9;i++){
     const flute=new THREE.Mesh(new THREE.TorusGeometry(0.0185,0.0018,5,12), smallMetal);
-    flute.rotation.y=Math.PI/2; flute.position.set(0,0.008,-0.15-i*0.11);
+    flute.position.set(0,0.008,-0.15-i*0.11);
     sniperGroup.add(flute);
   }
   // Ported muzzle brake (stepped, with visible port holes)
   const snMuzzleBrake=new THREE.Mesh(new THREE.CylinderGeometry(0.026,0.022,0.12,10), smallMetal);
-  snMuzzleBrake.rotation.z=Math.PI/2; snMuzzleBrake.position.set(0,0.008,-1.16);
+  snMuzzleBrake.rotation.x=Math.PI/2; snMuzzleBrake.position.set(0,0.008,-1.16);
   sniperGroup.add(snMuzzleBrake);
   for(let i=0;i<3;i++){
     [-1,1].forEach(side=>{
@@ -1920,7 +2272,7 @@ function buildHand(mirror){
     });
   }
   const snMuzzleTip=new THREE.Mesh(new THREE.CylinderGeometry(0.028,0.028,0.02,10), gunMat);
-  snMuzzleTip.rotation.z=Math.PI/2; snMuzzleTip.position.set(0,0.008,-1.22);
+  snMuzzleTip.rotation.x=Math.PI/2; snMuzzleTip.position.set(0,0.008,-1.22);
   sniperGroup.add(snMuzzleTip);
   // Receiver: distinct blocky action separate from the slim barrel
   const snReceiver=new THREE.Mesh(new THREE.BoxGeometry(0.085,0.09,0.32), sgReceiverMat);
@@ -1938,24 +2290,24 @@ function buildHand(mirror){
 
   const scopeMat=new THREE.MeshStandardMaterial({color:0x0a0a0a, metalness:0.8, roughness:0.2});
   const snScope=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.5,16), scopeMat);
-  snScope.rotation.z=Math.PI/2; snScope.position.set(0,0.115,-0.2);
+  snScope.rotation.x=Math.PI/2; snScope.position.set(0,0.115,-0.2);
   sniperGroup.add(snScope);
   // Objective bell (larger front housing) + honeycomb anti-glare sunshade
   const snObjective=new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.036,0.09,16), scopeMat);
-  snObjective.rotation.z=Math.PI/2; snObjective.position.set(0,0.115,-0.44);
+  snObjective.rotation.x=Math.PI/2; snObjective.position.set(0,0.115,-0.44);
   sniperGroup.add(snObjective);
   const snSunshade=new THREE.Mesh(new THREE.CylinderGeometry(0.041,0.041,0.06,16,1,true), new THREE.MeshStandardMaterial({color:0x050505, metalness:0.4, roughness:0.7, side:THREE.DoubleSide}));
-  snSunshade.rotation.z=Math.PI/2; snSunshade.position.set(0,0.115,-0.51);
+  snSunshade.rotation.x=Math.PI/2; snSunshade.position.set(0,0.115,-0.51);
   sniperGroup.add(snSunshade);
   const snLensFront=new THREE.Mesh(new THREE.CylinderGeometry(0.036,0.036,0.015,16), new THREE.MeshStandardMaterial({color:0x1a4a8a, metalness:0.9, roughness:0.08, emissive:0x0d2a5a, emissiveIntensity:0.4}));
-  snLensFront.rotation.z=Math.PI/2; snLensFront.position.set(0,0.115,-0.485);
+  snLensFront.rotation.x=Math.PI/2; snLensFront.position.set(0,0.115,-0.485);
   sniperGroup.add(snLensFront);
   // Eyepiece bell (rear, smaller) + ocular lens
   const snEyepiece=new THREE.Mesh(new THREE.CylinderGeometry(0.026,0.03,0.06,16), scopeMat);
-  snEyepiece.rotation.z=Math.PI/2; snEyepiece.position.set(0,0.115,0.078);
+  snEyepiece.rotation.x=Math.PI/2; snEyepiece.position.set(0,0.115,0.078);
   sniperGroup.add(snEyepiece);
   const snLensRear=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,0.012,16), new THREE.MeshStandardMaterial({color:0x0d1a10, metalness:0.85, roughness:0.12, emissive:0x0a2a12, emissiveIntensity:0.25}));
-  snLensRear.rotation.z=Math.PI/2; snLensRear.position.set(0,0.115,0.108);
+  snLensRear.rotation.x=Math.PI/2; snLensRear.position.set(0,0.115,0.108);
   sniperGroup.add(snLensRear);
   const turretMat=new THREE.MeshStandardMaterial({color:0x1c1c1c, metalness:0.65, roughness:0.35});
   const snTurretTop=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,0.04,10), turretMat);
@@ -1968,12 +2320,12 @@ function buildHand(mirror){
     sniperGroup.add(notch);
   }
   const snTurretSide=new THREE.Mesh(new THREE.CylinderGeometry(0.018,0.018,0.032,10), turretMat);
-  snTurretSide.rotation.x=Math.PI/2; snTurretSide.position.set(0.038,0.115,-0.28);
+  snTurretSide.rotation.z=Math.PI/2; snTurretSide.position.set(0.038,0.115,-0.28);
   sniperGroup.add(snTurretSide);
   const ringMat=new THREE.MeshStandardMaterial({color:0x2a2a2a, metalness:0.65, roughness:0.3});
   [-0.32,-0.08].forEach(zp=>{
     const ring=new THREE.Mesh(new THREE.TorusGeometry(0.034,0.009,8,14), ringMat);
-    ring.rotation.y=Math.PI/2; ring.position.set(0,0.115,zp);
+    ring.position.set(0,0.115,zp);
     sniperGroup.add(ring);
     const ringBase=new THREE.Mesh(new THREE.BoxGeometry(0.02,0.03,0.02), ringMat);
     ringBase.position.set(0,0.075,zp);
@@ -1987,7 +2339,7 @@ function buildHand(mirror){
   snCheekRest.position.set(0,0.055,0.32);
   sniperGroup.add(snCheekRest);
   const snCheekKnob=new THREE.Mesh(new THREE.CylinderGeometry(0.01,0.01,0.05,8), smallMetal);
-  snCheekKnob.rotation.x=Math.PI/2; snCheekKnob.position.set(0.042,0.06,0.42);
+  snCheekKnob.rotation.z=Math.PI/2; snCheekKnob.position.set(0.042,0.06,0.42);
   sniperGroup.add(snCheekKnob);
   const snButtpad=new THREE.Mesh(new THREE.BoxGeometry(0.08,0.16,0.02), new THREE.MeshStandardMaterial({color:0x0d0d0d, roughness:0.9}));
   snButtpad.position.set(0,-0.04,0.71);
@@ -2023,6 +2375,116 @@ function buildHand(mirror){
   snMuzzle.position.set(-0.30,-0.26,-1.5);
   handGroup.add(snMuzzle);
   handGroup.userData.sniperMuzzle=snMuzzle;
+
+  /* ---- Assault Rifle (left hand): automatic, curved mag, rail handguard, collapsible stock ---- */
+  const rifleGroup=new THREE.Group();
+  const polyMat=new THREE.MeshStandardMaterial({color:0x2b2e26, metalness:0.2, roughness:0.65});
+  const rifleReceiverMat=new THREE.MeshStandardMaterial({color:0x1c1d1a, metalness:0.6, roughness:0.4});
+
+  // Barrel + handguard (free-float rail look)
+  const rfBarrel=new THREE.Mesh(new THREE.CylinderGeometry(0.014,0.017,0.5,12), gunMat);
+  rfBarrel.rotation.x=Math.PI/2; rfBarrel.position.set(0,0.02,-0.42);
+  rifleGroup.add(rfBarrel);
+  const rfHandguard=new THREE.Mesh(new THREE.BoxGeometry(0.055,0.06,0.38), polyMat);
+  rfHandguard.position.set(0,0.015,-0.28);
+  rifleGroup.add(rfHandguard);
+  // Rail ridges on top of handguard (picatinny)
+  for(let i=0;i<10;i++){
+    const ridge=new THREE.Mesh(new THREE.BoxGeometry(0.045,0.006,0.01), smallMetal);
+    ridge.position.set(0,0.048,-0.13-i*0.033);
+    rifleGroup.add(ridge);
+  }
+  // Vertical foregrip
+  const foregrip=new THREE.Mesh(new THREE.CylinderGeometry(0.016,0.02,0.11,8), polyMat);
+  foregrip.position.set(0,-0.05,-0.32);
+  rifleGroup.add(foregrip);
+  // Front sight post (folding-style tower)
+  const fsTower=new THREE.Mesh(new THREE.BoxGeometry(0.018,0.05,0.018), smallMetal);
+  fsTower.position.set(0,0.06,-0.46);
+  rifleGroup.add(fsTower);
+  const fsPost=new THREE.Mesh(new THREE.CylinderGeometry(0.003,0.003,0.03,6), smallMetal);
+  fsPost.position.set(0,0.09,-0.46);
+  rifleGroup.add(fsPost);
+  // Flash hider (birdcage-style, slotted)
+  const flashHider=new THREE.Mesh(new THREE.CylinderGeometry(0.017,0.017,0.08,10), smallMetal);
+  flashHider.rotation.x=Math.PI/2; flashHider.position.set(0,0.02,-0.71);
+  rifleGroup.add(flashHider);
+  for(let i=0;i<6;i++){
+    const slot=new THREE.Mesh(new THREE.BoxGeometry(0.006,0.02,0.004), new THREE.MeshStandardMaterial({color:0x040404}));
+    const a=(i/6)*Math.PI*2;
+    slot.position.set(Math.sin(a)*0.014,0.02+Math.cos(a)*0.014,-0.71);
+    slot.rotation.z=a;
+    rifleGroup.add(slot);
+  }
+  // Receiver (upper + lower distinct blocks)
+  const rfUpper=new THREE.Mesh(new THREE.BoxGeometry(0.07,0.055,0.34), rifleReceiverMat);
+  rfUpper.position.set(0,0.03,-0.02);
+  rifleGroup.add(rfUpper);
+  const rfLower=new THREE.Mesh(new THREE.BoxGeometry(0.068,0.06,0.2), polyMat);
+  rfLower.position.set(0,-0.02,0.06);
+  rifleGroup.add(rfLower);
+  // Charging handle (top rear, protrudes back)
+  const rfCharge=new THREE.Mesh(new THREE.BoxGeometry(0.014,0.014,0.05), smallMetal);
+  rfCharge.position.set(0,0.062,0.13);
+  rifleGroup.add(rfCharge);
+  // Rear iron sight
+  const rfRearSight=new THREE.Mesh(new THREE.BoxGeometry(0.022,0.02,0.02), smallMetal);
+  rfRearSight.position.set(0,0.065,0.17);
+  rifleGroup.add(rfRearSight);
+  // Ejection port + brass shell
+  const rfEjPort=new THREE.Mesh(new THREE.BoxGeometry(0.018,0.03,0.05), new THREE.MeshStandardMaterial({color:0x050505}));
+  rfEjPort.position.set(0.04,0.03,-0.02);
+  rifleGroup.add(rfEjPort);
+  const rfShell=new THREE.Mesh(new THREE.CylinderGeometry(0.01,0.01,0.04,8), brassMat);
+  rfShell.rotation.z=Math.PI/2.4; rfShell.position.set(0.045,0.025,-0.02);
+  rifleGroup.add(rfShell);
+  // Curved magazine (banana-shaped approximation via angled segments)
+  const magMat=new THREE.MeshStandardMaterial({color:0x1a1c17, metalness:0.35, roughness:0.55});
+  const rfMag=new THREE.Group();
+  const magSeg1=new THREE.Mesh(new THREE.BoxGeometry(0.032,0.15,0.045), magMat);
+  magSeg1.position.set(0,-0.08,0);
+  rfMag.add(magSeg1);
+  const magSeg2=new THREE.Mesh(new THREE.BoxGeometry(0.032,0.09,0.045), magMat);
+  magSeg2.rotation.x=0.32; magSeg2.position.set(0,-0.18,-0.03);
+  rfMag.add(magSeg2);
+  const magFloor=new THREE.Mesh(new THREE.BoxGeometry(0.036,0.015,0.05), smallMetal);
+  magFloor.position.set(0,-0.235,-0.05);
+  rfMag.add(magFloor);
+  rfMag.position.set(0,-0.02,0.03);
+  rifleGroup.add(rfMag);
+  // Pistol grip
+  const rfGrip=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.13,0.06), polyMat);
+  rfGrip.rotation.x=-0.35; rfGrip.position.set(0,-0.1,0.14);
+  rifleGroup.add(rfGrip);
+  const rfTriggerGuard=new THREE.Mesh(new THREE.TorusGeometry(0.028,0.006,6,12,Math.PI*1.3), polyMat);
+  rfTriggerGuard.rotation.z=Math.PI/2; rfTriggerGuard.position.set(0,-0.03,0.1);
+  rifleGroup.add(rfTriggerGuard);
+  const rfTrigger=new THREE.Mesh(new THREE.BoxGeometry(0.007,0.028,0.01), smallMetal);
+  rfTrigger.position.set(0,-0.035,0.1);
+  rifleGroup.add(rfTrigger);
+  const rfSelector=new THREE.Mesh(new THREE.CylinderGeometry(0.012,0.012,0.02,8), smallMetal);
+  rfSelector.rotation.z=Math.PI/2; rfSelector.position.set(-0.038,0.01,0.06);
+  rifleGroup.add(rfSelector);
+  // Collapsible stock (tube + shoulder pad)
+  const rfStockTube=new THREE.Mesh(new THREE.CylinderGeometry(0.014,0.014,0.16,8), smallMetal);
+  rfStockTube.rotation.x=Math.PI/2; rfStockTube.position.set(0,0.015,0.28);
+  rifleGroup.add(rfStockTube);
+  const rfStockPad=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.09,0.03), polyMat);
+  rfStockPad.position.set(0,0.005,0.37);
+  rifleGroup.add(rfStockPad);
+  const rfSling=new THREE.Mesh(new THREE.TorusGeometry(0.011,0.003,5,10), smallMetal);
+  rfSling.position.set(0,-0.03,0.35);
+  rifleGroup.add(rfSling);
+
+  rifleGroup.position.set(-0.30,-0.27,-0.35);
+  rifleGroup.visible=false;
+  handGroup.add(rifleGroup);
+  handGroup.userData.rifleGroup=rifleGroup;
+  handGroup.userData.rfBaseZ=rifleGroup.position.z;
+  const rfMuzzle=new THREE.PointLight(0xfff2b0,0,6,2);
+  rfMuzzle.position.set(-0.30,-0.25,-1.0);
+  handGroup.add(rfMuzzle);
+  handGroup.userData.rifleMuzzle=rfMuzzle;
 
   const handL=buildHand(-1);
   handL.rotation.set(0.15,-Math.PI/2,-0.1);
@@ -2240,7 +2702,8 @@ let activeWeapon='pistol';
 let weapons={
   pistol:{mag:8, magMax:8, reserve:Infinity, cooldown:0, recoil:0, flashTimer:0, reloading:false, reloadTime:1.1, dmg:1, range:22, fireRate:0.28},
   shotgun:{unlocked:true, mag:2, magMax:2, reserve:Infinity, cooldown:0, recoil:0, flashTimer:0, reloading:false, reloadTime:1.6, dmg:3, range:7, pellets:6, spread:0.11, fireRate:0.85},
-  sniper:{unlocked:true, mag:1, magMax:1, reserve:Infinity, cooldown:0, recoil:0, flashTimer:0, reloading:false, reloadTime:1.9, dmg:10, range:60, fireRate:1.3}
+  sniper:{unlocked:true, mag:1, magMax:1, reserve:Infinity, cooldown:0, recoil:0, flashTimer:0, reloading:false, reloadTime:1.9, dmg:10, range:60, fireRate:1.3},
+  rifle:{unlocked:true, mag:30, magMax:30, reserve:Infinity, cooldown:0, recoil:0, flashTimer:0, reloading:false, reloadTime:1.8, dmg:1, range:26, spread:0.028, fireRate:0.09, auto:true}
 };
 let zoomed=false;
 const NORMAL_FOV=72, ZOOM_FOV=20;
@@ -2386,17 +2849,24 @@ function updateWeaponIcons(){
     snEl.classList.toggle('active', activeWeapon==='sniper');
     snEl.classList.toggle('locked', !weapons.sniper.unlocked);
   }
+  const rfEl=document.getElementById('wRifle');
+  if(rfEl){
+    rfEl.classList.toggle('active', activeWeapon==='rifle');
+    rfEl.classList.toggle('locked', !weapons.rifle.unlocked);
+  }
 }
 function switchWeapon(name){
   if(!gameRunning) return;
   if(name==='shotgun' && !weapons.shotgun.unlocked){ showPrompt("Haven't found the shotgun yet",1.2); return; }
   if(name==='sniper' && !weapons.sniper.unlocked){ showPrompt("Haven't found the sniper yet",1.2); return; }
+  if(name==='rifle' && !weapons.rifle.unlocked){ showPrompt("Haven't found the rifle yet",1.2); return; }
   if(activeWeapon===name) return;
   if(zoomed) toggleZoom();
   activeWeapon=name;
   handGroup.userData.gunGroup.visible = (name==='pistol');
   handGroup.userData.shotgunGroup.visible = (name==='shotgun');
   handGroup.userData.sniperGroup.visible = (name==='sniper');
+  handGroup.userData.rifleGroup.visible = (name==='rifle');
   updateAmmoUI();
   updateWeaponIcons();
 }
@@ -2476,6 +2946,26 @@ function fireWeapon(){
     ejectCasing();
     raycaster.far=w.range;
     raycaster.setFromCamera(new THREE.Vector2(0,0), camera);
+    const rayOrigin=raycaster.ray.origin.clone(), rayDir=raycaster.ray.direction.clone();
+    let best=null;
+    alive.forEach(m=>{
+      const hits=raycaster.intersectObject(m.mesh,true);
+      if(hits.length>0 && (!best || hits[0].distance<best.dist)){ best={m,dist:hits[0].distance,point:hits[0].point}; }
+    });
+    if(best){
+      damageMonster(best.m, w.dmg, best.point);
+      spawnTracer(rayOrigin, best.point);
+      runStats.shotsHit++;
+    } else {
+      spawnEnvImpact();
+      spawnTracer(rayOrigin, rayOrigin.clone().addScaledVector(rayDir, w.range));
+    }
+  } else if(activeWeapon==='rifle'){
+    sGunshotRifle();
+    ejectCasing();
+    raycaster.far=w.range;
+    const nx=(Math.random()-0.5)*w.spread, ny=(Math.random()-0.5)*w.spread;
+    raycaster.setFromCamera(new THREE.Vector2(nx,ny), camera);
     const rayOrigin=raycaster.ray.origin.clone(), rayDir=raycaster.ray.direction.clone();
     let best=null;
     alive.forEach(m=>{
@@ -2676,11 +3166,16 @@ function spawnHitSpark(point){
   scene.add(spark);
   setTimeout(()=>{ disposeObject3D(spark); scene.remove(spark); },140);
 }
-document.getElementById('btnFire').addEventListener('pointerdown', e=>{ e.preventDefault(); fireWeapon(); });
+let fireHeld=false;
+document.getElementById('btnFire').addEventListener('pointerdown', e=>{ e.preventDefault(); fireHeld=true; fireWeapon(); });
+document.getElementById('btnFire').addEventListener('pointerup', e=>{ fireHeld=false; });
+document.getElementById('btnFire').addEventListener('pointerleave', e=>{ fireHeld=false; });
+document.getElementById('btnFire').addEventListener('pointercancel', e=>{ fireHeld=false; });
 document.getElementById('btnReload').addEventListener('pointerdown', e=>{ e.preventDefault(); reloadWeapon(); });
 document.getElementById('wPistol').addEventListener('pointerdown', e=>{ e.preventDefault(); switchWeapon('pistol'); });
 document.getElementById('wShotgun').addEventListener('pointerdown', e=>{ e.preventDefault(); switchWeapon('shotgun'); });
 document.getElementById('wSniper').addEventListener('pointerdown', e=>{ e.preventDefault(); switchWeapon('sniper'); });
+document.getElementById('wRifle').addEventListener('pointerdown', e=>{ e.preventDefault(); switchWeapon('rifle'); });
 document.getElementById('btnZoom').addEventListener('pointerdown', e=>{ e.preventDefault(); toggleZoom(); });
 canvas.addEventListener('contextmenu', e=>{ e.preventDefault(); toggleZoom(); });
 
@@ -2703,7 +3198,8 @@ function advanceLevel(){
     if(t>=1) clearInterval(anim);
   },30);
   sWin();
-  showLevelBanner('LEVEL '+(levelIndex+1)+' CLEAR', 'Heading into level '+(levelIndex+2)+'...');
+  const nextZone=LEVEL_ZONES[Math.min(levelIndex+1, LEVEL_ZONES.length-1)];
+  showLevelBanner('LEVEL '+(levelIndex+1)+' CLEAR', 'Entering: '+nextZone.name);
   setTimeout(()=>{
     levelIndex++;
     ld.rotation.y=0; rd.rotation.y=0;
@@ -2717,18 +3213,25 @@ function advanceLevel(){
     levelTransitioning=false;
   }, 2200);
 }
+const LEVEL_ZONES=[
+  {name:'Abandoned Garden', fog:0x03050a, sky:0x2a3550, ground:0x0a0d08, groundTint:0x5a7a4a, spotlight:'yard'},
+  {name:'Ruined Street', fog:0x140a12, sky:0x3a2a50, ground:0x150a10, groundTint:0x8a8a8a, spotlight:'gas'},
+  {name:'Market District', fog:0x0a1414, sky:0x1a4050, ground:0x081010, groundTint:0x9a8060, spotlight:'store'},
+  {name:'Burned Church', fog:0x1a0505, sky:0x5a1a1a, ground:0x100505, groundTint:0x8a4a3a, spotlight:'church'},
+  {name:'Industrial Warehouse', fog:0x100800, sky:0x6a2a05, ground:0x1a0800, groundTint:0x6a6560, spotlight:'warehouse'},
+];
 function applyLevelMood(){
-  const moods=[
-    {fog:0x03050a, sky:0x2a3550, ground:0x0a0d08},
-    {fog:0x140a12, sky:0x3a2a50, ground:0x150a10},
-    {fog:0x0a1414, sky:0x1a4050, ground:0x081010},
-    {fog:0x1a0505, sky:0x5a1a1a, ground:0x100505},
-    {fog:0x100800, sky:0x6a2a05, ground:0x1a0800},
-  ];
-  const mood=moods[Math.min(levelIndex, moods.length-1)];
+  const mood=LEVEL_ZONES[Math.min(levelIndex, LEVEL_ZONES.length-1)];
   scene.fog.color.set(mood.fog);
   hemi.color.set(mood.sky);
   hemi.groundColor.set(mood.ground);
+  groundMat.color.set(mood.groundTint);
+  const spotIntensity={yard:0, gas:0, store:0, church:0, warehouse:0};
+  spotIntensity[mood.spotlight]=1;
+  if(gasStationLight) gasStationLight.intensity = 0.35 + spotIntensity.gas*0.9;
+  if(cornerStoreLight) cornerStoreLight.intensity = 0.25 + spotIntensity.store*0.7;
+  if(churchLight) churchLight.intensity = 0.45 + spotIntensity.church*1.1;
+  if(warehouseLight) warehouseLight.intensity = 0.2 + spotIntensity.warehouse*1.3;
 }
 function showLevelBanner(title, sub){
   const el=document.getElementById('levelBanner');
@@ -2811,6 +3314,11 @@ function sGunshotSniper(){
   playNoise(0.3,0.6,1600,'bandpass',0.22);
   playNoise(0.42,0.5,220,'lowpass',0.36);
 }
+function sGunshotRifle(){
+  playNoise(0.07,0.42,1900,'bandpass',0.06);
+  playNoise(0.1,0.28,380,'lowpass',0.09);
+  beep(1200,0.025,0.05,'square');
+}
 function sPlayerGrunt(){
   if(!audioCtx) return;
   playNoise(0.12,0.28,900,'bandpass',0.1);
@@ -2883,10 +3391,14 @@ window.addEventListener('keydown', e=>{
   if(k==='1') switchWeapon('pistol');
   if(k==='2') switchWeapon('shotgun');
   if(k==='3') switchWeapon('sniper');
+  if(k==='4') switchWeapon('rifle');
   if(k==='z') toggleZoom();
-  if(e.code==='Space' || e.key==='Enter'){ e.preventDefault(); fireWeapon(); }
+  if(e.code==='Space' || e.key==='Enter'){ e.preventDefault(); fireHeld=true; fireWeapon(); }
 });
-window.addEventListener('keyup', e=>{ keysDown[e.key.toLowerCase()]=false; });
+window.addEventListener('keyup', e=>{
+  keysDown[e.key.toLowerCase()]=false;
+  if(e.code==='Space' || e.key==='Enter'){ fireHeld=false; }
+});
 
 /* free drag-to-look, right side of the screen — works for touch and mouse */
 let lookDragActive=false, lookDragId=null, lastLX=0, lastLY=0;
@@ -2995,6 +3507,7 @@ let gameRunning=false, gameOverFlag=false, gameWinFlag=false;
 let runStats={startTime:0, shotsFired:0, shotsHit:0, grenadesUsed:0, totalKills:0, hitsTaken:0};
 
 function resetGame(){
+  fireHeld=false;
   buildMazeGrid();
   levelIndex=0;
   levelTransitioning=false;
@@ -3031,12 +3544,15 @@ function resetGame(){
   weapons.pistol={mag:8, magMax:8, reserve:Infinity, cooldown:0, recoil:0, flashTimer:0, reloading:false, reloadTime:1.1, dmg:1, range:22, fireRate:0.28};
   weapons.shotgun={unlocked:true, mag:2, magMax:2, reserve:Infinity, cooldown:0, recoil:0, flashTimer:0, reloading:false, reloadTime:1.6, dmg:3, range:7, pellets:6, spread:0.11, fireRate:0.85};
   weapons.sniper={unlocked:true, mag:1, magMax:1, reserve:Infinity, cooldown:0, recoil:0, flashTimer:0, reloading:false, reloadTime:1.9, dmg:10, range:60, fireRate:1.3};
+  weapons.rifle={unlocked:true, mag:30, magMax:30, reserve:Infinity, cooldown:0, recoil:0, flashTimer:0, reloading:false, reloadTime:1.8, dmg:1, range:26, spread:0.028, fireRate:0.09, auto:true};
   zoomed=false; camera.fov=NORMAL_FOV; camera.updateProjectionMatrix();
   document.getElementById('scopeOverlay').classList.remove('active');
   document.getElementById('crosshair').classList.remove('hidden');
   handGroup.userData.gunGroup.visible=true;
   handGroup.userData.shotgunGroup.visible=false;
   handGroup.userData.sniperGroup.visible=false;
+  handGroup.userData.rifleGroup.visible=false;
+  fireHeld=false;
   updateAmmoUI();
   updateWeaponIcons();
 
@@ -3061,6 +3577,19 @@ function resetGame(){
 const clock=new THREE.Clock();
 function update(dt){
   if(!gameRunning) return;
+
+  if(fireHeld && weapons[activeWeapon] && weapons[activeWeapon].auto){ fireWeapon(); }
+
+  if(cloudLayerA){
+    cloudLayerA.position.x=player.x; cloudLayerA.position.z=player.z;
+    cloudLayerA.material.map.offset.x += dt*0.0035;
+    cloudLayerA.material.map.offset.y += dt*0.0015;
+  }
+  if(cloudLayerB){
+    cloudLayerB.position.x=player.x; cloudLayerB.position.z=player.z;
+    cloudLayerB.material.map.offset.x -= dt*0.002;
+    cloudLayerB.material.map.offset.y += dt*0.001;
+  }
 
   let lookX=0, lookY=0;
   if(keysDown['arrowleft']) lookX=-1;
@@ -3217,7 +3746,7 @@ function updateDebrisCulling(dt){
 }
 
 function updateWeaponVisuals(dt){
-  ['pistol','shotgun','sniper'].forEach(name=>{
+  ['pistol','shotgun','sniper','rifle'].forEach(name=>{
     const w=weapons[name];
     if(w.cooldown>0) w.cooldown=Math.max(0,w.cooldown-dt);
     if(w.recoil>0) w.recoil=Math.max(0,w.recoil-dt*6);
@@ -3226,12 +3755,15 @@ function updateWeaponVisuals(dt){
   const gunGroup=handGroup.userData.gunGroup, muzzleFlash=handGroup.userData.muzzleFlash;
   const sgGroup=handGroup.userData.shotgunGroup, sgMuzzle=handGroup.userData.shotgunMuzzle;
   const snGroup=handGroup.userData.sniperGroup, snMuzzle=handGroup.userData.sniperMuzzle;
+  const rfGroup=handGroup.userData.rifleGroup, rfMuzzle=handGroup.userData.rifleMuzzle;
   if(gunGroup) gunGroup.position.z = handGroup.userData.gunBaseZ + (activeWeapon==='pistol'?weapons.pistol.recoil*0.06:0);
   if(muzzleFlash) muzzleFlash.intensity = (activeWeapon==='pistol' && weapons.pistol.flashTimer>0) ? 3.2 : 0;
   if(sgGroup) sgGroup.position.z = handGroup.userData.sgBaseZ + (activeWeapon==='shotgun'?weapons.shotgun.recoil*0.09:0);
   if(sgMuzzle) sgMuzzle.intensity = (activeWeapon==='shotgun' && weapons.shotgun.flashTimer>0) ? 4 : 0;
   if(snGroup) snGroup.position.z = handGroup.userData.snBaseZ + (activeWeapon==='sniper'?weapons.sniper.recoil*0.11:0);
   if(snMuzzle) snMuzzle.intensity = (activeWeapon==='sniper' && weapons.sniper.flashTimer>0) ? 4.5 : 0;
+  if(rfGroup) rfGroup.position.z = handGroup.userData.rfBaseZ + (activeWeapon==='rifle'?weapons.rifle.recoil*0.045:0);
+  if(rfMuzzle) rfMuzzle.intensity = (activeWeapon==='rifle' && weapons.rifle.flashTimer>0) ? 3.5 : 0;
 }
 
 const losRaycaster=new THREE.Raycaster();
@@ -3664,11 +4196,13 @@ document.getElementById('btnStart').addEventListener('click', ()=>{
   resetGame();
   document.getElementById('screenStart').classList.add('hidden');
   document.getElementById('hud').classList.remove('hidden');
+  showLevelBanner('LEVEL 1', LEVEL_ZONES[0].name);
 });
 function restart(){
   document.getElementById('screenOver').classList.add('hidden');
   document.getElementById('screenWin').classList.add('hidden');
   resetGame();
+  showLevelBanner('LEVEL 1', LEVEL_ZONES[0].name);
 }
 document.getElementById('btnRestart1').addEventListener('click', restart);
 document.getElementById('btnRestart2').addEventListener('click', restart);
