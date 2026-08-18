@@ -37,6 +37,12 @@
     box-shadow:0 4px 0 #4d1414,0 6px 16px rgba(122,31,31,0.4);}
   button.primary:active{transform:translateY(3px);box-shadow:0 1px 0 #4d1414;}
   .hidden{display:none !important;}
+  .pickerRow{display:flex;align-items:center;gap:10px;margin:8px 0;flex-wrap:wrap;justify-content:center;}
+  .pickerLabel{font-size:0.8rem;color:var(--bone);opacity:0.7;min-width:70px;text-align:left;}
+  .pickerBtns{display:flex;gap:6px;flex-wrap:wrap;}
+  .pickBtn{font-family:'Special Elite',monospace;background:#00000055;border:1px solid var(--line);
+    color:var(--bone);padding:6px 12px;font-size:0.78rem;border-radius:4px;cursor:pointer;opacity:0.6;}
+  .pickBtn.active{opacity:1;border-color:var(--amber);color:var(--amber);background:rgba(217,164,65,0.12);}
 
   /* HUD */
   #hud{position:fixed;inset:0;pointer-events:none;z-index:20;}
@@ -274,6 +280,22 @@
       <li>⏸ Pause: ⏸️ button, Esc, or controller Start</li>
       <li>🎯 Goal: clear all 7 levels — hunt every bot, then return to the yard gate to advance</li>
     </ul>
+    <div class="pickerRow">
+      <div class="pickerLabel">Mode</div>
+      <div class="pickerBtns">
+        <button class="pickBtn active" id="modeStory" data-mode="story">Story (7 levels)</button>
+        <button class="pickBtn" id="modeEndless" data-mode="endless">Endless waves</button>
+      </div>
+    </div>
+    <div class="pickerRow">
+      <div class="pickerLabel">Difficulty</div>
+      <div class="pickerBtns">
+        <button class="pickBtn" id="diffEasy" data-diff="easy">Easy</button>
+        <button class="pickBtn active" id="diffNormal" data-diff="normal">Normal</button>
+        <button class="pickBtn" id="diffNightmare" data-diff="nightmare">Nightmare</button>
+      </div>
+    </div>
+    <div class="story" id="bestScoreLine" style="text-align:center;font-size:0.85rem;color:var(--amber);"></div>
     <button class="primary" id="btnStart">Enter the yard</button>
   </div>
 </div>
@@ -309,7 +331,9 @@
       <div>📍 Reached: <span id="statLevelOver">-</span></div>
       <div>🎯 Accuracy: <span id="statAccuracyOver">-</span></div>
       <div>💀 Bots hunted: <span id="statKillsOver">-</span></div>
+      <div>🏆 Score: <span id="statScoreOver">-</span></div>
     </div>
+    <div class="story" id="bestScoreLineOver" style="text-align:center;font-size:0.85rem;color:var(--amber);"></div>
     <button class="primary" id="btnRestart1">Try again</button>
   </div>
 </div>
@@ -326,7 +350,9 @@
       <div>💣 Grenades used: <span id="statGrenades">-</span></div>
       <div>🩸 Times hit: <span id="statHitsTaken">-</span></div>
       <div>📜 Notes found: <span id="statNotes">-</span></div>
+      <div>🏆 Score: <span id="statScore">-</span></div>
     </div>
+    <div class="story" id="bestScoreLineWin" style="text-align:center;font-size:0.85rem;color:var(--amber);"></div>
     <button class="primary" id="btnRestart2">Play again</button>
   </div>
 </div>
@@ -1984,6 +2010,37 @@ function makeItemMesh(type){
   if(type==='battery'){
     return new THREE.Mesh(new THREE.BoxGeometry(0.09,0.2,0.09), new THREE.MeshStandardMaterial({color:0xd9a441, emissive:0x553300, emissiveIntensity:0.5}));
   }
+  if(type==='rifleScope'){
+    const g=new THREE.Group();
+    const tube=new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.035,0.22,12), new THREE.MeshStandardMaterial({color:0x0d0d0d, metalness:0.75, roughness:0.25}));
+    tube.rotation.z=Math.PI/2;
+    g.add(tube);
+    const lens=new THREE.Mesh(new THREE.CylinderGeometry(0.038,0.038,0.02,12), new THREE.MeshStandardMaterial({color:0x1a4a8a, emissive:0x0d2a5a, emissiveIntensity:0.5}));
+    lens.rotation.z=Math.PI/2; lens.position.x=-0.1;
+    g.add(lens);
+    return g;
+  }
+  if(type==='extMag'){
+    const g=new THREE.Group();
+    const mag=new THREE.Mesh(new THREE.BoxGeometry(0.07,0.22,0.05), new THREE.MeshStandardMaterial({color:0x1a1a1a, metalness:0.5, roughness:0.5}));
+    g.add(mag);
+    const mag2=new THREE.Mesh(new THREE.BoxGeometry(0.07,0.18,0.05), new THREE.MeshStandardMaterial({color:0x2a2a2a, metalness:0.5, roughness:0.5}));
+    mag2.position.x=0.1;
+    g.add(mag2);
+    return g;
+  }
+  if(type==='suppressor'){
+    const g=new THREE.Group();
+    const body=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.28,12), new THREE.MeshStandardMaterial({color:0x2a2a2a, metalness:0.7, roughness:0.35}));
+    body.rotation.z=Math.PI/2;
+    g.add(body);
+    for(let i=0;i<3;i++){
+      const ring=new THREE.Mesh(new THREE.TorusGeometry(0.032,0.004,6,10), new THREE.MeshStandardMaterial({color:0x1a1a1a, metalness:0.6}));
+      ring.position.x=-0.08+i*0.08;
+      g.add(ring);
+    }
+    return g;
+  }
   if(type==='pistolAmmo'){
     const g=new THREE.Group();
     const box=new THREE.Mesh(new THREE.BoxGeometry(0.16,0.1,0.1), new THREE.MeshStandardMaterial({color:0x2a2a2a, roughness:0.6}));
@@ -2024,6 +2081,9 @@ function spawnItems(){
   items=[];
   const defs=[
     {type:'battery', cell:[3,2]},
+    {type:'rifleScope', cell:[4,9]},
+    {type:'extMag', cell:[6,9]},
+    {type:'suppressor', cell:[7,9]},
   ];
   defs.forEach(d=>{
     const w=gridToWorld(d.cell[0], d.cell[1]);
@@ -2642,7 +2702,9 @@ const MONSTER_TYPES={
   stalker:{ speedMul:1.4, chaseMul:1.3, hp:2, catchR:0.8, eyeColor:0xff2b2b, skinColor:0x140a12 },
   brute:  { speedMul:0.62, chaseMul:0.68, hp:6, catchR:1.1, eyeColor:0xff7a1a, skinColor:0x0a0806 },
   crawler:{ speedMul:1.15, chaseMul:1.35, hp:3, catchR:0.75, eyeColor:0xccff33, skinColor:0x0d1308 },
-  shooter:{ speedMul:0.4, chaseMul:0.4, hp:2, catchR:0.8, eyeColor:0xff8800, skinColor:0x1c1c1e }
+  shooter:{ speedMul:0.4, chaseMul:0.4, hp:2, catchR:0.8, eyeColor:0xff8800, skinColor:0x1c1c1e },
+  immolator:{ speedMul:0.35, chaseMul:0.35, hp:3, catchR:0.8, eyeColor:0xff5500, skinColor:0x241408 },
+  armored:{ speedMul:0.5, chaseMul:0.5, hp:14, headHp:5, catchR:1.0, eyeColor:0xff2b2b, skinColor:0x2a2a2e }
 };
 const skinTextureCache={};
 function buildSkinTexture(hex){
@@ -2725,6 +2787,38 @@ function buildMonster(type){
     head.position.y=1.85; head.castShadow=true; g.add(head);
     var eyeY=1.87, eyeZ=0.19, eyeGap=0.08, eyeSize=0.032;
     var jawY=1.75, jawZ=0.19, jawScale=0.85;
+  } else if(type==='immolator'){
+    const body=new THREE.Mesh(new THREE.CylinderGeometry(0.24,0.27,1.5,9), skinMat);
+    body.position.y=0.92; body.castShadow=true; g.add(body);
+    const head=new THREE.Mesh(new THREE.SphereGeometry(0.22,12,12), skinMat);
+    head.position.y=1.85; head.castShadow=true; g.add(head);
+    // Charred wrappings / soot streaks
+    for(let i=0;i<4;i++){
+      const wrap=new THREE.Mesh(new THREE.TorusGeometry(0.15,0.02,5,8), new THREE.MeshStandardMaterial({color:0x0d0805, roughness:1}));
+      wrap.rotation.x=Math.PI/2; wrap.position.y=0.5+i*0.28;
+      g.add(wrap);
+    }
+    var eyeY=1.87, eyeZ=0.19, eyeGap=0.08, eyeSize=0.032;
+    var jawY=1.75, jawZ=0.19, jawScale=0.85;
+  } else if(type==='armored'){
+    const plateMat=new THREE.MeshStandardMaterial({map:buildRustTexture(), color:0x4a4a50, metalness:0.6, roughness:0.5});
+    const body=new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.48,1.7,10), skinMat);
+    body.position.y=0.98; body.castShadow=true; g.add(body);
+    const head=new THREE.Mesh(new THREE.SphereGeometry(0.28,14,14), skinMat);
+    head.position.y=1.95; head.castShadow=true; g.add(head);
+    // Chest and shoulder armor plating
+    const chestPlate=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.6,0.15), plateMat);
+    chestPlate.position.set(0,1.05,0.32); chestPlate.castShadow=true; g.add(chestPlate);
+    [-0.4,0.4].forEach(dx=>{
+      const shoulder=new THREE.Mesh(new THREE.SphereGeometry(0.2,10,10), plateMat);
+      shoulder.position.set(dx,1.5,0); shoulder.castShadow=true; g.add(shoulder);
+      const rivet=new THREE.Mesh(new THREE.SphereGeometry(0.025,6,6), new THREE.MeshStandardMaterial({color:0x1a1a1a, metalness:0.7}));
+      rivet.position.set(dx,1.5,0.18); g.add(rivet);
+    });
+    const helmet=new THREE.Mesh(new THREE.CylinderGeometry(0.29,0.32,0.14,12), plateMat);
+    helmet.position.y=2.08; helmet.castShadow=true; g.add(helmet);
+    var eyeY=1.98, eyeZ=0.24, eyeGap=0.1, eyeSize=0.04;
+    var jawY=1.85, jawZ=0.25, jawScale=1.1;
   } else {
     const body=new THREE.Mesh(new THREE.CylinderGeometry(0.20,0.24,1.55,9), skinMat);
     body.position.y=0.95; body.castShadow=true; g.add(body);
@@ -2796,6 +2890,31 @@ function buildMonster(type){
     rifle.add(rifleTip);
     g.add(armPivot);
     g.userData.rifleTip=rifleTip;
+  } else if(type==='immolator'){
+    const handPivot=new THREE.Group();
+    handPivot.position.set(0.22,1.3,0.15);
+    const bottle=new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.055,0.16,8), new THREE.MeshStandardMaterial({color:0x2a5a3a, roughness:0.2, transparent:true, opacity:0.75}));
+    handPivot.add(bottle);
+    const flameTip=new THREE.Object3D();
+    flameTip.position.y=0.13;
+    bottle.add(flameTip);
+    const flameLight=new THREE.PointLight(0xff6a1a,1.5,2,2);
+    flameLight.position.y=0.13;
+    bottle.add(flameLight);
+    g.add(handPivot);
+    g.userData.bottleTip=flameTip;
+    g.userData.bottleLight=flameLight;
+  } else if(type==='armored'){
+    const armPivot=new THREE.Group();
+    armPivot.position.set(0.42,1.5,0.05);
+    const bludgeonHandle=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.5,6), new THREE.MeshStandardMaterial({color:0x2a2a2a, metalness:0.5}));
+    bludgeonHandle.rotation.x=1.3; bludgeonHandle.position.set(0,-0.1,0.22); bludgeonHandle.castShadow=true;
+    armPivot.add(bludgeonHandle);
+    const bludgeonHead=new THREE.Mesh(new THREE.SphereGeometry(0.13,8,8), new THREE.MeshStandardMaterial({map:buildRustTexture(), color:0x3a3a3a, metalness:0.6, roughness:0.6}));
+    bludgeonHead.position.set(0,-0.32,0.42); bludgeonHead.castShadow=true;
+    armPivot.add(bludgeonHead);
+    g.add(armPivot);
+    g.userData.axeArm=armPivot;
   }
   g.updateMatrixWorld(true);
   const bbox=new THREE.Box3().setFromObject(g);
@@ -2812,30 +2931,75 @@ const monsterDefs=[
   {start:[7,1], patrol:[[7,1],[7,2],[5,3],[3,1],[3,2],[5,3]], type:'stalker'},
   {start:[3,6], patrol:[[3,6],[3,5],[5,3],[2,3],[5,3]], type:'brute'},
   {start:[6,6], patrol:[[6,6],[6,5],[5,3],[5,5],[5,3]], type:'crawler'},
+  {start:[2,1], patrol:[[2,1],[4,1],[5,3],[2,1]], type:'stalker'},
+  {start:[8,2], patrol:[[8,2],[6,2],[5,3],[8,2]], type:'crawler'},
+  {start:[4,8], patrol:[[4,8],[7,8],[5,9],[4,8]], type:'brute'},
+  {start:[2,5], patrol:[[2,5],[4,5],[5,3],[2,5]], type:'stalker'},
+  {start:[7,6], patrol:[[7,6],[6,5],[5,3],[7,6]], type:'crawler'},
+];
+const armoredDefs=[
+  {start:[3,1], patrol:[[3,1],[3,2],[5,3],[3,1]], type:'armored'},
+  {start:[7,5], patrol:[[7,5],[6,5],[5,3],[7,5]], type:'armored'},
 ];
 const shooterDefs=[
-  {start:[2,13], type:'shooter'},
-  {start:[8,13], type:'shooter'},
-  {start:[6,15], type:'shooter'},
-  {start:[2,17], type:'shooter'},
-  {start:[8,17], type:'shooter'},
-  {start:[2,21], type:'shooter'},
-  {start:[8,21], type:'shooter'},
-  {start:[5,23], type:'shooter'},
-  {start:[2,25], type:'shooter'},
-  {start:[8,25], type:'shooter'},
-];
+  // zone: gas — near the gas station, first stretch of street
+  {start:[4,11], zone:'gas'}, {start:[6,11], zone:'gas'}, {start:[2,13], zone:'gas'},
+  {start:[8,13], zone:'gas'}, {start:[2,14], zone:'gas'}, {start:[8,14], zone:'gas'},
+  // zone: warehouse — mid-street, near the industrial shed
+  {start:[4,15], zone:'warehouse'}, {start:[6,15], zone:'warehouse'}, {start:[2,17], zone:'warehouse'},
+  {start:[8,17], zone:'warehouse'}, {start:[2,18], zone:'warehouse'}, {start:[8,18], zone:'warehouse'},
+  // zone: store — near the corner store
+  {start:[4,19], zone:'store'}, {start:[6,19], zone:'store'}, {start:[2,21], zone:'store'},
+  {start:[8,21], zone:'store'}, {start:[2,22], zone:'store'}, {start:[8,22], zone:'store'},
+  // zone: church — the far stretch, near the burned church and the gate to the deep street
+  {start:[4,23], zone:'church'}, {start:[6,23], zone:'church'}, {start:[2,25], zone:'church'},
+  {start:[8,25], zone:'church'}, {start:[4,27], zone:'church'}, {start:[6,27], zone:'church'},
+].map(d=>({...d, type:'shooter'}));
+const immolatorDefs=[
+  {start:[5,11], zone:'gas'}, {start:[7,11], zone:'gas'},
+  {start:[5,15], zone:'warehouse'}, {start:[7,15], zone:'warehouse'},
+  {start:[5,19], zone:'store'}, {start:[7,19], zone:'store'},
+  {start:[5,23], zone:'church'}, {start:[7,23], zone:'church'},
+].map(d=>({...d, type:'immolator'}));
 const LEVELS=[
-  {n:1, shooterCount:6,  accuracy:0.32, fireRateMul:1.35, speedMul:0.9,  behavior:'normal'},
-  {n:2, shooterCount:7,  accuracy:0.42, fireRateMul:1.15, speedMul:1.0,  behavior:'line'},
-  {n:3, shooterCount:8,  accuracy:0.5,  fireRateMul:1.05, speedMul:1.1,  behavior:'turret'},
-  {n:4, shooterCount:9,  accuracy:0.58, fireRateMul:0.95, speedMul:1.25, behavior:'rush'},
-  {n:5, shooterCount:10, accuracy:0.65, fireRateMul:0.85, speedMul:1.4,  behavior:'swarm'},
-  {n:6, shooterCount:10, accuracy:0.72, fireRateMul:0.75, speedMul:1.55, behavior:'rush'},
-  {n:7, shooterCount:10, accuracy:0.8,  fireRateMul:0.65, speedMul:1.7,  behavior:'swarm'},
+  {n:1, shooterCount:4,  meleeCount:2, immolatorCount:0, armoredCount:0, zones:['gas'],                                accuracy:0.32, fireRateMul:1.35, speedMul:0.9,  behavior:'normal'},
+  {n:2, shooterCount:6,  meleeCount:3, immolatorCount:1, armoredCount:0, zones:['gas','warehouse'],                    accuracy:0.42, fireRateMul:1.15, speedMul:1.0,  behavior:'line'},
+  {n:3, shooterCount:7,  meleeCount:3, immolatorCount:1, armoredCount:1, zones:['warehouse','store'],                  accuracy:0.5,  fireRateMul:1.05, speedMul:1.1,  behavior:'turret'},
+  {n:4, shooterCount:8,  meleeCount:4, immolatorCount:2, armoredCount:1, zones:['store','church'],                     accuracy:0.58, fireRateMul:0.95, speedMul:1.25, behavior:'rush'},
+  {n:5, shooterCount:9,  meleeCount:4, immolatorCount:2, armoredCount:1, zones:['warehouse','church'],                 accuracy:0.65, fireRateMul:0.85, speedMul:1.4,  behavior:'swarm'},
+  {n:6, shooterCount:10, meleeCount:5, immolatorCount:3, armoredCount:2, zones:['gas','store','church'],               accuracy:0.72, fireRateMul:0.75, speedMul:1.55, behavior:'rush'},
+  {n:7, shooterCount:12, meleeCount:5, immolatorCount:3, armoredCount:2, zones:['gas','warehouse','store','church'],   accuracy:0.8,  fireRateMul:0.65, speedMul:1.7,  behavior:'swarm'},
 ];
 let levelIndex=0;
-function currentLevelCfg(){ return LEVELS[Math.min(levelIndex, LEVELS.length-1)]; }
+let gameMode='story';
+let difficulty='normal';
+const DIFFICULTY_MULT={
+  easy:      {acc:0.7,  fireRate:1.25, speed:0.85, dmgTaken:0.75},
+  normal:    {acc:1.0,  fireRate:1.0,  speed:1.0,  dmgTaken:1.0},
+  nightmare: {acc:1.25, fireRate:0.8,  speed:1.2,  dmgTaken:1.35},
+};
+function endlessWaveCfg(wave){
+  const t=wave-1;
+  const behaviors=['normal','line','turret','rush','swarm'];
+  return {
+    shooterCount: Math.min(20, 4+t*2),
+    meleeCount: Math.min(10, 2+Math.floor(t*0.7)),
+    immolatorCount: Math.min(6, Math.floor(t*0.5)),
+    armoredCount: Math.min(5, Math.floor(t*0.4)),
+    zones:['gas','warehouse','store','church'],
+    accuracy: Math.min(0.9, 0.3+t*0.035),
+    fireRateMul: Math.max(0.4, 1.3-t*0.045),
+    speedMul: Math.min(2.0, 0.9+t*0.05),
+    behavior: behaviors[t%behaviors.length],
+  };
+}
+function currentLevelCfg(){
+  const base = (gameMode==='endless')
+    ? endlessWaveCfg(levelIndex+1)
+    : LEVELS[Math.min(levelIndex, LEVELS.length-1)];
+  const dm=DIFFICULTY_MULT[difficulty];
+  return {...base, accuracy:Math.min(0.95,base.accuracy*dm.acc), fireRateMul:base.fireRateMul*dm.fireRate, speedMul:base.speedMul*dm.speed};
+}
 function currentBehavior(){ return currentLevelCfg().behavior||'normal'; }
 let groupAlertTimer=0;
 function triggerGroupAlert(){ groupAlertTimer=6; }
@@ -2848,8 +3012,22 @@ function spawnMonsters(){
   monsters.forEach(m=>{ disposeObject3D(m.mesh); scene.remove(m.mesh); });
   monsters=[];
   const cfg=currentLevelCfg();
-  const chosenShooters=shuffledCopy(shooterDefs).slice(0, Math.min(cfg.shooterCount, shooterDefs.length));
-  const allDefs=monsterDefs.concat(chosenShooters);
+
+  const zoneSet=new Set(cfg.zones||['gas']);
+  const inZone=shooterDefs.filter(d=>zoneSet.has(d.zone));
+  const outZone=shooterDefs.filter(d=>!zoneSet.has(d.zone));
+  let shooterPool=shuffledCopy(inZone).concat(shuffledCopy(outZone));
+  const chosenShooters=shooterPool.slice(0, Math.min(cfg.shooterCount, shooterPool.length));
+
+  const inZoneImm=immolatorDefs.filter(d=>zoneSet.has(d.zone));
+  const outZoneImm=immolatorDefs.filter(d=>!zoneSet.has(d.zone));
+  let immPool=shuffledCopy(inZoneImm).concat(shuffledCopy(outZoneImm));
+  const chosenImmolators=immPool.slice(0, Math.min(cfg.immolatorCount||0, immPool.length));
+
+  const chosenMelee=shuffledCopy(monsterDefs).slice(0, Math.min(cfg.meleeCount||3, monsterDefs.length));
+  const chosenArmored=shuffledCopy(armoredDefs).slice(0, Math.min(cfg.armoredCount||0, armoredDefs.length));
+
+  const allDefs=chosenMelee.concat(chosenArmored).concat(chosenShooters).concat(chosenImmolators);
   allDefs.forEach(def=>{
     const stats=MONSTER_TYPES[def.type];
     const mesh=buildMonster(def.type);
@@ -2859,7 +3037,8 @@ function spawnMonsters(){
     monsters.push({
       mesh, type:def.type, hp:stats.hp, mode:'idle',
       speedMul:stats.speedMul*cfg.speedMul, chaseMul:stats.chaseMul*cfg.speedMul, catchR:stats.catchR,
-      accuracy:cfg.accuracy, fireRateMul:cfg.fireRateMul, baseY:0
+      accuracy:cfg.accuracy, fireRateMul:cfg.fireRateMul, baseY:0,
+      patrol: def.patrol
     });
   });
   if(levelIndex>=1){
@@ -2879,7 +3058,8 @@ function spawnMonsters(){
 }
 function updateMonsterCountUI(){
   const el=document.getElementById('monsterCount');
-  if(el) el.textContent='Lv'+(levelIndex+1)+'/7  '+(monsters.length-monstersRemaining)+'/'+monsters.length+' hunted';
+  const lvTxt = gameMode==='endless' ? ('Wave '+(levelIndex+1)) : ('Lv'+(levelIndex+1)+'/7');
+  if(el) el.textContent=lvTxt+'  '+(monsters.length-monstersRemaining)+'/'+monsters.length+' hunted';
 }
 
 /* ================= JUMPSCARES ================= */
@@ -2933,7 +3113,7 @@ let weapons={
   pistol:{mag:8, magMax:8, reserve:Infinity, cooldown:0, recoil:0, flashTimer:0, reloading:false, reloadTime:1.1, dmg:1, range:22, fireRate:0.28},
   shotgun:{unlocked:true, mag:2, magMax:2, reserve:Infinity, cooldown:0, recoil:0, flashTimer:0, reloading:false, reloadTime:1.6, dmg:3, range:7, pellets:6, spread:0.11, fireRate:0.85},
   sniper:{unlocked:true, mag:1, magMax:1, reserve:Infinity, cooldown:0, recoil:0, flashTimer:0, reloading:false, reloadTime:1.9, dmg:10, range:60, fireRate:1.3},
-  rifle:{unlocked:true, mag:30, magMax:30, reserve:Infinity, cooldown:0, recoil:0, flashTimer:0, reloading:false, reloadTime:1.8, dmg:1, range:26, spread:0.028, fireRate:0.09, auto:true},
+  rifle:{unlocked:true, mag:30, magMax:30, reserve:Infinity, cooldown:0, recoil:0, flashTimer:0, reloading:false, reloadTime:1.8, dmg:1, range:26, spread:0.028, fireRate:0.09, auto:true, hasScope:false},
   knife:{unlocked:true, mag:Infinity, magMax:Infinity, reserve:Infinity, cooldown:0, recoil:0, flashTimer:0, reloading:false, reloadTime:0, dmg:5, range:1.9, fireRate:0.42, melee:true}
 };
 let zoomed=false;
@@ -3249,14 +3429,24 @@ function switchWeapon(name){
   updateAmmoUI();
   updateWeaponIcons();
 }
+const RIFLE_ZOOM_FOV=48;
 function toggleZoom(){
   if(!gameRunning || gamePaused) return;
-  if(activeWeapon!=='sniper'){ zoomed=false; }
-  else { zoomed=!zoomed; }
-  camera.fov = zoomed ? ZOOM_FOV : NORMAL_FOV;
+  if(activeWeapon==='sniper'){
+    zoomed=!zoomed;
+    camera.fov = zoomed ? ZOOM_FOV : NORMAL_FOV;
+    document.getElementById('scopeOverlay').classList.toggle('active', zoomed);
+  } else if(activeWeapon==='rifle' && weapons.rifle.hasScope){
+    zoomed=!zoomed;
+    camera.fov = zoomed ? RIFLE_ZOOM_FOV : NORMAL_FOV;
+    document.getElementById('scopeOverlay').classList.remove('active');
+  } else {
+    zoomed=false;
+    camera.fov = NORMAL_FOV;
+    document.getElementById('scopeOverlay').classList.remove('active');
+  }
   camera.updateProjectionMatrix();
-  document.getElementById('scopeOverlay').classList.toggle('active', zoomed);
-  document.getElementById('crosshair').classList.toggle('hidden', zoomed);
+  document.getElementById('crosshair').classList.toggle('hidden', zoomed && activeWeapon==='sniper');
   if(renderer.toneMapping!==undefined){
     renderer.toneMappingExposure = zoomed ? 1.55 : 1.15;
   }
@@ -3321,7 +3511,7 @@ function fireWeapon(){
   updateAmmoUI();
   player.recoilKick=Math.min(0.28, player.recoilKick + (activeWeapon==='shotgun'?0.1:(activeWeapon==='sniper'?0.18:0.035)));
   runStats.shotsFired++;
-  spookCrows(player.x, player.z, 16);
+  spookCrows(player.x, player.z, player.hasSuppressor?4:16);
 
   const alive=monsters.filter(m=>m.mode!=='dead');
 
@@ -3693,7 +3883,7 @@ function killMonster(m){
   spawnBloodPool(m.mesh.position.x, m.baseY||0, m.mesh.position.z);
   dyingMonsters.push({mesh:m.mesh, t:0, startY:m.mesh.position.y});
   if(monstersRemaining<=0 && !levelTransitioning && !gameOverFlag && !gameWinFlag){
-    if(levelIndex<LEVELS.length-1){
+    if(gameMode==='endless' || levelIndex<LEVELS.length-1){
       advanceLevel();
     } else {
       gateLight.intensity=1.2;
@@ -3736,7 +3926,7 @@ canvas.addEventListener('contextmenu', e=>{ e.preventDefault(); toggleZoom(); })
 
 function tryOpenGate(){
   const d=Math.hypot(player.x-gateCellWorld.x, player.z-gateCellWorld.z);
-  if(d<2.4 && monstersRemaining<=0 && !gameOverFlag && !gameWinFlag && !levelTransitioning && levelIndex>=LEVELS.length-1){
+  if(d<2.4 && monstersRemaining<=0 && !gameOverFlag && !gameWinFlag && !levelTransitioning && gameMode==='story' && levelIndex>=LEVELS.length-1){
     winGame();
   } else if(d<2.4 && monstersRemaining>0){
     showPrompt(monstersRemaining+' left — hunt them down first', 1.4);
@@ -3753,9 +3943,15 @@ function advanceLevel(){
     if(t>=1) clearInterval(anim);
   },30);
   sWin();
-  const nextZone=LEVEL_ZONES[Math.min(levelIndex+1, LEVEL_ZONES.length-1)];
-  const nextBehavior=LEVELS[Math.min(levelIndex+1, LEVELS.length-1)].behavior;
-  showLevelBanner('LEVEL '+(levelIndex+1)+' CLEAR', nextZone.name+' — '+(BEHAVIOR_HINTS[nextBehavior]||''));
+  if(gameMode==='endless'){
+    const nextWave=levelIndex+2;
+    const nextBehavior=endlessWaveCfg(nextWave).behavior;
+    showLevelBanner('WAVE '+(levelIndex+1)+' CLEAR', 'Wave '+nextWave+' — '+(BEHAVIOR_HINTS[nextBehavior]||''));
+  } else {
+    const nextZone=LEVEL_ZONES[Math.min(levelIndex+1, LEVEL_ZONES.length-1)];
+    const nextBehavior=LEVELS[Math.min(levelIndex+1, LEVELS.length-1)].behavior;
+    showLevelBanner('LEVEL '+(levelIndex+1)+' CLEAR', nextZone.name+' — '+(BEHAVIOR_HINTS[nextBehavior]||''));
+  }
   setTimeout(()=>{
     levelIndex++;
     ld.rotation.y=0; rd.rotation.y=0;
@@ -3766,7 +3962,7 @@ function advanceLevel(){
     const startW=gridToWorld(5,28);
     player.x=startW.x; player.z=startW.z; player.yaw=Math.PI; player.pitch=0; player.floorY=0; player.jumpY=0;
     if(timeOfDay==='night') applyLevelMood();
-    setWeather(WEATHER_BY_LEVEL[levelIndex] || 'clear');
+    setWeather(gameMode==='endless' ? (['clear','rain','storm'][levelIndex%3]) : (WEATHER_BY_LEVEL[levelIndex] || 'clear'));
     levelTransitioning=false;
   }, 2200);
 }
@@ -3916,11 +4112,13 @@ function punch(vol, startFreq, endFreq, dur){
   o.start(now); o.stop(now+dur);
 }
 function sGunshotPistol(){
-  crack(0.42,3600);
-  playNoise(jitter(0.09,0.2),jitter(0.48,0.15),jitter(2400,0.15),'bandpass',jitter(0.075,0.2));
-  punch(0.4,140,42,0.1);
-  playNoise(jitter(0.13,0.2),jitter(0.26,0.15),jitter(420,0.2),'lowpass',jitter(0.12,0.2));
-  beep(jitter(1600,0.1),0.03,0.045,'square');
+  const s = (player.hasSuppressor) ? 0.32 : 1;
+  crack(0.42*s,3600);
+  playNoise(jitter(0.09,0.2),jitter(0.48*s,0.15),jitter(2400,0.15),'bandpass',jitter(0.075,0.2));
+  punch(0.4*s,140,42,0.1);
+  playNoise(jitter(0.13,0.2),jitter(0.26*s,0.15),jitter(420,0.2),'lowpass',jitter(0.12,0.2));
+  if(!player.hasSuppressor) beep(jitter(1600,0.1),0.03,0.045,'square');
+  else playNoise(0.1,0.18,3200,'highpass',0.09);
 }
 function sGunshotShotgun(){
   crack(0.5,3000);
@@ -3939,11 +4137,13 @@ function sGunshotSniper(){
   setTimeout(()=>playNoise(0.4,0.08,600,'bandpass',0.35), 240+Math.random()*30);
 }
 function sGunshotRifle(){
-  crack(0.38,3800);
-  playNoise(jitter(0.065,0.2),jitter(0.4,0.15),jitter(1900,0.15),'bandpass',jitter(0.055,0.2));
-  punch(0.32,130,40,0.08);
-  playNoise(jitter(0.09,0.2),jitter(0.24,0.15),jitter(400,0.2),'lowpass',jitter(0.08,0.2));
-  beep(jitter(1200,0.1),0.022,0.04,'square');
+  const s = (player.hasSuppressor) ? 0.32 : 1;
+  crack(0.38*s,3800);
+  playNoise(jitter(0.065,0.2),jitter(0.4*s,0.15),jitter(1900,0.15),'bandpass',jitter(0.055,0.2));
+  punch(0.32*s,130,40,0.08);
+  playNoise(jitter(0.09,0.2),jitter(0.24*s,0.15),jitter(400,0.2),'lowpass',jitter(0.08,0.2));
+  if(!player.hasSuppressor) beep(jitter(1200,0.1),0.022,0.04,'square');
+  else playNoise(0.08,0.15,3000,'highpass',0.08);
 }
 function sWeaponSwitch(){
   playNoise(0.05,0.14,2600,'bandpass',0.08);
@@ -4216,6 +4416,7 @@ function resetGame(){
   player.dashTimer=0; player.dashCooldown=0; player.invulnTimer=0;
   player.vx=0; player.vz=0; player.recoilKick=0;
   player.hp=player.maxHp; updateHealthUI();
+  player.hasSuppressor=false;
   hpBadgeTimer=0;
   document.getElementById('hpBadge').classList.remove('open');
   document.getElementById('battBadge').classList.remove('open');
@@ -4253,7 +4454,7 @@ function resetGame(){
   weapons.pistol={mag:8, magMax:8, reserve:Infinity, cooldown:0, recoil:0, flashTimer:0, reloading:false, reloadTime:1.1, dmg:1, range:22, fireRate:0.28};
   weapons.shotgun={unlocked:true, mag:2, magMax:2, reserve:Infinity, cooldown:0, recoil:0, flashTimer:0, reloading:false, reloadTime:1.6, dmg:3, range:7, pellets:6, spread:0.11, fireRate:0.85};
   weapons.sniper={unlocked:true, mag:1, magMax:1, reserve:Infinity, cooldown:0, recoil:0, flashTimer:0, reloading:false, reloadTime:1.9, dmg:10, range:60, fireRate:1.3};
-  weapons.rifle={unlocked:true, mag:30, magMax:30, reserve:Infinity, cooldown:0, recoil:0, flashTimer:0, reloading:false, reloadTime:1.8, dmg:1, range:26, spread:0.028, fireRate:0.09, auto:true};
+  weapons.rifle={unlocked:true, mag:30, magMax:30, reserve:Infinity, cooldown:0, recoil:0, flashTimer:0, reloading:false, reloadTime:1.8, dmg:1, range:26, spread:0.028, fireRate:0.09, auto:true, hasScope:false};
   weapons.knife={unlocked:true, mag:Infinity, magMax:Infinity, reserve:Infinity, cooldown:0, recoil:0, flashTimer:0, reloading:false, reloadTime:0, dmg:5, range:1.9, fireRate:0.42, melee:true};
   zoomed=false; camera.fov=NORMAL_FOV; camera.updateProjectionMatrix();
   document.getElementById('scopeOverlay').classList.remove('active');
@@ -4332,7 +4533,7 @@ function updateGamepad(dt){
   // Held actions
   if(gameRunning && !gamePaused){
     fireHeld = fireHeld || val(7)>0.35 || btn(0);
-    if(val(6)>0.5 && activeWeapon==='sniper' && !zoomed) toggleZoom();
+    if(val(6)>0.5 && !zoomed && (activeWeapon==='sniper' || (activeWeapon==='rifle' && weapons.rifle.hasScope))) toggleZoom();
   }
   return {mx,mz,lx,ly};
 }
@@ -4466,6 +4667,14 @@ function update(dt){
       else if(it.type==='shotgun'){ weapons.shotgun.unlocked=true; weapons.shotgun.reserve=Infinity; showPrompt('Shotgun found!',1.6); switchWeapon('shotgun'); }
       else if(it.type==='sniper'){ weapons.sniper.unlocked=true; showPrompt('Sniper rifle found!',1.6); updateWeaponIcons(); }
       else if(it.type==='shotgunAmmo'){ weapons.shotgun.reserve+=4; showPrompt('Shotgun shells found',1.3); if(activeWeapon==='shotgun') updateAmmoUI(); }
+      else if(it.type==='rifleScope'){ weapons.rifle.hasScope=true; showPrompt('Rifle scope attached — right-click/Z to ADS',1.8); }
+      else if(it.type==='extMag'){
+        weapons.pistol.magMax+=4; weapons.pistol.mag+=4;
+        weapons.rifle.magMax+=15; weapons.rifle.mag+=15;
+        showPrompt('Extended mags attached — pistol & rifle capacity up',1.8);
+        updateAmmoUI();
+      }
+      else if(it.type==='suppressor'){ player.hasSuppressor=true; showPrompt('Suppressor attached — quieter, harder to detect',1.8); }
       sPickup();
     }
   });
@@ -4489,7 +4698,7 @@ function update(dt){
   const gd=Math.hypot(player.x-gateCellWorld.x, player.z-gateCellWorld.z);
   if(gd<2.4){ tryOpenGate(); }
   if(gd<2.6 && promptTimer<=0 && !nearbyNote){
-    document.getElementById('prompt').textContent = monstersRemaining<=0 && levelIndex>=LEVELS.length-1 ? 'Gate is open — go through to escape' : (monstersRemaining>0 ? monstersRemaining+' left' : '');
+    document.getElementById('prompt').textContent = (monstersRemaining<=0 && gameMode==='story' && levelIndex>=LEVELS.length-1) ? 'Gate is open — go through to escape' : (monstersRemaining>0 ? monstersRemaining+' left' : '');
     document.getElementById('prompt').classList.add('show');
   } else if(gd>=2.6 && promptTimer<=0 && !nearbyNote){
     document.getElementById('prompt').classList.remove('show');
@@ -4564,6 +4773,15 @@ function updateWeaponVisuals(dt){
 }
 
 const losRaycaster=new THREE.Raycaster();
+function fireShooterShot(m, dmgMul, accMul){
+  const tip=m.mesh.userData.rifleTip;
+  const origin = tip? tip.getWorldPosition(new THREE.Vector3()) : m.mesh.position.clone().add(new THREE.Vector3(0,1.4,0));
+  crack(0.28,3400);
+  playNoise(jitter(0.08,0.2),jitter(0.32,0.15),jitter(1900,0.15),'bandpass',jitter(0.06,0.2));
+  playNoise(jitter(0.12,0.2),jitter(0.2,0.15),jitter(400,0.2),'lowpass',jitter(0.1,0.2));
+  spawnTracer(origin, new THREE.Vector3(player.x, EYE_H-player.eyeOffset+player.floorY+player.jumpY, player.z));
+  if(Math.random()<(m.accuracy||0.5)*(accMul||1) && player.invulnTimer<=0) damagePlayer(Math.round(9*(dmgMul||1)));
+}
 function updateShooterBot(m,dt){
   const mx=m.mesh.position.x, mz=m.mesh.position.z;
   const dist=Math.hypot(player.x-mx, player.z-mz);
@@ -4609,17 +4827,48 @@ function updateShooterBot(m,dt){
   if(canSee){
     m.mode='attack';
     m.mesh.rotation.y=Math.atan2(player.x-mx, player.z-mz);
-    if(currentBehavior()==='swarm') triggerGroupAlert();
-    m.fireTimer-=dt;
-    if(m.fireTimer<=0){
-      m.fireTimer=(1.0+Math.random()*0.8)*(m.fireRateMul||1);
-      const tip=m.mesh.userData.rifleTip;
-      const origin = tip? tip.getWorldPosition(new THREE.Vector3()) : m.mesh.position.clone().add(new THREE.Vector3(0,1.4,0));
-      crack(0.28,3400);
-      playNoise(jitter(0.08,0.2),jitter(0.32,0.15),jitter(1900,0.15),'bandpass',jitter(0.06,0.2));
-      playNoise(jitter(0.12,0.2),jitter(0.2,0.15),jitter(400,0.2),'lowpass',jitter(0.1,0.2));
-      spawnTracer(origin, new THREE.Vector3(player.x, EYE_H-player.eyeOffset+player.floorY+player.jumpY, player.z));
-      if(Math.random()<(m.accuracy||0.5) && player.invulnTimer<=0) damagePlayer(9);
+    const behavior=currentBehavior();
+    if(behavior==='swarm') triggerGroupAlert();
+
+    if(behavior==='turret'){
+      // Telegraphed heavy shot: eyes flare bright red + a rising warning tone, punishing if you don't take cover
+      if(m.chargeTimer===undefined) m.chargeTimer=-1;
+      if(m.chargeTimer<0){
+        m.fireTimer-=dt;
+        m.mesh.userData.eyeLight.intensity=0.5;
+        if(m.fireTimer<=0){ m.chargeTimer=0.55; beep(400,0.5,0.1,'sine'); }
+      } else {
+        m.chargeTimer-=dt;
+        m.mesh.userData.eyeLight.intensity=0.5+ (1-m.chargeTimer/0.55)*3;
+        if(m.chargeTimer<=0){
+          fireShooterShot(m, 1.6, 1.3);
+          m.fireTimer=(1.7+Math.random()*0.5)*(m.fireRateMul||1);
+          m.chargeTimer=-1;
+        }
+      }
+    } else if(behavior==='line' || behavior==='swarm'){
+      // Coordinated burst: two quick shots, then a pause to reset the line
+      if(m.burstLeft===undefined) m.burstLeft=0;
+      m.fireTimer-=dt;
+      if(m.fireTimer<=0){
+        if(m.burstLeft<=0) m.burstLeft=2;
+        fireShooterShot(m, 0.7, 0.85);
+        m.burstLeft--;
+        m.fireTimer = m.burstLeft>0 ? 0.16 : (1.1+Math.random()*0.6)*(m.fireRateMul||1);
+      }
+    } else if(behavior==='rush'){
+      // Fast, aggressive single shots — closing distance, not holding a careful aim
+      m.fireTimer-=dt;
+      if(m.fireTimer<=0){
+        fireShooterShot(m, 0.9, 0.9);
+        m.fireTimer=(0.65+Math.random()*0.4)*(m.fireRateMul||1);
+      }
+    } else {
+      m.fireTimer-=dt;
+      if(m.fireTimer<=0){
+        fireShooterShot(m, 1, 1);
+        m.fireTimer=(1.0+Math.random()*0.8)*(m.fireRateMul||1);
+      }
     }
   } else {
     m.mode='idle';
@@ -4652,10 +4901,81 @@ function updateShooterBot(m,dt){
   m.mesh.userData.eyeLight.intensity = m.mode==='attack'?1.1:0.5;
 }
 
+function updateImmolatorBot(m,dt){
+  const mx=m.mesh.position.x, mz=m.mesh.position.z;
+  const dist=Math.hypot(player.x-mx, player.z-mz);
+  if(m.fireTimer===undefined) m.fireTimer=Math.random()*1.5+1;
+  if(m.homeX===undefined){ m.homeX=mx; m.homeZ=mz; }
+  if(m.wanderTimer===undefined) m.wanderTimer=0;
+  if(m.chargeTimer===undefined) m.chargeTimer=-1;
+  if(m.losCheckTimer===undefined) m.losCheckTimer=Math.random()*0.15;
+
+  m.losCheckTimer-=dt;
+  let canSee=m.lastCanSee||false;
+  if(m.losCheckTimer<=0){
+    m.losCheckTimer=0.15;
+    canSee=false;
+    if(dist<15){
+      const eyeY=(m.baseY||0)+1.87;
+      const playerEyeY=EYE_H-player.eyeOffset+player.floorY+player.jumpY;
+      const dir=new THREE.Vector3(player.x-mx, playerEyeY-eyeY, player.z-mz);
+      const flatDist=dir.length();
+      dir.normalize();
+      losRaycaster.set(new THREE.Vector3(mx,eyeY,mz), dir);
+      losRaycaster.far=Math.max(0.1,flatDist-0.4);
+      canSee=losRaycaster.intersectObjects(envTargets, true).length===0;
+    }
+    m.lastCanSee=canSee;
+  }
+
+  const bottleLight=m.mesh.userData.bottleLight;
+  if(canSee && dist<13){
+    m.mode='attack';
+    m.mesh.rotation.y=Math.atan2(player.x-mx, player.z-mz);
+    if(currentBehavior()==='swarm') triggerGroupAlert();
+    if(m.chargeTimer<0){
+      m.fireTimer-=dt;
+      if(m.fireTimer<=0){ m.chargeTimer=0.7; playNoise(0.15,0.2,2800,'bandpass',0.12); }
+    } else {
+      m.chargeTimer-=dt;
+      if(bottleLight) bottleLight.intensity=1.5+(1-m.chargeTimer/0.7)*2;
+      if(m.chargeTimer<=0){
+        const tip=m.mesh.userData.bottleTip;
+        const origin = tip? tip.getWorldPosition(new THREE.Vector3()) : m.mesh.position.clone().add(new THREE.Vector3(0,1.3,0));
+        const target=new THREE.Vector3(player.x+(Math.random()-0.5)*1.5, 0.06, player.z+(Math.random()-0.5)*1.5);
+        playNoise(0.12,0.3,1800,'bandpass',0.1);
+        spawnTracer(origin, target);
+        igniteFireZone(target);
+        m.fireTimer=(2.2+Math.random()*1.0)*(m.fireRateMul||1);
+        m.chargeTimer=-1;
+      }
+    }
+  } else {
+    m.mode='idle';
+    if(bottleLight) bottleLight.intensity=1.3+Math.sin(performance.now()/300)*0.3;
+    m.wanderTimer-=dt;
+    if(!m.wanderTarget || m.wanderTimer<=0){
+      const ang=Math.random()*Math.PI*2, r=0.6+Math.random()*1.0;
+      m.wanderTarget={x:m.homeX+Math.cos(ang)*r, z:m.homeZ+Math.sin(ang)*r};
+      m.wanderTimer=2+Math.random()*2.5;
+    }
+    const dx=m.wanderTarget.x-mx, dz=m.wanderTarget.z-mz, len=Math.hypot(dx,dz);
+    if(len>0.15){
+      const spd=MONSTER_SPEED*m.speedMul;
+      const nx=mx+(dx/len)*spd*dt, nz=mz+(dz/len)*spd*dt;
+      if(canMoveTo(nx,mz,0.3)) m.mesh.position.x=nx;
+      if(canMoveTo(m.mesh.position.x,nz,0.3)) m.mesh.position.z=nz;
+      m.mesh.rotation.y=Math.atan2(dx,dz);
+    }
+  }
+  m.mesh.userData.eyeLight.intensity = m.mode==='attack'?1.1:0.5;
+}
+
 function updateOneMonster(m,dt,playerMoving,moveMag){
   const roughDist=Math.hypot(player.x-m.mesh.position.x, player.z-m.mesh.position.z);
   if(roughDist>40) return;
   if(m.type==='shooter'){ updateShooterBot(m,dt); return; }
+  if(m.type==='immolator'){ updateImmolatorBot(m,dt); return; }
   const mx=m.mesh.position.x, mz=m.mesh.position.z;
   const dist=roughDist;
 
@@ -4758,6 +5078,7 @@ function updateAudioCues(dt){
 function damagePlayer(amount){
   if(!gameRunning || gameOverFlag || gameWinFlag) return;
   if(player.invulnTimer>0) return;
+  amount=Math.round(amount*(DIFFICULTY_MULT[difficulty]?DIFFICULTY_MULT[difficulty].dmgTaken:1));
   player.hp=Math.max(0,player.hp-amount);
   runStats.hitsTaken++;
   updateHealthUI();
@@ -4790,9 +5111,14 @@ function populateOverStats(){
   const mm=Math.floor(elapsed/60), ss=String(elapsed%60).padStart(2,'0');
   const acc = runStats.shotsFired>0 ? Math.round((runStats.shotsHit/runStats.shotsFired)*100) : 0;
   document.getElementById('statTimeOver').textContent=mm+':'+ss;
-  document.getElementById('statLevelOver').textContent='Level '+(levelIndex+1)+'/7';
+  document.getElementById('statLevelOver').textContent = gameMode==='endless' ? ('Wave '+(levelIndex+1)) : ('Level '+(levelIndex+1)+'/7');
   document.getElementById('statAccuracyOver').textContent=acc+'%';
   document.getElementById('statKillsOver').textContent=runStats.totalKills;
+  const score=computeScore();
+  document.getElementById('statScoreOver').textContent=score;
+  const isBest=saveScoreIfBest(score);
+  const bestEl=document.getElementById('bestScoreLineOver');
+  if(bestEl) bestEl.textContent = isBest ? 'New best score!' : '';
 }
 function winGame(){
   if(gameOverFlag||gameWinFlag) return;
@@ -4825,6 +5151,11 @@ function populateWinStats(){
   document.getElementById('statHitsTaken').textContent=runStats.hitsTaken;
   document.getElementById('statNotes').textContent=notesFound+'/'+NOTE_TEXTS.length;
   document.getElementById('epilogueText').style.display = (notesFound>=NOTE_TEXTS.length) ? 'block' : 'none';
+  const score=computeScore();
+  document.getElementById('statScore').textContent=score;
+  const isBest=saveScoreIfBest(score);
+  const bestEl=document.getElementById('bestScoreLineWin');
+  if(bestEl) bestEl.textContent = isBest ? 'New best score!' : '';
 }
 function jumpscareFlash(){
   const el=document.getElementById('flashOverlay');
@@ -5009,19 +5340,67 @@ buildMazeGrid();
 resize();
 updateWeaponIcons();
 
+document.querySelectorAll('#modeStory,#modeEndless').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('#modeStory,#modeEndless').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    gameMode=btn.dataset.mode;
+    updateBestScoreLine();
+  });
+});
+document.querySelectorAll('#diffEasy,#diffNormal,#diffNightmare').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('#diffEasy,#diffNormal,#diffNightmare').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    difficulty=btn.dataset.diff;
+  });
+});
+function bestScoreKey(){ return 'rhh_best_'+gameMode; }
+function updateBestScoreLine(){
+  const el=document.getElementById('bestScoreLine');
+  if(!el) return;
+  let best=0;
+  try{ best=parseInt(localStorage.getItem(bestScoreKey())||'0',10)||0; }catch(e){}
+  el.textContent = best>0 ? ('Best '+(gameMode==='endless'?'endless':'story')+' score: '+best) : '';
+}
+function computeScore(){
+  const cleared = gameMode==='endless' ? levelIndex : levelIndex; // waves/levels fully cleared before this point
+  const elapsed=Math.round((Date.now()-runStats.startTime)/1000);
+  let score = runStats.totalKills*10 + notesFound*50 + cleared*100;
+  if(gameMode==='endless') score += Math.floor(elapsed*0.5);
+  return score;
+}
+function saveScoreIfBest(score){
+  try{
+    const key=bestScoreKey();
+    const prev=parseInt(localStorage.getItem(key)||'0',10)||0;
+    if(score>prev){ localStorage.setItem(key, String(score)); return true; }
+  }catch(e){}
+  return false;
+}
+updateBestScoreLine();
+
 document.getElementById('btnStart').addEventListener('click', ()=>{
   initAudio();
   buildMazeGrid();
   resetGame();
   document.getElementById('screenStart').classList.add('hidden');
   document.getElementById('hud').classList.remove('hidden');
-  showLevelBanner('LEVEL 1', LEVEL_ZONES[0].name+' — '+BEHAVIOR_HINTS[LEVELS[0].behavior]);
+  if(gameMode==='endless'){
+    showLevelBanner('ENDLESS MODE', 'Wave 1 — '+BEHAVIOR_HINTS[endlessWaveCfg(1).behavior]);
+  } else {
+    showLevelBanner('LEVEL 1', LEVEL_ZONES[0].name+' — '+BEHAVIOR_HINTS[LEVELS[0].behavior]);
+  }
 });
 function restart(){
   document.getElementById('screenOver').classList.add('hidden');
   document.getElementById('screenWin').classList.add('hidden');
   resetGame();
-  showLevelBanner('LEVEL 1', LEVEL_ZONES[0].name+' — '+BEHAVIOR_HINTS[LEVELS[0].behavior]);
+  if(gameMode==='endless'){
+    showLevelBanner('ENDLESS MODE', 'Wave 1 — '+BEHAVIOR_HINTS[endlessWaveCfg(1).behavior]);
+  } else {
+    showLevelBanner('LEVEL 1', LEVEL_ZONES[0].name+' — '+BEHAVIOR_HINTS[LEVELS[0].behavior]);
+  }
 }
 document.getElementById('btnRestart1').addEventListener('click', restart);
 document.getElementById('btnRestart2').addEventListener('click', restart);
