@@ -21,7 +21,11 @@
   #redOverlay.active{opacity:1;}
 
   .overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
-    background:rgba(3,3,4,0.94);z-index:100;padding:20px;}
+    background:rgba(3,3,4,0.94);z-index:100;padding:20px;
+    opacity:1;visibility:visible;transition:opacity 0.35s ease;}
+  .overlay.hidden{display:flex !important;opacity:0;visibility:hidden;pointer-events:none;
+    transition:opacity 0.35s ease, visibility 0s linear 0.35s;}
+  #screenStart{background:rgba(3,3,4,0.5);}
   .card{max-width:560px;max-height:92vh;overflow:auto;background:linear-gradient(180deg,#14181a,#0c0e0f);
     border:1px solid var(--line);border-radius:6px;padding:24px 22px;text-align:center;
     box-shadow:0 0 40px rgba(122,31,31,0.15) inset,0 10px 40px rgba(0,0,0,0.6);}
@@ -44,6 +48,36 @@
     color:var(--bone);padding:6px 12px;font-size:0.78rem;border-radius:4px;cursor:pointer;opacity:0.6;}
   .pickBtn.active{opacity:1;border-color:var(--amber);color:var(--amber);background:rgba(217,164,65,0.12);}
 
+  #screenLoading{position:fixed;inset:0;background:radial-gradient(ellipse at center,#0a0808 0%,#020203 75%);
+    z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:34px;
+    transition:opacity 0.5s ease;}
+  #screenLoading.loadingHidden{opacity:0;pointer-events:none;}
+
+  .loadBanner{text-align:center;position:relative;}
+  .loadTitle{font-family:'Creepster',cursive;color:var(--blood-bright);font-size:2.6rem;letter-spacing:3px;
+    text-shadow:0 0 24px rgba(179,52,47,0.65),0 0 60px rgba(179,52,47,0.3);line-height:1.15;
+    animation:loadFlicker 3.4s infinite;}
+  .loadTitle span{display:block;font-size:1.9rem;color:var(--bone);letter-spacing:8px;opacity:0.85;}
+  @keyframes loadFlicker{
+    0%,4%,8%,77%,100%{opacity:1;}
+    5%,7%{opacity:0.5;}
+    78%{opacity:0.7;}
+  }
+  .loadSubtitle{font-family:'Special Elite',monospace;color:#8a8074;font-size:0.75rem;letter-spacing:2px;
+    margin-top:6px;opacity:0.6;text-transform:uppercase;}
+  .loadBannerCrack{position:absolute;top:-14px;left:50%;transform:translateX(-50%);width:2px;height:12px;
+    background:var(--blood-bright);opacity:0.5;}
+
+  .loadStageWrap{width:min(78vw,340px);display:flex;flex-direction:column;gap:9px;}
+  .loadStageText{color:var(--bone);font-size:0.82rem;letter-spacing:0.5px;text-align:center;min-height:1.2em;}
+  .loadBarTrack{width:100%;height:8px;background:#141414;border:1px solid var(--line);border-radius:4px;overflow:hidden;
+    box-shadow:inset 0 1px 3px rgba(0,0,0,0.6);}
+  .loadBarFill{width:0%;height:100%;background:linear-gradient(90deg,var(--blood),var(--blood-bright));
+    border-radius:4px;transition:width 0.45s cubic-bezier(.2,.8,.3,1);
+    box-shadow:0 0 10px rgba(179,52,47,0.6);}
+  .loadPctRow{display:flex;justify-content:space-between;align-items:center;font-size:0.72rem;color:var(--amber);}
+  .loadTip{color:#7a746a;font-style:italic;opacity:0.75;text-align:right;max-width:75%;}
+
   /* HUD */
   #hud{position:fixed;inset:0;pointer-events:none;z-index:20;}
   #warnBanner{position:fixed;top:10px;left:50%;transform:translateX(-50%);
@@ -52,71 +86,100 @@
     white-space:nowrap;pointer-events:none;}
   #warnBanner.show{opacity:1;}
   .topRightCluster{position:fixed;top:10px;right:12px;display:flex;gap:10px;z-index:35;}
-  .flashBtn{pointer-events:auto;background:var(--panel);border:1px solid var(--amber);border-radius:50%;
-    width:52px;height:52px;font-size:1.4rem;display:flex;align-items:center;justify-content:center;cursor:pointer;}
+  .flashBtn{pointer-events:auto;background:rgba(24,22,20,0.4);backdrop-filter:blur(14px) saturate(140%);
+    -webkit-backdrop-filter:blur(14px) saturate(140%);border:1px solid rgba(217,164,65,0.4);border-radius:50%;
+    width:52px;height:52px;font-size:1.4rem;display:flex;align-items:center;justify-content:center;cursor:pointer;
+    box-shadow:0 4px 16px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06);
+    transition:transform .12s ease, box-shadow .12s ease;}
+  .flashBtn:active{transform:scale(0.92);box-shadow:0 2px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06);}
 
   .miniBadge{position:fixed;top:12px;display:flex;align-items:center;z-index:22;}
-  .badgeIcon{width:52px;height:52px;border-radius:50%;background:var(--panel);border:1px solid var(--line);
-    display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0;}
+  .badgeIcon{width:52px;height:52px;border-radius:50%;background:rgba(24,22,20,0.4);backdrop-filter:blur(14px);
+    -webkit-backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,0.12);
+    display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0;
+    box-shadow:0 4px 16px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06);}
   .badgeSlide{max-width:0;overflow:hidden;transition:max-width .35s ease,margin-left .35s ease;
-    background:var(--panel);border:1px solid var(--line);border-radius:8px;height:34px;display:flex;
+    background:rgba(24,22,20,0.4);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    border:1px solid rgba(255,255,255,0.12);border-radius:10px;height:34px;display:flex;
     align-items:center;padding:0;margin-left:0;}
   .miniBadge.open .badgeSlide{max-width:130px;margin-left:8px;padding:0 10px;}
-  .badgeTrack{width:100px;height:8px;background:#26221f;border-radius:4px;overflow:hidden;border:1px solid #000;flex-shrink:0;}
-  .badgeFill{height:100%;width:100%;}
+  .badgeTrack{width:100px;height:7px;background:rgba(0,0,0,0.4);border-radius:4px;overflow:hidden;flex-shrink:0;}
+  .badgeFill{height:100%;width:100%;border-radius:4px;}
   #hpBadge{left:12px;}
   #battBadge{left:12px;top:76px;}
 
   #crosshair{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
     color:rgba(255,255,255,0.75);font-size:1.1rem;font-family:monospace;z-index:22;
     text-shadow:0 0 4px rgba(0,0,0,0.9);}
-  .huntBox{position:fixed;top:76px;right:12px;background:var(--panel);border:1px solid var(--blood-bright);
-    border-radius:5px;padding:6px 12px;font-size:0.85rem;color:var(--bone);z-index:22;}
-  #notesBox{top:112px;border-color:var(--amber);}
+  .huntBox{position:fixed;top:76px;right:12px;background:rgba(24,22,20,0.4);backdrop-filter:blur(14px);
+    -webkit-backdrop-filter:blur(14px);border:1px solid rgba(179,52,47,0.4);
+    border-radius:10px;padding:6px 14px;font-size:0.85rem;color:var(--bone);z-index:22;
+    box-shadow:0 4px 16px rgba(0,0,0,0.3);}
+  #notesBox{top:112px;border-color:rgba(217,164,65,0.4);}
 
   .weaponHud{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);display:flex;gap:10px;
-    align-items:center;pointer-events:auto;z-index:35;background:var(--panel);border:1px solid var(--line);
-    border-radius:10px;padding:8px 14px;}
-  .wIcon{width:46px;height:46px;border-radius:8px;background:#00000055;border:1px solid var(--line);
-    display:flex;align-items:center;justify-content:center;font-size:1.3rem;opacity:0.4;cursor:pointer;}
-  .wIcon.active{opacity:1;border-color:var(--amber);}
+    align-items:center;pointer-events:auto;z-index:35;background:rgba(20,18,17,0.45);backdrop-filter:blur(16px) saturate(140%);
+    -webkit-backdrop-filter:blur(16px) saturate(140%);border:1px solid rgba(255,255,255,0.1);
+    border-radius:18px;padding:9px 16px;box-shadow:0 6px 22px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06);}
+  .wIcon{width:46px;height:46px;border-radius:12px;background:rgba(0,0,0,0.28);border:1px solid rgba(255,255,255,0.1);
+    display:flex;align-items:center;justify-content:center;font-size:1.3rem;opacity:0.42;cursor:pointer;
+    transition:opacity .15s ease, border-color .15s ease, transform .12s ease;}
+  .wIcon:active{transform:scale(0.93);}
+  .wIcon.active{opacity:1;border-color:var(--amber);box-shadow:0 0 0 1px rgba(217,164,65,0.3), 0 0 14px rgba(217,164,65,0.25);}
   .wIcon.locked{opacity:0.15;}
   #ammoText{font-size:0.95rem;color:var(--bone);min-width:76px;text-align:center;}
-  .reloadBtn{width:46px;height:46px;border-radius:8px;background:#00000055;border:1px solid var(--line);
-    display:flex;align-items:center;justify-content:center;font-size:1.1rem;cursor:pointer;}
+  .reloadBtn{width:46px;height:46px;border-radius:12px;background:rgba(0,0,0,0.28);border:1px solid rgba(255,255,255,0.1);
+    display:flex;align-items:center;justify-content:center;font-size:1.1rem;cursor:pointer;
+    transition:transform .12s ease;}
+  .reloadBtn:active{transform:scale(0.92);}
 
   .fireBigBtn{position:fixed;bottom:26px;right:26px;width:80px;height:80px;border-radius:50%;
-    background:rgba(122,31,31,0.4);border:2px solid var(--blood-bright);display:flex;align-items:center;
+    background:rgba(122,31,31,0.28);backdrop-filter:blur(14px) saturate(150%);-webkit-backdrop-filter:blur(14px) saturate(150%);
+    border:1px solid rgba(179,52,47,0.55);display:flex;align-items:center;
     justify-content:center;font-size:2.1rem;pointer-events:auto;z-index:40;cursor:pointer;
-    box-shadow:0 0 22px rgba(179,52,47,0.4);}
-  .fireBigBtn:active{background:rgba(179,52,47,0.6);transform:scale(0.94);}
+    box-shadow:0 6px 24px rgba(179,52,47,0.3), inset 0 1px 0 rgba(255,255,255,0.08);
+    transition:transform .12s ease, box-shadow .12s ease;}
+  .fireBigBtn:active{background:rgba(179,52,47,0.42);transform:scale(0.94);box-shadow:0 3px 12px rgba(179,52,47,0.35);}
 
   .dashBtn{position:fixed;bottom:118px;right:36px;width:56px;height:56px;border-radius:50%;
-    background:rgba(217,164,65,0.3);border:2px solid var(--amber);display:flex;align-items:center;
+    background:rgba(217,164,65,0.18);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    border:1px solid rgba(217,164,65,0.5);display:flex;align-items:center;
     justify-content:center;font-size:1.5rem;pointer-events:auto;z-index:40;cursor:pointer;
-    transition:opacity .15s ease;}
+    box-shadow:0 4px 16px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06);
+    transition:transform .12s ease, opacity .15s ease;}
   .dashBtn:active{transform:scale(0.92);}
 
   .slideBtn{position:fixed;bottom:190px;right:36px;width:56px;height:56px;border-radius:50%;
-    background:rgba(90,170,220,0.28);border:2px solid #6fbfe0;display:flex;align-items:center;
+    background:rgba(90,170,220,0.16);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    border:1px solid rgba(111,191,224,0.5);display:flex;align-items:center;
     justify-content:center;font-size:1.4rem;pointer-events:auto;z-index:40;cursor:pointer;
-    transition:opacity .15s ease;}
+    box-shadow:0 4px 16px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06);
+    transition:transform .12s ease, opacity .15s ease;}
   .slideBtn:active{transform:scale(0.92);}
 
-  .crouchBtn{position:fixed;bottom:220px;left:40px;width:52px;height:52px;border-radius:10px;
-    background:rgba(255,255,255,0.08);border:2px solid rgba(255,255,255,0.35);display:flex;
-    align-items:center;justify-content:center;font-size:1.3rem;pointer-events:auto;z-index:40;cursor:pointer;}
-  .crouchBtn.active{background:rgba(217,164,65,0.35);border-color:var(--amber);}
+  .crouchBtn{position:fixed;bottom:220px;left:40px;width:52px;height:52px;border-radius:16px;
+    background:rgba(255,255,255,0.06);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    border:1px solid rgba(255,255,255,0.22);display:flex;
+    align-items:center;justify-content:center;font-size:1.3rem;pointer-events:auto;z-index:40;cursor:pointer;
+    box-shadow:0 4px 16px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06);
+    transition:transform .12s ease, background .15s ease, border-color .15s ease;}
+  .crouchBtn.active{background:rgba(217,164,65,0.28);border-color:var(--amber);}
 
-  .jumpBtn{position:fixed;bottom:220px;left:100px;width:52px;height:52px;border-radius:10px;
-    background:rgba(255,255,255,0.08);border:2px solid rgba(255,255,255,0.35);display:flex;
-    align-items:center;justify-content:center;font-size:1.3rem;pointer-events:auto;z-index:40;cursor:pointer;}
+  .jumpBtn{position:fixed;bottom:220px;left:100px;width:52px;height:52px;border-radius:16px;
+    background:rgba(255,255,255,0.06);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    border:1px solid rgba(255,255,255,0.22);display:flex;
+    align-items:center;justify-content:center;font-size:1.3rem;pointer-events:auto;z-index:40;cursor:pointer;
+    box-shadow:0 4px 16px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06);
+    transition:transform .12s ease;}
   .jumpBtn:active{transform:scale(0.92);}
 
   .zoomBtn{position:fixed;bottom:190px;right:100px;width:52px;height:52px;border-radius:50%;
-    background:rgba(90,170,220,0.28);border:2px solid #6fbfe0;display:flex;align-items:center;
-    justify-content:center;font-size:1.3rem;pointer-events:auto;z-index:40;cursor:pointer;}
-  .zoomBtn.active{background:rgba(217,164,65,0.4);border-color:var(--amber);}
+    background:rgba(90,170,220,0.16);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    border:1px solid rgba(111,191,224,0.5);display:flex;align-items:center;
+    justify-content:center;font-size:1.3rem;pointer-events:auto;z-index:40;cursor:pointer;
+    box-shadow:0 4px 16px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06);
+    transition:transform .12s ease, background .15s ease, border-color .15s ease;}
+  .zoomBtn.active{background:rgba(217,164,65,0.32);border-color:var(--amber);}
   .zoomBtn:active{transform:scale(0.92);}
 
   .scopeOverlay{position:fixed;inset:0;pointer-events:none;z-index:19;opacity:0;transition:opacity .1s ease;
@@ -126,13 +189,24 @@
   .scopeReticle::after{content:'';position:absolute;top:50%;left:50%;width:100vw;height:1px;background:rgba(0,0,0,0.65);transform:translate(-50%,-50%);}
 
   .grenadeBtn{position:fixed;bottom:118px;right:100px;width:52px;height:52px;border-radius:50%;
-    background:rgba(122,31,31,0.32);border:2px solid var(--blood-bright);display:flex;align-items:center;
-    justify-content:center;font-size:1.35rem;pointer-events:auto;z-index:40;cursor:pointer;}
+    background:rgba(122,31,31,0.2);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    border:1px solid rgba(179,52,47,0.5);display:flex;align-items:center;
+    justify-content:center;font-size:1.35rem;pointer-events:auto;z-index:40;cursor:pointer;
+    box-shadow:0 4px 16px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06);
+    transition:transform .12s ease;}
   .grenadeBtn:active{transform:scale(0.92);}
   .molotovBtn{position:fixed;bottom:180px;right:100px;width:52px;height:52px;border-radius:50%;
-    background:rgba(204,102,20,0.32);border:2px solid #ff8c1a;display:flex;align-items:center;
-    justify-content:center;font-size:1.35rem;pointer-events:auto;z-index:40;cursor:pointer;}
+    background:rgba(204,102,20,0.2);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    border:1px solid rgba(255,140,26,0.5);display:flex;align-items:center;
+    justify-content:center;font-size:1.35rem;pointer-events:auto;z-index:40;cursor:pointer;
+    box-shadow:0 4px 16px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06);
+    transition:transform .12s ease;}
   .molotovBtn:active{transform:scale(0.92);}
+  @keyframes emptyPulse{
+    0%,100%{box-shadow:0 0 0 0 rgba(122,31,31,0.5);}
+    50%{box-shadow:0 0 0 8px rgba(122,31,31,0);}
+  }
+  .btnEmpty{animation:emptyPulse 1.1s ease-out infinite;opacity:0.55;}
   .grenadeCountBadge{position:absolute;bottom:-4px;right:-4px;background:#1a1a1a;border:1px solid var(--amber);
     color:var(--amber);font-size:0.62rem;border-radius:50%;width:18px;height:18px;display:flex;
     align-items:center;justify-content:center;}
@@ -156,11 +230,14 @@
 
   /* Joysticks */
   .stick-zone{position:fixed;bottom:78px;width:130px;height:130px;border-radius:50%;
-    background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.15);z-index:35;pointer-events:auto;}
+    background:rgba(20,18,17,0.22);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+    border:1px solid rgba(255,255,255,0.16);z-index:35;pointer-events:auto;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,0.06), 0 4px 16px rgba(0,0,0,0.25);}
   #moveZone{left:20px;}
   .stick-knob{position:absolute;width:56px;height:56px;border-radius:50%;
-    background:rgba(217,164,65,0.35);border:1px solid rgba(217,164,65,0.7);
-    top:50%;left:50%;transform:translate(-50%,-50%);}
+    background:rgba(217,164,65,0.3);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+    border:1px solid rgba(217,164,65,0.75);box-shadow:0 3px 10px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.15);
+    top:50%;left:50%;transform:translate(-50%,-50%);transition:background .1s ease;}
 
   #flashOverlay{position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:200;}
   #levelBanner{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -180,6 +257,64 @@
 <canvas id="game"></canvas>
 <div class="vignette"></div>
 <div id="redOverlay"></div>
+
+<div id="screenLoading">
+  <div class="loadBanner">
+    <div class="loadBannerCrack"></div>
+    <div class="loadTitle">RUINED HOUSE<span>HUNTER</span></div>
+    <div class="loadSubtitle">seven levels of everything that's still inside</div>
+  </div>
+  <div class="loadStageWrap">
+    <div class="loadStageText" id="loadStageText">Connecting...</div>
+    <div class="loadBarTrack"><div class="loadBarFill" id="loadBarFill"></div></div>
+    <div class="loadPctRow">
+      <span id="loadPct">0%</span>
+      <span class="loadTip" id="loadTip"></span>
+    </div>
+  </div>
+</div>
+<script>
+  var loadStages=[
+    {pct:8,  label:'Connecting to the street...'},
+    {pct:22, label:'Loading the render engine...'},
+    {pct:34, label:'Priming the camera...'},
+    {pct:46, label:'Loading bloom & shadows...'},
+    {pct:56, label:'Loading post-processing...'},
+    {pct:66, label:'Tuning the film grain...'},
+    {pct:74, label:'Sharpening the lens...'},
+  ];
+  var loadTips=[
+    'Tip: the knife is silent — no muzzle flash, no noise.',
+    'Tip: turret-type enemies flash red before they fire. Take cover.',
+    'Tip: shoot the red barrels — they chain-explode.',
+    'Tip: a suppressor cuts how far gunfire is noticed.',
+    'Tip: swarm-behavior levels alert every enemy at once. Don\'t get spotted alone.',
+    'Tip: molotovs leave a burning zone — good for choke points.',
+    'Tip: read every note you find — the ending changes if you find them all.',
+  ];
+  var loadTipI=Math.floor(Math.random()*loadTips.length);
+  function setLoadStage(pct,label){
+    var fill=document.getElementById('loadBarFill');
+    var txt=document.getElementById('loadStageText');
+    var pctEl=document.getElementById('loadPct');
+    if(fill) fill.style.width=pct+'%';
+    if(txt && label) txt.textContent=label;
+    if(pctEl) pctEl.textContent=pct+'%';
+  }
+  var loadStageI=0;
+  function advanceLoadStage(){
+    if(loadStageI<loadStages.length){
+      setLoadStage(loadStages[loadStageI].pct, loadStages[loadStageI].label);
+      loadStageI++;
+    }
+  }
+  setInterval(function(){
+    loadTipI=(loadTipI+1)%loadTips.length;
+    var el=document.getElementById('loadTip');
+    if(el) el.textContent=loadTips[loadTipI];
+  }, 2400);
+  document.getElementById('loadTip').textContent=loadTips[loadTipI];
+</script>
 
 <div id="hud" class="hidden">
   <div id="warnBanner">Something heard you...</div>
@@ -256,7 +391,7 @@
   <div class="scopeOverlay" id="scopeOverlay"><div class="scopeReticle"></div></div>
 </div>
 
-<div class="overlay" id="screenStart">
+<div class="overlay hidden" id="screenStart">
   <div class="card">
     <h1>Ruined House Hunter</h1>
     <div class="story">
@@ -364,13 +499,21 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>advanceLoadStage();</script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+<script>advanceLoadStage();</script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+<script>advanceLoadStage();</script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+<script>advanceLoadStage();</script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/MaskPass.js"></script>
+<script>advanceLoadStage();</script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+<script>advanceLoadStage();</script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+<script>advanceLoadStage();</script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+<script>advanceLoadStage();</script>
 
 <script>
 (function(){
@@ -382,9 +525,12 @@ if(typeof THREE === 'undefined'){
   return;
 }
 
+setLoadStage(84, 'Assembling the world...');
+requestAnimationFrame(()=>{ requestAnimationFrame(()=>{
+
 /* ================= CONSTANTS ================= */
 const CELL=4;
-const GCOLS=11, GROWS=29;
+const GCOLS=11, GROWS=103;
 const HEDGE_H=2.7;
 const EYE_H=1.65;
 const CROUCH_H=1.0;
@@ -453,6 +599,56 @@ function buildMazeGrid(){
   maze[20][4]=6;
   maze[24][6]=6;
   maze[27][5]=6;
+
+  // ================= NEW ZONE: a big house interior, entered from the end of the street =================
+  carve(4,29,3,2,3);   // entry hall from the street
+  carve(1,31,9,3,3);   // living room + dining room (open plan, west-to-east)
+  carve(1,34,9,1,3);   // cross hallway A
+  carve(1,35,4,3,3);   // bedroom A (west)
+  carve(6,35,4,3,3);   // bedroom B (east)
+  carve(5,35,1,3,3);   // spine hallway connecting bedrooms
+  carve(1,38,9,1,3);   // cross hallway B
+  carve(1,39,3,2,3);   // bathroom (west)
+  carve(4,39,2,2,3);   // closet (small)
+  carve(7,39,3,2,3);   // study / office (east)
+  carve(4,41,3,1,3);   // hallway down to the exit
+  carve(3,42,5,3,3);   // final room (basement door / exit)
+  maze[44][5]=5;       // house exit checkpoint marker
+
+  // ================= NEW ZONE: a dense abandoned city block =================
+  carve(4,45,3,2,1);   // entry corridor
+  carve(1,47,9,3,1);   // main plaza / intersection
+  carve(1,50,3,3,1);   // west dead-end alley (dumpsters, ambush pocket)
+  carve(7,50,3,3,1);   // east dead-end alley (fire escape, ambush pocket)
+  carve(4,50,3,4,1);   // center passage south
+  carve(2,54,7,3,1);   // subway entrance plaza
+  carve(4,57,3,2,1);   // final alley to the exit
+  maze[47][2]=6; maze[47][8]=6; // wrecked cars blocking sightlines across the plaza
+  maze[58][5]=5;       // city exit checkpoint marker
+
+  // ================= NEW ZONE: burned church, graveyard leading into a roofed nave =================
+  carve(4,59,3,2,1);   // graveyard gate entry
+  carve(1,61,9,4,1);   // graveyard (open, outdoor)
+  carve(4,65,3,2,3);   // narthex / church entrance (indoor begins)
+  carve(2,67,7,4,3);   // nave (main hall, pews)
+  carve(3,71,5,2,3);   // altar
+  maze[72][5]=5;       // church exit checkpoint marker
+
+  // ================= NEW ZONE: industrial warehouse interior =================
+  carve(4,73,3,2,3);   // entry / loading dock
+  carve(1,75,9,9,3);   // main warehouse floor (crate rows placed as decoration)
+  carve(4,84,3,2,3);   // exit corridor
+  maze[85][5]=5;       // warehouse exit checkpoint marker
+
+  // ================= NEW ZONE: sewer tunnels, tight and zigzagging =================
+  carve(4,86,3,3,3);   // connector from warehouse exit + entry (manhole descent)
+  carve(3,89,2,4,3);   // tunnel segment 1 (south)
+  carve(3,92,5,2,3);   // junction turning east
+  carve(6,93,2,4,3);   // tunnel segment 2 (south)
+  carve(4,96,5,2,3);   // junction turning west
+  carve(4,97,2,4,3);   // tunnel segment 3 (south)
+  carve(2,100,7,3,3);  // pump room (final chamber)
+  maze[101][5]=5;      // sewer exit checkpoint marker
 }
 function gridToWorld(gx,gy){ return {x:gx*CELL+CELL/2, z:gy*CELL+CELL/2}; }
 function isOpenGrid(gx,gy){
@@ -885,6 +1081,69 @@ function buildRubbleTexture(){
   tex.anisotropy=renderer.capabilities.getMaxAnisotropy?renderer.capabilities.getMaxAnisotropy():1;
   return tex;
 }
+function buildWallpaperTexture(){
+  const size=384;
+  const c=document.createElement('canvas'); c.width=c.height=size;
+  const tctx=c.getContext('2d');
+  tctx.fillStyle='#5a4438'; tctx.fillRect(0,0,size,size);
+  // Faded vertical stripe pattern
+  for(let x=0;x<size;x+=32){
+    tctx.fillStyle='rgba(80,60,48,0.35)';
+    tctx.fillRect(x,0,16,size);
+  }
+  // Water stains and peeling patches
+  for(let i=0;i<26;i++){
+    const x=Math.random()*size, y=Math.random()*size, r=14+Math.random()*40;
+    const grad=tctx.createRadialGradient(x,y,0,x,y,r);
+    grad.addColorStop(0,'rgba(20,15,10,0.35)');
+    grad.addColorStop(1,'rgba(20,15,10,0)');
+    tctx.fillStyle=grad;
+    tctx.beginPath(); tctx.arc(x,y,r,0,Math.PI*2); tctx.fill();
+  }
+  // Torn/peeling edges
+  tctx.strokeStyle='rgba(15,10,8,0.5)'; tctx.lineWidth=1.2;
+  for(let i=0;i<8;i++){
+    let x=Math.random()*size,y=Math.random()*size;
+    tctx.beginPath(); tctx.moveTo(x,y);
+    for(let s=0;s<6;s++){ x+=(Math.random()-0.5)*26; y+=(Math.random()-0.5)*26; tctx.lineTo(x,y); }
+    tctx.stroke();
+  }
+  const tex=new THREE.CanvasTexture(c);
+  tex.wrapS=THREE.RepeatWrapping; tex.wrapT=THREE.RepeatWrapping;
+  tex.repeat.set(1,1);
+  tex.anisotropy=renderer.capabilities.getMaxAnisotropy?renderer.capabilities.getMaxAnisotropy():1;
+  return tex;
+}
+function buildAsphaltTexture(){
+  const size=384;
+  const c=document.createElement('canvas'); c.width=c.height=size;
+  const tctx=c.getContext('2d');
+  tctx.fillStyle='#2a2a2c'; tctx.fillRect(0,0,size,size);
+  for(let i=0;i<1400;i++){
+    const x=Math.random()*size,y=Math.random()*size;
+    const g=Math.floor(-14+Math.random()*28);
+    tctx.fillStyle=`rgba(${42+g},${42+g},${44+g},${0.15+Math.random()*0.25})`;
+    tctx.fillRect(x,y,1.2+Math.random()*1.6,1.2+Math.random()*1.6);
+  }
+  // Cracks
+  tctx.strokeStyle='rgba(8,8,8,0.6)'; tctx.lineWidth=1;
+  for(let i=0;i<10;i++){
+    let x=Math.random()*size,y=Math.random()*size;
+    tctx.beginPath(); tctx.moveTo(x,y);
+    for(let s=0;s<7;s++){ x+=(Math.random()-0.5)*34; y+=(Math.random()-0.5)*34; tctx.lineTo(x,y); }
+    tctx.stroke();
+  }
+  // Faded lane marking fragments
+  tctx.fillStyle='rgba(180,170,120,0.15)';
+  for(let i=0;i<6;i++){
+    tctx.fillRect(Math.random()*size, Math.random()*size, 22, 3);
+  }
+  const tex=new THREE.CanvasTexture(c);
+  tex.wrapS=THREE.RepeatWrapping; tex.wrapT=THREE.RepeatWrapping;
+  tex.repeat.set(1.4,1.4);
+  tex.anisotropy=renderer.capabilities.getMaxAnisotropy?renderer.capabilities.getMaxAnisotropy():1;
+  return tex;
+}
 const hedgeGeo=new THREE.BoxGeometry(CELL*0.98, HEDGE_H, CELL*0.98);
 const hedgeMat=new THREE.MeshStandardMaterial({map:buildLeafTexture(), roughness:1});
 const rubbleMat=new THREE.MeshStandardMaterial({map:buildRubbleTexture(), roughness:1});
@@ -901,9 +1160,9 @@ let hedgeInst=null, rubbleInst=null;
 function buildBoundaryMeshes(){
   const hedgeCells=[], rubbleCells=[];
   for(let gy=0;gy<GROWS;gy++) for(let gx=0;gx<GCOLS;gx++){
-    if(maze[gy][gx]===0){
+    if(maze[gy][gx]===0 && isAdjacentToOpen(gx,gy)){
       if(gy<STREET_START_ROW) hedgeCells.push([gx,gy]); else rubbleCells.push([gx,gy]);
-      if(isAdjacentToOpen(gx,gy)) boundaryEdgeCells.push({gx,gy,street:gy>=STREET_START_ROW});
+      boundaryEdgeCells.push({gx,gy,street:gy>=STREET_START_ROW});
     }
   }
   hedgeInst=new THREE.InstancedMesh(hedgeGeo, hedgeMat, Math.max(hedgeCells.length,1));
@@ -1023,6 +1282,7 @@ function rebuildHouseWalls(){
 }
 rebuildHouseWalls();
 const envTargets=[hedgeInst, rubbleInst, houseWallsInst, ruinedWallsInst, carCoverInst, ground];
+const losTargets=[hedgeInst, rubbleInst, houseWallsInst, ruinedWallsInst, carCoverInst];
 
 /* ---- Floors ---- */
 function buildFloor(){
@@ -1043,6 +1303,7 @@ function buildFloor(){
 buildFloor();
 
 /* ---- Furniture / room detail props ---- */
+let zoneExitLights={};
 function buildFurniture(){
   const woodMat=new THREE.MeshStandardMaterial({map:buildWoodTexture(2,2), roughness:0.8});
   const fabricCouch=new THREE.MeshStandardMaterial({map:buildFabricTexture('#5a2f2f'), roughness:0.95});
@@ -1086,8 +1347,365 @@ function buildFurniture(){
   const rugHall=new THREE.Mesh(new THREE.PlaneGeometry(5.5,0.9), fabricRug);
   rugHall.rotation.x=-Math.PI/2; rugHall.position.set(22,0.025,14); rugHall.receiveShadow=true;
   scene.add(rugHall);
+
+  // ---- New zone: big house furniture ----
+  // Living room couch + coffee table (world ~x6-38, z126-134)
+  addBox(fabricCouch, 2.0,0.5,0.8, 10,0.28,128, Math.PI/2);
+  addBox(woodMat, 2.0,0.12,0.8, 10,0.58,128, Math.PI/2);
+  const rugLiving=new THREE.Mesh(new THREE.PlaneGeometry(3,2.2), fabricRug);
+  rugLiving.rotation.x=-Math.PI/2; rugLiving.position.set(13,0.03,129); rugLiving.receiveShadow=true;
+  scene.add(rugLiving);
+  addBox(woodMat, 1.0,0.4,0.6, 13,0.2,129);
+  // Dining table + chairs (east side)
+  addBox(woodMat, 1.8,0.75,1.0, 30,0.38,129);
+  [[-0.9,-0.55],[0.9,-0.55],[-0.9,0.55],[0.9,0.55]].forEach(o=>{
+    addBox(woodMat,0.35,0.7,0.35, 30+o[0],0.35,129+o[1]);
+  });
+  // Bedroom A (west, ~x6-18,z142-150)
+  addBox(woodMat, 1.6,0.35,2.0, 10,0.18,146);
+  addBox(fabricBed, 1.5,0.25,1.9, 10,0.5,146);
+  addBox(woodMat, 0.5,0.5,0.5, 8,0.25,144);
+  // Bedroom B (east, ~x26-38,z142-150)
+  addBox(woodMat, 1.6,0.35,2.0, 32,0.18,146);
+  addBox(fabricBed, 1.5,0.25,1.9, 32,0.5,146);
+  addBox(woodMat, 0.5,0.5,0.5, 30,0.25,144);
+  // Bathroom (west, ~x6-14,z158-162)
+  addBox(porcelain, 1.2,0.5,0.65, 8,0.25,160);
+  const mirror2=new THREE.Mesh(new THREE.PlaneGeometry(0.6,0.8), new THREE.MeshStandardMaterial({color:0x223038, metalness:0.9, roughness:0.15}));
+  mirror2.position.set(11.9,1.4,160); mirror2.rotation.y=-Math.PI/2;
+  scene.add(mirror2);
+  // Study (east, ~x30-38,z158-162)
+  addBox(woodMat, 1.4,0.75,0.7, 34,0.38,160);
+  addBox(metal, 0.4,0.85,0.4, 32.5,0.43,160.6);
+  // Final room / basement exit (~x14-30,z170-178)
+  const exitDoorMat=new THREE.MeshStandardMaterial({color:0x1a0e08, roughness:0.85});
+  const exitDoor=new THREE.Mesh(new THREE.BoxGeometry(1.3,2.3,0.15), exitDoorMat);
+  exitDoor.position.set(22,1.15,178); exitDoor.castShadow=true;
+  scene.add(exitDoor);
+  for(let i=0;i<3;i++){
+    const crate=new THREE.Mesh(new THREE.BoxGeometry(0.6,0.6,0.6), woodMat);
+    crate.position.set(17+i*1.3,0.3,172); crate.rotation.y=Math.random()*Math.PI;
+    crate.castShadow=true; crate.receiveShadow=true;
+    scene.add(crate);
+  }
+  const exitLight=new THREE.PointLight(0xffcf7a, 0.8, 5, 2);
+  exitLight.position.set(22,2.2,177);
+  scene.add(exitLight);
+  zoneExitLights.house=exitLight;
 }
 buildFurniture();
+
+/* ---- City zone props: dumpsters, fire escape, subway entrance ---- */
+function buildCityZoneProps(){
+  const dumpsterMat=new THREE.MeshStandardMaterial({map:buildRustTexture(), color:0x3a5a3a, roughness:0.85, metalness:0.3});
+  const metalMat=new THREE.MeshStandardMaterial({map:buildRustTexture(), color:0x3a3a3a, metalness:0.6, roughness:0.55});
+  const concreteMat=new THREE.MeshStandardMaterial({map:buildAsphaltTexture(), roughness:0.9});
+
+  // West alley: dumpsters (world ~x10,z206)
+  [[9,205],[11,207.5]].forEach(([x,z],i)=>{
+    const dumpster=new THREE.Mesh(new THREE.BoxGeometry(1.3,1.1,0.9), dumpsterMat);
+    dumpster.position.set(x,0.55,z); dumpster.rotation.y=i*0.4;
+    dumpster.castShadow=true; dumpster.receiveShadow=true;
+    scene.add(dumpster);
+    const lid=new THREE.Mesh(new THREE.BoxGeometry(1.4,0.1,1.0), dumpsterMat);
+    lid.position.set(x,1.15,z); lid.rotation.y=dumpster.rotation.y+0.15;
+    scene.add(lid);
+  });
+
+  // East alley: fire escape ladder + platform (world ~x34,z206)
+  const fireEscapeX=35, fireEscapeZ=206;
+  for(let i=0;i<5;i++){
+    const rung=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,0.5,6), metalMat);
+    rung.rotation.z=Math.PI/2; rung.position.set(fireEscapeX,0.4+i*0.55,fireEscapeZ);
+    scene.add(rung);
+  }
+  [-0.24,0.24].forEach(dx=>{
+    const rail=new THREE.Mesh(new THREE.CylinderGeometry(0.025,0.025,3,6), metalMat);
+    rail.position.set(fireEscapeX+dx,1.6,fireEscapeZ); rail.castShadow=true;
+    scene.add(rail);
+  });
+  const platform=new THREE.Mesh(new THREE.BoxGeometry(1.2,0.08,0.8), metalMat);
+  platform.position.set(fireEscapeX,3.1,fireEscapeZ+0.3); platform.castShadow=true;
+  scene.add(platform);
+
+  // Subway entrance: stairs down + railing + sign (world ~x22,z222)
+  const subX=22, subZ=222;
+  for(let i=0;i<5;i++){
+    const step=new THREE.Mesh(new THREE.BoxGeometry(2.4,0.15,0.5), concreteMat);
+    step.position.set(subX,0.3-i*0.13,subZ-1+i*0.5); step.castShadow=true; step.receiveShadow=true;
+    scene.add(step);
+  }
+  [-1.3,1.3].forEach(dx=>{
+    const rail=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.7,2.4), metalMat);
+    rail.position.set(subX+dx,0.35,subZ+0.2);
+    scene.add(rail);
+  });
+  const subSign=new THREE.Mesh(new THREE.BoxGeometry(2.2,0.4,0.1), new THREE.MeshStandardMaterial({color:0x1a5a3a, emissive:0x0a3a1a, emissiveIntensity:0.4}));
+  subSign.position.set(subX,2.3,subZ-1.6); subSign.castShadow=true;
+  scene.add(subSign);
+  const subLight=new THREE.PointLight(0x4aff8a, 0.9, 6, 2);
+  subLight.position.set(subX,2.5,subZ-1.6);
+  scene.add(subLight);
+
+  // Exit stairwell door (world ~x22,z234)
+  const exitDoorMat2=new THREE.MeshStandardMaterial({color:0x151515, roughness:0.8, metalness:0.3});
+  const exitDoor2=new THREE.Mesh(new THREE.BoxGeometry(1.3,2.3,0.15), exitDoorMat2);
+  exitDoor2.position.set(22,1.15,234); exitDoor2.castShadow=true;
+  scene.add(exitDoor2);
+  const exitLight2=new THREE.PointLight(0xffcf7a, 0.8, 5, 2);
+  exitLight2.position.set(22,2.2,233);
+  scene.add(exitLight2);
+  zoneExitLights.city=exitLight2;
+}
+buildCityZoneProps();
+placeLantern(5,48);
+placeLantern(5,55);
+
+/* ---- Church zone props: tombstones, pews, altar ---- */
+function buildChurchZoneProps(){
+  const stoneMat=new THREE.MeshStandardMaterial({map:buildRubbleTexture(), color:0x6a6a64, roughness:0.95});
+  const woodPewMat=new THREE.MeshStandardMaterial({map:buildWoodTexture(2,4), color:0x2a1c12, roughness:0.85});
+  const goldMat=new THREE.MeshStandardMaterial({color:0xb8963a, metalness:0.7, roughness:0.35});
+  const glassColors=[0x7a1a2a, 0x1a4a7a, 0x7a6a1a];
+
+  // Graveyard gate arch (world ~x22,z240)
+  [-1.6,1.6].forEach(dx=>{
+    const post=new THREE.Mesh(new THREE.BoxGeometry(0.3,2.2,0.3), stoneMat);
+    post.position.set(22+dx,1.1,240); post.castShadow=true;
+    scene.add(post);
+  });
+  const arch=new THREE.Mesh(new THREE.BoxGeometry(3.6,0.3,0.3), stoneMat);
+  arch.position.set(22,2.2,240); arch.castShadow=true;
+  scene.add(arch);
+
+  // Tombstones scattered across the graveyard (world x6-38, z246-258)
+  for(let i=0;i<16;i++){
+    const x=7+Math.random()*30, z=247+Math.random()*10;
+    const isCross=Math.random()<0.4;
+    const stone=new THREE.Mesh(isCross? new THREE.BoxGeometry(0.5,0.7,0.12) : new THREE.CylinderGeometry(0.35,0.4,0.6,8,1,false,0,Math.PI),
+      stoneMat);
+    stone.position.set(x,0.35,z); stone.rotation.y=Math.random()*Math.PI*0.3;
+    stone.castShadow=true; stone.receiveShadow=true;
+    scene.add(stone);
+    if(isCross){
+      const bar=new THREE.Mesh(new THREE.BoxGeometry(0.32,0.1,0.1), stoneMat);
+      bar.position.set(x,0.55,z+0.02);
+      scene.add(bar);
+    }
+  }
+
+  // Pews in the nave, two rows facing the altar (world x10-34, z270-282)
+  for(let row=0;row<4;row++){
+    [-4,4].forEach(dx=>{
+      const pew=new THREE.Mesh(new THREE.BoxGeometry(3.2,0.5,0.5), woodPewMat);
+      pew.position.set(22+dx,0.25,272+row*2.4); pew.castShadow=true; pew.receiveShadow=true;
+      scene.add(pew);
+      const pewBack=new THREE.Mesh(new THREE.BoxGeometry(3.2,0.7,0.1), woodPewMat);
+      pewBack.position.set(22+dx,0.6,272+row*2.4-0.22); pewBack.castShadow=true;
+      scene.add(pewBack);
+    });
+  }
+  // Central aisle rug
+  const aisleRug=new THREE.Mesh(new THREE.PlaneGeometry(1.6,10), new THREE.MeshStandardMaterial({color:0x5a1a1a, roughness:0.9}));
+  aisleRug.rotation.x=-Math.PI/2; aisleRug.position.set(22,0.03,276); aisleRug.receiveShadow=true;
+  scene.add(aisleRug);
+
+  // Broken stained-glass window facets on the nave walls
+  for(let row=0;row<3;row++){
+    [10.3,33.7].forEach((x,i)=>{
+      const glass=new THREE.Mesh(new THREE.PlaneGeometry(1.0,1.6), new THREE.MeshStandardMaterial({
+        color:glassColors[row%glassColors.length], emissive:glassColors[row%glassColors.length], emissiveIntensity:0.35,
+        transparent:true, opacity:0.55, side:THREE.DoubleSide
+      }));
+      glass.rotation.y=i===0?Math.PI/2:-Math.PI/2;
+      glass.position.set(x,2.2,271+row*3.2);
+      scene.add(glass);
+    });
+  }
+
+  // Altar (world ~x22,z288)
+  const altarTable=new THREE.Mesh(new THREE.BoxGeometry(2.4,0.9,0.8), stoneMat);
+  altarTable.position.set(22,0.45,287); altarTable.castShadow=true; altarTable.receiveShadow=true;
+  scene.add(altarTable);
+  const cross=new THREE.Mesh(new THREE.BoxGeometry(0.16,1.4,0.16), goldMat);
+  cross.position.set(22,1.6,289.5); cross.castShadow=true;
+  scene.add(cross);
+  const crossBar=new THREE.Mesh(new THREE.BoxGeometry(0.7,0.16,0.16), goldMat);
+  crossBar.position.set(22,2.0,289.5);
+  scene.add(crossBar);
+  const candleLight1=new THREE.PointLight(0xffaa55, 0.7, 4, 2);
+  candleLight1.position.set(21,0.9,287);
+  scene.add(candleLight1);
+  const candleLight2=candleLight1.clone();
+  candleLight2.position.set(23,0.9,287);
+  scene.add(candleLight2);
+
+  // Exit door behind the altar
+  const exitDoorMat3=new THREE.MeshStandardMaterial({color:0x2a1c12, roughness:0.8});
+  const exitDoor3=new THREE.Mesh(new THREE.BoxGeometry(1.3,2.3,0.15), exitDoorMat3);
+  exitDoor3.position.set(22,1.15,290.5); exitDoor3.castShadow=true;
+  scene.add(exitDoor3);
+  const exitLight3=new THREE.PointLight(0xffcf7a, 0.8, 5, 2);
+  exitLight3.position.set(22,2.2,289.7);
+  scene.add(exitLight3);
+  zoneExitLights.church=exitLight3;
+}
+buildChurchZoneProps();
+
+/* ---- Warehouse zone props: crate rows, catwalk, loading dock ---- */
+function buildWarehouseZoneProps(){
+  const crateMat=new THREE.MeshStandardMaterial({map:buildWoodTexture(1,1), roughness:0.85});
+  const metalMat2=new THREE.MeshStandardMaterial({map:buildRustTexture(), color:0x4a4a4a, metalness:0.6, roughness:0.5});
+  const stripeMat2=new THREE.MeshStandardMaterial({color:0xd9a441, roughness:0.6});
+
+  // Crate rows forming cover lanes across the main floor (world x6-38, z302-334)
+  const crateRows=[
+    {x:12, z0:305, z1:317}, {x:20, z0:308, z1:320}, {x:28, z0:305, z1:317}, {x:34, z0:310, z1:322},
+  ];
+  crateRows.forEach(row=>{
+    let z=row.z0;
+    while(z<row.z1){
+      const s=0.7+Math.random()*0.3;
+      const crate=new THREE.Mesh(new THREE.BoxGeometry(s,s,s), crateMat);
+      crate.position.set(row.x+(Math.random()-0.5)*0.3, s/2, z);
+      crate.rotation.y=Math.random()*0.5;
+      crate.castShadow=true; crate.receiveShadow=true;
+      scene.add(crate);
+      if(Math.random()<0.4){
+        const stack=new THREE.Mesh(new THREE.BoxGeometry(s*0.85,s*0.85,s*0.85), crateMat);
+        stack.position.set(row.x,s+s*0.42,z); stack.rotation.y=Math.random()*Math.PI;
+        stack.castShadow=true;
+        scene.add(stack);
+      }
+      z+=1.1+Math.random()*0.5;
+    }
+  });
+
+  // Catwalk structure (matches CATWALK_SPAWN at world ~10,4.3,308)
+  const catwalkDeck=new THREE.Mesh(new THREE.BoxGeometry(6,0.15,3), metalMat2);
+  catwalkDeck.position.set(10,3.9,308); catwalkDeck.castShadow=true; catwalkDeck.receiveShadow=true;
+  scene.add(catwalkDeck);
+  [-1.5,1.5].forEach(dz=>{
+    const rail=new THREE.Mesh(new THREE.BoxGeometry(6,0.7,0.05), metalMat2);
+    rail.position.set(10,4.35,308+dz);
+    scene.add(rail);
+  });
+  const legs=[[7.2,306.5],[12.8,306.5],[7.2,309.5],[12.8,309.5]];
+  legs.forEach(([x,z])=>{
+    const leg=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,3.9,6), metalMat2);
+    leg.position.set(x,1.95,z); leg.castShadow=true;
+    scene.add(leg);
+  });
+  // Access ladder
+  for(let i=0;i<8;i++){
+    const rung=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,0.6,6), metalMat2);
+    rung.rotation.z=Math.PI/2; rung.position.set(7,0.4+i*0.5,310.5);
+    scene.add(rung);
+  }
+
+  // Loading dock door at entry (world ~22,298)
+  const dockDoorMat=new THREE.MeshStandardMaterial({color:0x2a2a2a, metalness:0.5, roughness:0.6});
+  for(let i=0;i<6;i++){
+    const slat=new THREE.Mesh(new THREE.BoxGeometry(3.2,0.42,0.08), dockDoorMat);
+    slat.position.set(22,0.4+i*0.44,299.3);
+    scene.add(slat);
+  }
+  const dockStripe=new THREE.Mesh(new THREE.BoxGeometry(3.4,0.3,0.05), stripeMat2);
+  dockStripe.position.set(22,2.9,299.2);
+  scene.add(dockStripe);
+  const dockLight=new THREE.PointLight(0xffcf7a, 0.7, 6, 2);
+  dockLight.position.set(22,3,299);
+  scene.add(dockLight);
+
+  // Simple forklift silhouette near the entrance
+  const forkBody=new THREE.Mesh(new THREE.BoxGeometry(1.4,1.1,2.0), new THREE.MeshStandardMaterial({color:0xb3342f, roughness:0.6}));
+  forkBody.position.set(16,0.55,302); forkBody.castShadow=true; forkBody.receiveShadow=true;
+  scene.add(forkBody);
+  const forkMast=new THREE.Mesh(new THREE.BoxGeometry(0.1,2.0,0.6), metalMat2);
+  forkMast.position.set(16,1.0,300.9); forkMast.castShadow=true;
+  scene.add(forkMast);
+  [-0.15,0.15].forEach(dx=>{
+    const fork=new THREE.Mesh(new THREE.BoxGeometry(0.08,0.05,0.9), metalMat2);
+    fork.position.set(16+dx,0.25,300.4);
+    scene.add(fork);
+  });
+
+  // Exit corridor door (world ~22,342)
+  const exitDoorMat4=new THREE.MeshStandardMaterial({color:0x1a1a1a, roughness:0.8, metalness:0.3});
+  const exitDoor4=new THREE.Mesh(new THREE.BoxGeometry(1.3,2.3,0.15), exitDoorMat4);
+  exitDoor4.position.set(22,1.15,342.5); exitDoor4.castShadow=true;
+  scene.add(exitDoor4);
+  const exitLight4=new THREE.PointLight(0xffcf7a, 0.8, 5, 2);
+  exitLight4.position.set(22,2.2,341.7);
+  scene.add(exitLight4);
+  zoneExitLights.warehouse=exitLight4;
+}
+buildWarehouseZoneProps();
+
+/* ---- Sewer zone props: manhole, pipes, standing water, pump room ---- */
+function buildSewerZoneProps(){
+  const pipeMat=new THREE.MeshStandardMaterial({map:buildRustTexture(), color:0x3a4a42, metalness:0.55, roughness:0.6});
+  const waterMat=new THREE.MeshStandardMaterial({color:0x0a1a18, roughness:0.15, metalness:0.3, transparent:true, opacity:0.75});
+  const concreteMat2=new THREE.MeshStandardMaterial({map:buildAsphaltTexture(), color:0x3a3a38, roughness:0.9});
+
+  // Manhole entry ladder (world ~22,352)
+  const manholeRim=new THREE.Mesh(new THREE.TorusGeometry(0.9,0.12,8,16), pipeMat);
+  manholeRim.rotation.x=Math.PI/2; manholeRim.position.set(22,3.9,352);
+  scene.add(manholeRim);
+  for(let i=0;i<7;i++){
+    const rung=new THREE.Mesh(new THREE.CylinderGeometry(0.025,0.025,0.7,6), pipeMat);
+    rung.rotation.z=Math.PI/2; rung.position.set(22,3.5-i*0.5,352.4);
+    scene.add(rung);
+  }
+
+  // Shallow standing water across the tunnel floor
+  const waterZones=[[16,358,3,10],[22,372,14,4],[28,378,3,10],[26,388,14,3],[20,394,3,10],[22,404,22,6]];
+  waterZones.forEach(([x,z,w,d])=>{
+    const water=new THREE.Mesh(new THREE.PlaneGeometry(w,d), waterMat);
+    water.rotation.x=-Math.PI/2; water.position.set(x,0.04,z);
+    scene.add(water);
+  });
+
+  // Pipes running along the tunnel walls at a few points
+  const pipeRuns=[[15.3,358,370],[30.7,374,386],[15.3,390,402]];
+  pipeRuns.forEach(([x,z0,z1])=>{
+    const pipe=new THREE.Mesh(new THREE.CylinderGeometry(0.18,0.18,z1-z0,10), pipeMat);
+    pipe.rotation.x=Math.PI/2; pipe.position.set(x,2.6,(z0+z1)/2);
+    pipe.castShadow=true;
+    scene.add(pipe);
+    for(let z=z0+2;z<z1;z+=4){
+      const joint=new THREE.Mesh(new THREE.TorusGeometry(0.22,0.05,6,10), pipeMat);
+      joint.rotation.y=Math.PI/2; joint.position.set(x,2.6,z);
+      scene.add(joint);
+    }
+  });
+
+  // Pump room machinery (world ~22,406)
+  const pumpBody=new THREE.Mesh(new THREE.CylinderGeometry(1.0,1.1,1.6,10), pipeMat);
+  pumpBody.position.set(18,0.8,406); pumpBody.castShadow=true; pumpBody.receiveShadow=true;
+  scene.add(pumpBody);
+  const pumpPipe=new THREE.Mesh(new THREE.CylinderGeometry(0.2,0.2,2.4,8), pipeMat);
+  pumpPipe.position.set(18,2.4,406); pumpPipe.castShadow=true;
+  scene.add(pumpPipe);
+  const pumpLight=new THREE.PointLight(0x4aff8a, 0.6, 5, 2);
+  pumpLight.position.set(18,2,406);
+  scene.add(pumpLight);
+
+  // Exit ladder up (world ~22,407)
+  const exitRim=new THREE.Mesh(new THREE.TorusGeometry(0.9,0.12,8,16), pipeMat);
+  exitRim.rotation.x=Math.PI/2; exitRim.position.set(26,3.9,407);
+  scene.add(exitRim);
+  for(let i=0;i<7;i++){
+    const rung=new THREE.Mesh(new THREE.CylinderGeometry(0.025,0.025,0.7,6), pipeMat);
+    rung.rotation.z=Math.PI/2; rung.position.set(26,3.5-i*0.5,407.4);
+    scene.add(rung);
+  }
+  const exitLight5=new THREE.PointLight(0xffcf7a, 0.9, 5, 2);
+  exitLight5.position.set(26,3.2,407);
+  scene.add(exitLight5);
+  zoneExitLights.sewer=exitLight5;
+}
+buildSewerZoneProps();
 
 /* ---- Second floor: staircase + rooftop platform (reuses ground-floor collision footprint) ---- */
 function buildStairsAndRoof(){
@@ -1133,6 +1751,7 @@ buildStairsAndRoof();
 
 /* ---- Rooftop bot: an elevated shooter that can rain fire down on the street ---- */
 const ROOFTOP_SPAWN={x:30, z:8, type:'shooter', baseY:ROOF_Y};
+const CATWALK_SPAWN={x:10, y:4.3, z:308};
 
 /* ---- Decorative weapon rack near the safe spawn point ---- */
 function buildSpawnArmory(){
@@ -1974,7 +2593,31 @@ function placeLantern(gx,gy){
 
 /* ---- Yard Gate ---- */
 let gateOpened=false;
-const gateCellWorld = gridToWorld(5,10);
+let gateCellWorld = gridToWorld(5,10);
+const OUTDOOR_GATE_WORLD = gridToWorld(5,10);
+const HOUSE_EXIT_WORLD = gridToWorld(5,44);
+const CITY_EXIT_WORLD = gridToWorld(5,58);
+const CHURCH_EXIT_WORLD = gridToWorld(5,72);
+const WAREHOUSE_EXIT_WORLD = gridToWorld(5,85);
+const SEWER_EXIT_WORLD = gridToWorld(5,101);
+const ZONE_EXIT_WORLD={house:HOUSE_EXIT_WORLD, city:CITY_EXIT_WORLD, church:CHURCH_EXIT_WORLD, warehouse:WAREHOUSE_EXIT_WORLD, sewer:SEWER_EXIT_WORLD};
+const ZONE_ESCAPE_TEXT={house:'Head to the door to escape', city:'Head to the subway stairs to escape', church:'Head to the churchyard gate to escape', warehouse:'Head to the loading dock to escape', sewer:'Head to the pump room ladder to escape'};
+const ZONE_ESCAPE_READY_TEXT={house:'The way out is open — go through to escape', city:'The subway stairs are clear — go through to escape', church:'The churchyard gate is clear — go through to escape', warehouse:'The loading dock is clear — go through to escape', sewer:'The ladder up is clear — go through to escape'};
+function updateGateForLevel(){
+  const env=currentLevelEnv();
+  gateCellWorld = ZONE_EXIT_WORLD[env] || OUTDOOR_GATE_WORLD;
+}
+const OUTDOOR_SPAWN_WORLD = gridToWorld(5,28);
+const HOUSE_SPAWN_WORLD = gridToWorld(5,30);
+const CITY_SPAWN_WORLD = gridToWorld(5,46);
+const CHURCH_SPAWN_WORLD = gridToWorld(5,60);
+const WAREHOUSE_SPAWN_WORLD = gridToWorld(5,74);
+const SEWER_SPAWN_WORLD = gridToWorld(5,88);
+const ZONE_SPAWN_WORLD={house:HOUSE_SPAWN_WORLD, city:CITY_SPAWN_WORLD, church:CHURCH_SPAWN_WORLD, warehouse:WAREHOUSE_SPAWN_WORLD, sewer:SEWER_SPAWN_WORLD};
+function levelSpawnPoint(){
+  const env=currentLevelEnv();
+  return ZONE_SPAWN_WORLD[env] || OUTDOOR_SPAWN_WORLD;
+}
 const gateGroup=new THREE.Group();
 {
   const frameMat=new THREE.MeshStandardMaterial({color:0x2a2a2a, metalness:0.4, roughness:0.6});
@@ -2961,6 +3604,110 @@ const immolatorDefs=[
   {start:[5,19], zone:'store'}, {start:[7,19], zone:'store'},
   {start:[5,23], zone:'church'}, {start:[7,23], zone:'church'},
 ].map(d=>({...d, type:'immolator'}));
+
+/* ---- House-zone spawn pools: a fully separate physical location, used for house-themed levels ---- */
+const houseMeleeDefs=[
+  {start:[2,32], patrol:[[2,32],[4,32],[6,33],[2,32]], type:'stalker'},
+  {start:[8,32], patrol:[[8,32],[6,33],[4,32],[8,32]], type:'brute'},
+  {start:[2,36], patrol:[[2,36],[3,37],[2,36]], type:'crawler'},
+  {start:[8,36], patrol:[[8,36],[7,37],[8,36]], type:'stalker'},
+  {start:[2,40], patrol:[[2,40],[2,39],[2,40]], type:'crawler'},
+  {start:[8,40], patrol:[[8,40],[8,39],[8,40]], type:'brute'},
+];
+const houseArmoredDefs=[
+  {start:[5,36], patrol:[[5,36],[5,35],[5,36]], type:'armored'},
+  {start:[5,43], patrol:[[5,43],[4,43],[5,43]], type:'armored'},
+];
+const houseShooterDefs=[
+  {start:[3,31],zone:'house'}, {start:[7,31],zone:'house'}, {start:[2,33],zone:'house'},
+  {start:[8,33],zone:'house'}, {start:[5,38],zone:'house'}, {start:[4,42],zone:'house'},
+  {start:[6,42],zone:'house'}, {start:[3,33],zone:'house'},
+].map(d=>({...d, type:'shooter'}));
+const houseImmolatorDefs=[
+  {start:[3,39],zone:'house'}, {start:[7,40],zone:'house'},
+].map(d=>({...d, type:'immolator'}));
+
+/* ---- City-zone spawn pools: a fully separate physical location, used for city-themed levels ---- */
+const cityMeleeDefs=[
+  {start:[2,51], patrol:[[2,51],[2,52],[2,51]], type:'stalker'},
+  {start:[8,51], patrol:[[8,51],[8,52],[8,51]], type:'crawler'},
+  {start:[5,48], patrol:[[5,48],[3,48],[7,48],[5,48]], type:'brute'},
+  {start:[4,55], patrol:[[4,55],[6,55],[4,55]], type:'stalker'},
+  {start:[6,55], patrol:[[6,55],[4,55],[6,55]], type:'crawler'},
+  {start:[3,48], patrol:[[3,48],[5,48],[3,48]], type:'brute'},
+];
+const cityArmoredDefs=[
+  {start:[5,48], patrol:[[5,48],[5,49],[5,48]], type:'armored'},
+  {start:[5,55], patrol:[[5,55],[5,54],[5,55]], type:'armored'},
+];
+const cityShooterDefs=[
+  {start:[2,48],zone:'city'}, {start:[8,48],zone:'city'}, {start:[1,51],zone:'city'},
+  {start:[9,51],zone:'city'}, {start:[3,54],zone:'city'}, {start:[7,54],zone:'city'},
+  {start:[4,53],zone:'city'}, {start:[6,53],zone:'city'},
+].map(d=>({...d, type:'shooter'}));
+const cityImmolatorDefs=[
+  {start:[2,55],zone:'city'}, {start:[8,55],zone:'city'},
+].map(d=>({...d, type:'immolator'}));
+
+/* ---- Church-zone spawn pools: graveyard + nave, used for church-themed levels ---- */
+const churchMeleeDefs=[
+  {start:[3,68], patrol:[[3,68],[3,69],[3,68]], type:'stalker'},
+  {start:[7,68], patrol:[[7,68],[7,69],[7,68]], type:'crawler'},
+  {start:[4,71], patrol:[[4,71],[6,71],[4,71]], type:'brute'},
+  {start:[5,69], patrol:[[5,69],[3,69],[7,69],[5,69]], type:'stalker'},
+];
+const churchArmoredDefs=[
+  {start:[5,71], patrol:[[5,71],[5,72],[5,71]], type:'armored'},
+];
+const churchShooterDefs=[
+  {start:[2,62],zone:'church'}, {start:[8,62],zone:'church'}, {start:[2,63],zone:'church'},
+  {start:[8,63],zone:'church'}, {start:[5,62],zone:'church'}, {start:[3,67],zone:'church'},
+  {start:[7,67],zone:'church'},
+].map(d=>({...d, type:'shooter'}));
+const churchImmolatorDefs=[
+  {start:[4,63],zone:'church'}, {start:[6,63],zone:'church'},
+].map(d=>({...d, type:'immolator'}));
+
+/* ---- Warehouse-zone spawn pools: crate-maze floor, used for warehouse-themed levels ---- */
+const warehouseMeleeDefs=[
+  {start:[2,76], patrol:[[2,76],[2,77],[2,76]], type:'stalker'},
+  {start:[8,76], patrol:[[8,76],[8,77],[8,76]], type:'crawler'},
+  {start:[2,80], patrol:[[2,80],[3,82],[2,80]], type:'brute'},
+  {start:[8,80], patrol:[[8,80],[7,78],[8,80]], type:'stalker'},
+  {start:[5,78], patrol:[[5,78],[3,78],[7,78],[5,78]], type:'crawler'},
+  {start:[3,82], patrol:[[3,82],[5,82],[3,82]], type:'brute'},
+];
+const warehouseArmoredDefs=[
+  {start:[5,76], patrol:[[5,76],[5,78],[5,76]], type:'armored'},
+  {start:[5,82], patrol:[[5,82],[5,80],[5,82]], type:'armored'},
+];
+const warehouseShooterDefs=[
+  {start:[1,77],zone:'warehouse'}, {start:[9,77],zone:'warehouse'}, {start:[1,81],zone:'warehouse'},
+  {start:[9,81],zone:'warehouse'}, {start:[3,78],zone:'warehouse'}, {start:[7,78],zone:'warehouse'},
+  {start:[4,80],zone:'warehouse'}, {start:[6,80],zone:'warehouse'},
+].map(d=>({...d, type:'shooter'}));
+const warehouseImmolatorDefs=[
+  {start:[2,78],zone:'warehouse'}, {start:[8,78],zone:'warehouse'},
+].map(d=>({...d, type:'immolator'}));
+
+/* ---- Sewer-zone spawn pools: tight zigzagging tunnels, used for sewer-themed levels ---- */
+const sewerMeleeDefs=[
+  {start:[3,90], patrol:[[3,90],[4,90],[3,90]], type:'crawler'},
+  {start:[6,94], patrol:[[6,94],[7,94],[6,94]], type:'crawler'},
+  {start:[4,98], patrol:[[4,98],[5,98],[4,98]], type:'stalker'},
+  {start:[3,101], patrol:[[3,101],[5,101],[3,101]], type:'brute'},
+];
+const sewerArmoredDefs=[
+  {start:[5,101], patrol:[[5,101],[5,100],[5,101]], type:'armored'},
+];
+const sewerShooterDefs=[
+  {start:[4,92],zone:'sewer'}, {start:[6,92],zone:'sewer'}, {start:[5,96],zone:'sewer'},
+  {start:[7,96],zone:'sewer'}, {start:[3,100],zone:'sewer'}, {start:[7,100],zone:'sewer'},
+].map(d=>({...d, type:'shooter'}));
+const sewerImmolatorDefs=[
+  {start:[4,101],zone:'sewer'}, {start:[6,101],zone:'sewer'},
+].map(d=>({...d, type:'immolator'}));
+
 const LEVELS=[
   {n:1, shooterCount:4,  meleeCount:2, immolatorCount:0, armoredCount:0, zones:['gas'],                                accuracy:0.32, fireRateMul:1.35, speedMul:0.9,  behavior:'normal'},
   {n:2, shooterCount:6,  meleeCount:3, immolatorCount:1, armoredCount:0, zones:['gas','warehouse'],                    accuracy:0.42, fireRateMul:1.15, speedMul:1.0,  behavior:'line'},
@@ -3008,26 +3755,48 @@ function shuffledCopy(arr){
   for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
   return a;
 }
+function currentLevelEnv(){
+  if(gameMode==='endless') return 'city';
+  return (LEVEL_ZONES[Math.min(levelIndex, LEVEL_ZONES.length-1)].env)||'yard';
+}
+const ZONE_SPAWN_POOLS={
+  house:  { melee:houseMeleeDefs, armored:houseArmoredDefs, shooter:houseShooterDefs, immolator:houseImmolatorDefs },
+  city:   { melee:cityMeleeDefs, armored:cityArmoredDefs, shooter:cityShooterDefs, immolator:cityImmolatorDefs },
+  church: { melee:churchMeleeDefs, armored:churchArmoredDefs, shooter:churchShooterDefs, immolator:churchImmolatorDefs },
+  warehouse: { melee:warehouseMeleeDefs, armored:warehouseArmoredDefs, shooter:warehouseShooterDefs, immolator:warehouseImmolatorDefs },
+  sewer: { melee:sewerMeleeDefs, armored:sewerArmoredDefs, shooter:sewerShooterDefs, immolator:sewerImmolatorDefs },
+};
 function spawnMonsters(){
   monsters.forEach(m=>{ disposeObject3D(m.mesh); scene.remove(m.mesh); });
   monsters=[];
   const cfg=currentLevelCfg();
+  const env=currentLevelEnv();
+  const pools=ZONE_SPAWN_POOLS[env];
+  const inOutdoorStreet = !pools;
 
-  const zoneSet=new Set(cfg.zones||['gas']);
-  const inZone=shooterDefs.filter(d=>zoneSet.has(d.zone));
-  const outZone=shooterDefs.filter(d=>!zoneSet.has(d.zone));
-  let shooterPool=shuffledCopy(inZone).concat(shuffledCopy(outZone));
-  const chosenShooters=shooterPool.slice(0, Math.min(cfg.shooterCount, shooterPool.length));
+  let allDefs;
+  if(pools){
+    const chosenMelee=shuffledCopy(pools.melee).slice(0, Math.min(cfg.meleeCount||3, pools.melee.length));
+    const chosenArmored=shuffledCopy(pools.armored).slice(0, Math.min(cfg.armoredCount||0, pools.armored.length));
+    const chosenShooters=shuffledCopy(pools.shooter).slice(0, Math.min(cfg.shooterCount, pools.shooter.length));
+    const chosenImmolators=shuffledCopy(pools.immolator).slice(0, Math.min(cfg.immolatorCount||0, pools.immolator.length));
+    allDefs=chosenMelee.concat(chosenArmored).concat(chosenShooters).concat(chosenImmolators);
+  } else {
+    const zoneSet=new Set(cfg.zones||['gas']);
+    const inZone=shooterDefs.filter(d=>zoneSet.has(d.zone));
+    const outZone=shooterDefs.filter(d=>!zoneSet.has(d.zone));
+    let shooterPool=shuffledCopy(inZone).concat(shuffledCopy(outZone));
+    const chosenShooters=shooterPool.slice(0, Math.min(cfg.shooterCount, shooterPool.length));
 
-  const inZoneImm=immolatorDefs.filter(d=>zoneSet.has(d.zone));
-  const outZoneImm=immolatorDefs.filter(d=>!zoneSet.has(d.zone));
-  let immPool=shuffledCopy(inZoneImm).concat(shuffledCopy(outZoneImm));
-  const chosenImmolators=immPool.slice(0, Math.min(cfg.immolatorCount||0, immPool.length));
+    const inZoneImm=immolatorDefs.filter(d=>zoneSet.has(d.zone));
+    const outZoneImm=immolatorDefs.filter(d=>!zoneSet.has(d.zone));
+    let immPool=shuffledCopy(inZoneImm).concat(shuffledCopy(outZoneImm));
+    const chosenImmolators=immPool.slice(0, Math.min(cfg.immolatorCount||0, immPool.length));
 
-  const chosenMelee=shuffledCopy(monsterDefs).slice(0, Math.min(cfg.meleeCount||3, monsterDefs.length));
-  const chosenArmored=shuffledCopy(armoredDefs).slice(0, Math.min(cfg.armoredCount||0, armoredDefs.length));
-
-  const allDefs=chosenMelee.concat(chosenArmored).concat(chosenShooters).concat(chosenImmolators);
+    const chosenMelee=shuffledCopy(monsterDefs).slice(0, Math.min(cfg.meleeCount||3, monsterDefs.length));
+    const chosenArmored=shuffledCopy(armoredDefs).slice(0, Math.min(cfg.armoredCount||0, armoredDefs.length));
+    allDefs=chosenMelee.concat(chosenArmored).concat(chosenShooters).concat(chosenImmolators);
+  }
   allDefs.forEach(def=>{
     const stats=MONSTER_TYPES[def.type];
     const mesh=buildMonster(def.type);
@@ -3041,7 +3810,7 @@ function spawnMonsters(){
       patrol: def.patrol
     });
   });
-  if(levelIndex>=1){
+  if(levelIndex>=1 && inOutdoorStreet){
     const rstats=MONSTER_TYPES.shooter;
     const rmesh=buildMonster('shooter');
     rmesh.position.set(ROOFTOP_SPAWN.x, ROOF_Y, ROOFTOP_SPAWN.z);
@@ -3051,6 +3820,18 @@ function spawnMonsters(){
       speedMul:rstats.speedMul*cfg.speedMul, chaseMul:rstats.chaseMul*cfg.speedMul, catchR:rstats.catchR,
       accuracy:cfg.accuracy, fireRateMul:cfg.fireRateMul, baseY:ROOF_Y,
       homeX:ROOFTOP_SPAWN.x, homeZ:ROOFTOP_SPAWN.z
+    });
+  }
+  if(env==='warehouse'){
+    const cstats=MONSTER_TYPES.shooter;
+    const cmesh=buildMonster('shooter');
+    cmesh.position.set(CATWALK_SPAWN.x, CATWALK_SPAWN.y, CATWALK_SPAWN.z);
+    scene.add(cmesh);
+    monsters.push({
+      mesh:cmesh, type:'shooter', hp:cstats.hp, mode:'idle',
+      speedMul:cstats.speedMul*cfg.speedMul, chaseMul:cstats.chaseMul*cfg.speedMul, catchR:cstats.catchR,
+      accuracy:cfg.accuracy, fireRateMul:cfg.fireRateMul, baseY:CATWALK_SPAWN.y,
+      homeX:CATWALK_SPAWN.x, homeZ:CATWALK_SPAWN.z
     });
   }
   monstersRemaining=monsters.length;
@@ -3144,6 +3925,7 @@ function buildMolotovMesh(){
 function updateMolotovUI(){
   const el=document.getElementById('molotovCount');
   if(el) el.textContent=molotovCount;
+  document.getElementById('btnMolotov').classList.toggle('btnEmpty', molotovCount<=0);
 }
 function throwMolotov(){
   if(!gameRunning || gamePaused) return;
@@ -3263,6 +4045,7 @@ function buildGrenadeMesh(){
 function updateGrenadeUI(){
   const el=document.getElementById('grenadeCount');
   if(el) el.textContent=grenadeCount;
+  document.getElementById('btnGrenade').classList.toggle('btnEmpty', grenadeCount<=0);
 }
 function throwGrenade(){
   if(!gameRunning || gamePaused) return;
@@ -3385,6 +4168,7 @@ function updateAmmoUI(){
   const magTxt = (w.mag===Infinity) ? '∞' : w.mag;
   const reserveTxt = (w.reserve===Infinity) ? '∞' : w.reserve;
   if(el) el.textContent = magTxt+'/'+reserveTxt + (w.reloading?' ...':'');
+  document.getElementById('btnFire').classList.toggle('btnEmpty', w.mag<=0 && !w.reloading);
 }
 function updateWeaponIcons(){
   document.getElementById('wPistol').classList.toggle('active', activeWeapon==='pistol');
@@ -3874,20 +4658,25 @@ function damageMonster(m,dmg,point,skipSpark){
   }
 }
 let dyingMonsters=[];
+function haptic(pattern){
+  if(navigator.vibrate){ try{ navigator.vibrate(pattern); }catch(e){} }
+}
 function killMonster(m){
   m.mode='dead';
   monstersRemaining=Math.max(0,monstersRemaining-1);
   runStats.totalKills++;
   updateMonsterCountUI();
   sMonsterDeath();
+  haptic(35);
   spawnBloodPool(m.mesh.position.x, m.baseY||0, m.mesh.position.z);
   dyingMonsters.push({mesh:m.mesh, t:0, startY:m.mesh.position.y});
   if(monstersRemaining<=0 && !levelTransitioning && !gameOverFlag && !gameWinFlag){
     if(gameMode==='endless' || levelIndex<LEVELS.length-1){
       advanceLevel();
     } else {
-      gateLight.intensity=1.2;
-      showPrompt('All hunted down! Head to the gate to escape', 3);
+      const exitLight=zoneExitLights[currentLevelEnv()];
+      if(exitLight){ exitLight.intensity=2.2; } else { gateLight.intensity=1.2; }
+      showPrompt('All hunted down! '+(ZONE_ESCAPE_TEXT[currentLevelEnv()]||'Head to the gate to escape'), 3);
     }
   }
 }
@@ -3956,12 +4745,14 @@ function advanceLevel(){
     levelIndex++;
     ld.rotation.y=0; rd.rotation.y=0;
     gateLight.intensity=0;
+    Object.values(zoneExitLights).forEach(l=>{ if(l) l.intensity=0.8; });
     groupAlertTimer=0;
+    updateGateForLevel();
     spawnMonsters();
     player.hp=Math.min(player.maxHp, player.hp+30); updateHealthUI();
-    const startW=gridToWorld(5,28);
+    const startW=levelSpawnPoint();
     player.x=startW.x; player.z=startW.z; player.yaw=Math.PI; player.pitch=0; player.floorY=0; player.jumpY=0;
-    if(timeOfDay==='night') applyLevelMood();
+    applyLevelMood();
     setWeather(gameMode==='endless' ? (['clear','rain','storm'][levelIndex%3]) : (WEATHER_BY_LEVEL[levelIndex] || 'clear'));
     levelTransitioning=false;
   }, 2200);
@@ -3974,16 +4765,71 @@ const BEHAVIOR_HINTS={
   swarm:'One sees you, they all come',
 };
 const LEVEL_ZONES=[
-  {name:'Abandoned Garden', fog:0x03050a, sky:0x2a3550, ground:0x0a0d08, groundTint:0x5a7a4a, spotlight:'yard'},
-  {name:'Ruined Street', fog:0x140a12, sky:0x3a2a50, ground:0x150a10, groundTint:0x8a8a8a, spotlight:'gas'},
-  {name:'Market District', fog:0x0a1414, sky:0x1a4050, ground:0x081010, groundTint:0x9a8060, spotlight:'store'},
-  {name:'Burned Church', fog:0x1a0505, sky:0x5a1a1a, ground:0x100505, groundTint:0x8a4a3a, spotlight:'church'},
-  {name:'Industrial Warehouse', fog:0x100800, sky:0x6a2a05, ground:0x1a0800, groundTint:0x6a6560, spotlight:'warehouse'},
-  {name:'Blackout District', fog:0x050208, sky:0x140a2a, ground:0x030105, groundTint:0x3a3040, spotlight:'gas'},
-  {name:'The Last Stand', fog:0x140000, sky:0x4a0505, ground:0x0a0000, groundTint:0x5a2020, spotlight:'church'},
+  {name:'Abandoned Garden', fog:0x03050a, sky:0x2a3550, ground:0x0a0d08, groundTint:0x5a7a4a, spotlight:'yard', env:'yard'},
+  {name:'Ruined Street', fog:0x0e0e10, sky:0x3a3a42, ground:0x0a0a0a, groundTint:0x8a8a8a, spotlight:'gas', env:'city'},
+  {name:'The Big House', fog:0x1a1512, sky:0x4a3a28, ground:0x120e0a, groundTint:0xa08868, spotlight:'store', env:'house'},
+  {name:'Burned Church', fog:0x1a0505, sky:0x5a1a1a, ground:0x100505, groundTint:0x8a4a3a, spotlight:'church', env:'church'},
+  {name:'Industrial Warehouse', fog:0x100800, sky:0x6a2a05, ground:0x1a0800, groundTint:0x6a6560, spotlight:'warehouse', env:'warehouse'},
+  {name:'The Sewers', fog:0x040608, sky:0x0a1218, ground:0x020404, groundTint:0x3a4a45, spotlight:'gas', env:'sewer'},
+  {name:'The House, Again', fog:0x140000, sky:0x4a0505, ground:0x0a0000, groundTint:0x8a5050, spotlight:'church', env:'house'},
 ];
+
+/* ---- Per-level environment re-skin: ground/wall textures, and a ceiling for indoor levels ---- */
+const envTextureCache={};
+function cachedTex(key, builder){
+  if(!envTextureCache[key]) envTextureCache[key]=builder();
+  return envTextureCache[key];
+}
+const ENV_THEMES={
+  yard:      { groundTex:()=>cachedTex('noise', buildNoiseTexture), wallTex:()=>cachedTex('leaf', buildLeafTexture), ceiling:false, grass:true },
+  city:      { groundTex:()=>cachedTex('asphalt', buildAsphaltTexture), wallTex:()=>cachedTex('rubble', buildRubbleTexture), ceiling:false, grass:false },
+  house:     { groundTex:()=>cachedTex('woodfloor', ()=>buildWoodTexture(4,10)), wallTex:()=>cachedTex('wallpaper', buildWallpaperTexture), ceiling:true, grass:false },
+  ruins:     { groundTex:()=>cachedTex('rubble', buildRubbleTexture), wallTex:()=>cachedTex('rubble', buildRubbleTexture), ceiling:false, grass:false },
+  warehouse: { groundTex:()=>cachedTex('asphalt', buildAsphaltTexture), wallTex:()=>cachedTex('rust', buildRustTexture), ceiling:true, grass:false },
+  church:    { groundTex:()=>cachedTex('rubble', buildRubbleTexture), wallTex:()=>cachedTex('rubble', buildRubbleTexture), ceiling:true, grass:false },
+  sewer:     { groundTex:()=>cachedTex('asphalt', buildAsphaltTexture), wallTex:()=>cachedTex('rust', buildRustTexture), ceiling:true, grass:false },
+};
+const ZONE_BOUNDS = {
+  house: {x0:0, y0:29, x1:11, y1:45},
+  church: {x0:0, y0:65, x1:11, y1:73},
+  warehouse: {x0:0, y0:73, x1:11, y1:86},
+  sewer: {x0:0, y0:87, x1:11, y1:103},
+};
+const ceilingMat=new THREE.MeshStandardMaterial({map:null, color:0x3a352e, roughness:0.95, side:THREE.DoubleSide});
+const ceilingMesh=new THREE.Mesh(new THREE.PlaneGeometry(GCOLS*CELL+16, (45-29)*CELL+16), ceilingMat);
+ceilingMesh.rotation.x=Math.PI/2;
+ceilingMesh.position.set(GCOLS*CELL/2, 5.6, (29+45)/2*CELL);
+ceilingMesh.visible=false;
+ceilingMesh.receiveShadow=false;
+scene.add(ceilingMesh);
+function applyEnvTheme(envName){
+  const theme=ENV_THEMES[envName]||ENV_THEMES.yard;
+  const gTex=theme.groundTex();
+  groundMat.map=gTex;
+  groundMat.needsUpdate=true;
+  const wTex=theme.wallTex();
+  [hedgeMat, rubbleMat, houseWallMat, ruinedWallMat].forEach(m=>{
+    m.map=wTex;
+    m.needsUpdate=true;
+  });
+  ceilingMat.map=wTex;
+  ceilingMat.color.set(envName==='house'?0x4a3f34:(envName==='church'?0x2a2420:0x2a2a2a));
+  ceilingMat.needsUpdate=true;
+  if(theme.ceiling){
+    const b = ZONE_BOUNDS[envName] || {x0:0,y0:0,x1:GCOLS,y1:GROWS};
+    ceilingMesh.geometry.dispose();
+    ceilingMesh.geometry=new THREE.PlaneGeometry((b.x1-b.x0)*CELL+8, (b.y1-b.y0)*CELL+8);
+    ceilingMesh.position.set((b.x0+b.x1)/2*CELL, 5.6, (b.y0+b.y1)/2*CELL);
+    ceilingMesh.visible=true;
+  } else {
+    ceilingMesh.visible=false;
+  }
+  grassInsts.forEach(inst=>{ inst.visible=theme.grass; });
+}
 function applyLevelMood(){
   const mood=LEVEL_ZONES[Math.min(levelIndex, LEVEL_ZONES.length-1)];
+  applyEnvTheme(mood.env||'yard');
+  if(timeOfDay!=='night') return;
   scene.fog.color.set(mood.fog);
   hemi.color.set(mood.sky);
   hemi.groundColor.set(mood.ground);
@@ -4400,7 +5246,8 @@ function resetGame(){
   buildMazeGrid();
   levelIndex=0;
   levelTransitioning=false;
-  if(timeOfDay==='night') applyLevelMood();
+  updateGateForLevel();
+  applyLevelMood();
   setWeather('clear');
   runStats={startTime:Date.now(), shotsFired:0, shotsHit:0, grenadesUsed:0, totalKills:0, hitsTaken:0};
   casings.forEach(c=>{ c.mesh.geometry.dispose(); scene.remove(c.mesh); });
@@ -4410,7 +5257,7 @@ function resetGame(){
   bloodPools.forEach(p=>{ disposeObject3D(p); scene.remove(p); });
   bloodPools=[];
   spawnCrows();
-  const startW=gridToWorld(5,28);
+  const startW=levelSpawnPoint();
   player.x=startW.x; player.z=startW.z; player.yaw=Math.PI; player.pitch=0;
   player.flashlightOn=false; player.battery=100; player.walkT=0;
   player.dashTimer=0; player.dashCooldown=0; player.invulnTimer=0;
@@ -4480,6 +5327,7 @@ function resetGame(){
   gateGroup.userData.rightDoor.rotation.y=0;
   gateOpened=false;
   gateLight.intensity=0;
+  Object.values(zoneExitLights).forEach(l=>{ if(l) l.intensity=0.8; });
 
   gameOverFlag=false; gameWinFlag=false;
   document.getElementById('redOverlay').classList.remove('active');
@@ -4698,7 +5546,7 @@ function update(dt){
   const gd=Math.hypot(player.x-gateCellWorld.x, player.z-gateCellWorld.z);
   if(gd<2.4){ tryOpenGate(); }
   if(gd<2.6 && promptTimer<=0 && !nearbyNote){
-    document.getElementById('prompt').textContent = (monstersRemaining<=0 && gameMode==='story' && levelIndex>=LEVELS.length-1) ? 'Gate is open — go through to escape' : (monstersRemaining>0 ? monstersRemaining+' left' : '');
+    document.getElementById('prompt').textContent = (monstersRemaining<=0 && gameMode==='story' && levelIndex>=LEVELS.length-1) ? (ZONE_ESCAPE_READY_TEXT[currentLevelEnv()]||'Gate is open — go through to escape') : (monstersRemaining>0 ? monstersRemaining+' left' : '');
     document.getElementById('prompt').classList.add('show');
   } else if(gd>=2.6 && promptTimer<=0 && !nearbyNote){
     document.getElementById('prompt').classList.remove('show');
@@ -4819,7 +5667,7 @@ function updateShooterBot(m,dt){
       dir.normalize();
       losRaycaster.set(new THREE.Vector3(mx,eyeY,mz), dir);
       losRaycaster.far=Math.max(0.1,flatDist-0.4);
-      canSee = losRaycaster.intersectObjects(envTargets, true).length===0;
+      canSee = losRaycaster.intersectObjects(losTargets, true).length===0;
     }
     m.lastCanSee=canSee;
   }
@@ -4923,7 +5771,7 @@ function updateImmolatorBot(m,dt){
       dir.normalize();
       losRaycaster.set(new THREE.Vector3(mx,eyeY,mz), dir);
       losRaycaster.far=Math.max(0.1,flatDist-0.4);
-      canSee=losRaycaster.intersectObjects(envTargets, true).length===0;
+      canSee=losRaycaster.intersectObjects(losTargets, true).length===0;
     }
     m.lastCanSee=canSee;
   }
@@ -5081,6 +5929,7 @@ function damagePlayer(amount){
   amount=Math.round(amount*(DIFFICULTY_MULT[difficulty]?DIFFICULTY_MULT[difficulty].dmgTaken:1));
   player.hp=Math.max(0,player.hp-amount);
   runStats.hitsTaken++;
+  haptic([25,30,60]);
   updateHealthUI();
   document.getElementById('hpBadge').classList.add('open');
   hpBadgeTimer=4;
@@ -5171,6 +6020,7 @@ function jumpscareFlash(){
 function animate(){
   const dt=Math.min(0.05, clock.getDelta());
   update(dt);
+  if(!gameRunning){ updateIdleCamera(dt); }
   lanternMeshes.forEach((l,i)=>{
     if(l.flickerState===undefined) l.flickerState={ timer:3+Math.random()*10, blackout:false, blackoutT:0 };
     const fs=l.flickerState;
@@ -5405,8 +6255,26 @@ function restart(){
 document.getElementById('btnRestart1').addEventListener('click', restart);
 document.getElementById('btnRestart2').addEventListener('click', restart);
 
+/* ---- Loading complete: reveal the start menu, keep the loading screen's tips readable for a beat ---- */
+let idleCamT=0;
+const idleCamTarget=gridToWorld(5,9);
+function updateIdleCamera(dt){
+  idleCamT+=dt*0.06;
+  camera.position.set(idleCamTarget.x+Math.sin(idleCamT)*3.2, 2.3, idleCamTarget.z+Math.cos(idleCamT)*3.2);
+  camera.fov=NORMAL_FOV;
+  camera.updateProjectionMatrix();
+  camera.lookAt(idleCamTarget.x, 1.3, idleCamTarget.z-7);
+}
+setLoadStage(100, 'Ready.');
+setTimeout(()=>{
+  document.getElementById('screenLoading').classList.add('loadingHidden');
+  document.getElementById('screenStart').classList.remove('hidden');
+  updateBestScoreLine();
+}, 600);
+
 animate();
 
+}); });
 })();
 </script>
 </body>
