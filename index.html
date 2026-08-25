@@ -111,6 +111,15 @@
   #crosshair{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
     color:rgba(255,255,255,0.75);font-size:1.1rem;font-family:monospace;z-index:22;
     text-shadow:0 0 4px rgba(0,0,0,0.9);}
+  #hitMarker{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) rotate(45deg) scale(0.7);
+    width:22px;height:22px;pointer-events:none;z-index:23;opacity:0;
+    transition:opacity 0.1s ease, transform 0.1s ease;}
+  #hitMarker::before,#hitMarker::after{content:'';position:absolute;background:#e8e2d0;
+    box-shadow:0 0 3px rgba(0,0,0,0.8);}
+  #hitMarker::before{left:50%;top:0;width:3px;height:100%;transform:translateX(-50%);}
+  #hitMarker::after{top:50%;left:0;width:100%;height:3px;transform:translateY(-50%);}
+  #hitMarker.show{opacity:1;transform:translate(-50%,-50%) rotate(45deg) scale(1.15);}
+  #hitMarker.kill::before,#hitMarker.kill::after{background:#e0463f;}
   .huntBox{position:fixed;top:76px;right:12px;background:rgba(24,22,20,0.4);backdrop-filter:blur(14px);
     -webkit-backdrop-filter:blur(14px);border:1px solid rgba(179,52,47,0.4);
     border-radius:10px;padding:6px 14px;font-size:0.85rem;color:var(--bone);z-index:22;
@@ -354,6 +363,7 @@
     <div class="settingsRow"><small style="color:#8a857a;">When "Move buttons" is on, drag any button anywhere you like.</small></div>
   </div>
   <div id="crosshair">+</div>
+  <div id="hitMarker"></div>
   <div class="huntBox"><span id="monsterCount">Lv1/7</span></div>
   <div class="huntBox" id="notesBox">📜<span id="notesCount">0/6</span></div>
   <div class="miniBadge" id="hpBadge">
@@ -664,6 +674,218 @@ function canMoveTo(x,z,r){
   return isWalkableWorld(x-r,z-r)&&isWalkableWorld(x+r,z-r)&&isWalkableWorld(x-r,z+r)&&isWalkableWorld(x+r,z+r);
 }
 
+/* ================= AI PATHFINDING (grid-based A*) =================
+   Enemies now navigate the actual maze layout instead of beelining
+   through walls. Paths are cached per-monster and only recomputed a
+   few times a second (staggered) to keep this cheap on mobile. */
+const SEARCH_DURATION=5.5; // how long a monster investigates your last known position before giving up
+function neighborsGrid(gx,gy){
+  const n=[];
+  if(isOpenGrid(gx+1,gy)) n.push([gx+1,gy]);
+  if(isOpenGrid(gx-1,gy)) n.push([gx-1,gy]);
+  if(isOpenGrid(gx,gy+1)) n.push([gx,gy+1]);
+  if(isOpenGrid(gx,gy-1)) n.push([gx,gy-1]);
+  return n;
+}
+function nearestOpenCell(gx,gy,radius){
+  radius=radius||3;
+  if(isOpenGrid(gx,gy)) return [gx,gy];
+  let best=null,bestD=Infinity;
+  for(let dy=-radius;dy<=radius;dy++){
+    for(let dx=-radius;dx<=radius;dx++){
+      if(isOpenGrid(gx+dx,gy+dy)){
+        const d=dx*dx+dy*dy;
+        if(d<bestD){bestD=d;best=[gx+dx,gy+dy];}
+      }
+    }
+  }
+  return best;
+}
+function findPathGrid(sx,sy,tx,ty,maxNodes){
+  maxNodes=maxNodes||550;
+  const start=nearestOpenCell(sx,sy,2);
+  const goal=nearestOpenCell(tx,ty,3);
+  if(!start||!goal) return null;
+  [sx,sy]=start; [tx,ty]=goal;
+  if(sx===tx && sy===ty) return [];
+  const key=(x,y)=>x*1000+y;
+  const open=[{x:sx,y:sy,g:0,f:0}];
+  const cameFrom=new Map();
+  const gScore=new Map([[key(sx,sy),0]]);
+  const closed=new Set();
+  let nodes=0;
+  while(open.length){
+    let bi=0;
+    for(let i=1;i<open.length;i++) if(open[i].f<open[bi].f) bi=i;
+    const cur=open.splice(bi,1)[0];
+    const ck=key(cur.x,cur.y);
+    if(closed.has(ck)) continue;
+    closed.add(ck);
+    nodes++;
+    if(cur.x===tx && cur.y===ty){
+      const path=[];
+      let k=ck;
+      while(cameFrom.has(k)){
+        const px=Math.floor(k/1000), py=k-px*1000;
+        path.push([px,py]);
+        k=cameFrom.get(k);
+      }
+      path.reverse();
+      return path;
+    }
+    if(nodes>maxNodes) return null;
+    for(const [nx,ny] of neighborsGrid(cur.x,cur.y)){
+      const nk=key(nx,ny);
+      if(closed.has(nk)) continue;
+      const ng=cur.g+1;
+      if(!gScore.has(nk) || ng<gScore.get(nk)){
+        gScore.set(nk,ng);
+        cameFrom.set(nk,ck);
+        const h=Math.abs(nx-tx)+Math.abs(ny-ty);
+        open.push({x:nx,y:ny,g:ng,f:ng+h});
+      }
+    }
+  }
+  return null;
+}
+function ensureMonsterPath(m,targetX,targetZ){
+  const mx=m.mesh.position.x, mz=m.mesh.position.z;
+  const sgx=Math.floor(mx/CELL), sgy=Math.floor(mz/CELL);
+  const tgx=Math.floor(targetX/CELL), tgy=Math.floor(targetZ/CELL);
+  m.pathTargetGX=tgx; m.pathTargetGY=tgy;
+  m.path=findPathGrid(sgx,sgy,tgx,tgy,320);
+  m.pathIdx=0;
+}
+/* Moves a monster toward a world-space target, following the maze's
+   corridors. Returns true once the monster has effectively arrived.
+   IMPORTANT: pathing is recomputed ONLY on the staggered repathTimer
+   (a few times a second), never every frame — a moving target (chasing
+   the player, or a flanking offset that shifts constantly) must NOT
+   force a fresh A* search each tick, or this turns into a per-frame
+   cost across every hunting monster and tanks the framerate. */
+function moveMonsterAlongPath(m,targetX,targetZ,speed,dt,radius){
+  const mx=m.mesh.position.x, mz=m.mesh.position.z;
+  const directDist=Math.hypot(targetX-mx, targetZ-mz);
+  // Close and unobstructed: skip pathfinding overhead, just walk straight in.
+  if(directDist<CELL*0.85 && canMoveTo((mx+targetX)/2,(mz+targetZ)/2,radius)){
+    if(directDist>0.12){
+      const dx=targetX-mx, dz=targetZ-mz;
+      const nx=mx+(dx/directDist)*speed*dt, nz=mz+(dz/directDist)*speed*dt;
+      if(canMoveTo(nx,mz,radius)) m.mesh.position.x=nx;
+      if(canMoveTo(m.mesh.position.x,nz,radius)) m.mesh.position.z=nz;
+      m.mesh.rotation.y=Math.atan2(dx,dz);
+    }
+    m.path=null;
+    return directDist<0.2;
+  }
+  if(m.repathTimer===undefined) m.repathTimer=Math.random()*0.3;
+  m.repathTimer-=dt;
+  if(m.repathTimer<=0 || !m.path){
+    m.repathTimer=0.45+Math.random()*0.25;
+    ensureMonsterPath(m,targetX,targetZ);
+  }
+  if(!m.path || !m.path.length){
+    // No path found — best-effort direct step so the monster never fully freezes.
+    if(directDist>0.1){
+      const dx=targetX-mx, dz=targetZ-mz;
+      const nx=mx+(dx/directDist)*speed*dt, nz=mz+(dz/directDist)*speed*dt;
+      if(canMoveTo(nx,mz,radius)) m.mesh.position.x=nx;
+      if(canMoveTo(m.mesh.position.x,nz,radius)) m.mesh.position.z=nz;
+      m.mesh.rotation.y=Math.atan2(dx,dz);
+    }
+    return directDist<0.3;
+  }
+  if(m.pathIdx===undefined) m.pathIdx=0;
+  if(m.pathIdx>=m.path.length) return directDist<0.4;
+  const wp=m.path[m.pathIdx];
+  const w=gridToWorld(wp[0],wp[1]);
+  const dx=w.x-mx, dz=w.z-mz, len=Math.hypot(dx,dz);
+  if(len<0.35){ m.pathIdx++; }
+  else {
+    const nx=mx+(dx/len)*speed*dt, nz=mz+(dz/len)*speed*dt;
+    if(canMoveTo(nx,mz,radius)) m.mesh.position.x=nx;
+    if(canMoveTo(m.mesh.position.x,nz,radius)) m.mesh.position.z=nz;
+    m.mesh.rotation.y=Math.atan2(dx,dz);
+  }
+  return false;
+}
+/* Coordinated hunting: when several monsters are converging on the player
+   at once, spread half of them out to the sides instead of all funneling
+   down the same line — the closest thing to flanking a maze allows. */
+function computeFlankTarget(m,px,pz){
+  const mx=m.mesh.position.x, mz=m.mesh.position.z;
+  const dx=px-mx, dz=pz-mz, dist=Math.hypot(dx,dz)||1;
+  if(m.flankSign===undefined) m.flankSign=(monsters.indexOf(m)%2===0)?1:-1;
+  const perpX=-dz/dist, perpZ=dx/dist;
+  const offsetMag=Math.min(3.2,dist*0.3);
+  return {x:px+perpX*offsetMag*m.flankSign, z:pz+perpZ*offsetMag*m.flankSign};
+}
+/* Finds a nearby grid cell that breaks line of sight to the player, so
+   shooters can duck behind cover after firing instead of tanking shots
+   in the open. Kept deliberately cheap: small ring search, stops at the
+   first hit instead of scanning the whole area, and a shared cooldown
+   so every shooter on screen doesn't raycast in the same frame. */
+let lastCoverSearchTime=-999;
+function findNearbyCoverCell(mx,mz,px,pz,searchR){
+  if(performance.now()-lastCoverSearchTime<120) return null; // global throttle across all monsters
+  lastCoverSearchTime=performance.now();
+  const gx=Math.floor(mx/CELL), gz=Math.floor(mz/CELL);
+  const cells=[];
+  for(let dy=-searchR;dy<=searchR;dy++){
+    for(let dx=-searchR;dx<=searchR;dx++){
+      if(dx===0&&dy===0) continue;
+      cells.push([dx,dy,dx*dx+dy*dy]);
+    }
+  }
+  cells.sort((a,b)=>a[2]-b[2]); // check nearest cells first so we can bail out early
+  for(const [dx,dy] of cells){
+    const ngx=gx+dx, ngz=gz+dy;
+    if(!isOpenGrid(ngx,ngz)) continue;
+    const w=gridToWorld(ngx,ngz);
+    const dir=new THREE.Vector3(px-w.x,0,pz-w.z);
+    const dist=dir.length(); dir.normalize();
+    losRaycaster.set(new THREE.Vector3(w.x,1.6,w.z),dir);
+    losRaycaster.far=Math.max(0.1,dist-0.4);
+    if(losRaycaster.intersectObjects(losTargets,true).length>0) return {x:w.x,z:w.z};
+  }
+  return null;
+}
+/* Safety net: if a monster ever ends up overlapping a wall (bad spawn point,
+   an old save, a level-transition edge case) it self-corrects to the nearest
+   open spot instead of staying visibly stuck inside geometry. Cheap in the
+   normal case — canMoveTo is 4 quick checks, and the recovery search only
+   runs on the rare frame where a monster is actually embedded. */
+/* Whole-body procedural shamble: since these enemies are built from a single
+   fused torso mesh (no rigged legs), a real walk cycle isn't possible without
+   re-modeling them. This fakes it cheaply — a bob tied to actual movement
+   (measured frame-to-frame, so it works for every monster type/behavior
+   uniformly) plus a side-to-side sway, both settling smoothly to neutral
+   the moment the monster stops. */
+function applyMonsterWalkBob(m,dt,prevX,prevZ){
+  const moved=Math.hypot(m.mesh.position.x-prevX, m.mesh.position.z-prevZ);
+  const movingNow = moved>0.0015;
+  if(m.walkBobT===undefined) m.walkBobT=Math.random()*6.28;
+  if(m.walkBobAmp===undefined) m.walkBobAmp=0;
+  if(movingNow) m.walkBobT += dt*9;
+  m.walkBobAmp += ((movingNow?1:0)-m.walkBobAmp)*Math.min(1,dt*10);
+  const bobY=Math.abs(Math.sin(m.walkBobT))*0.055*m.walkBobAmp;
+  const sway=Math.sin(m.walkBobT*0.5)*0.05*m.walkBobAmp;
+  m.mesh.position.y=(m.baseY||0)+bobY;
+  m.mesh.rotation.z=sway;
+}
+function unstickMonsterIfEmbedded(m){
+  const r=m.type==='melee'?0.35:0.3;
+  const mx=m.mesh.position.x, mz=m.mesh.position.z;
+  if(canMoveTo(mx,mz,r)) return;
+  const gx=Math.floor(mx/CELL), gz=Math.floor(mz/CELL);
+  const cell=nearestOpenCell(gx,gz,3);
+  if(cell){
+    const w=gridToWorld(cell[0],cell[1]);
+    m.mesh.position.x=w.x; m.mesh.position.z=w.z;
+    m.path=null; m.pathIdx=0;
+  }
+}
+
 buildMazeGrid();
 
 /* ================= THREE SETUP ================= */
@@ -962,6 +1184,19 @@ function buildWallTexture(){
     for(let s=0;s<5;s++){ x+=(Math.random()-0.5)*32; y+=(Math.random()-0.5)*32; tctx.lineTo(x,y); }
     tctx.stroke();
   }
+  // Plaster panel seams — gives the surface actual structure instead of pure noise
+  tctx.strokeStyle='rgba(20,16,10,0.32)'; tctx.lineWidth=2;
+  for(let x=size/4;x<size;x+=size/4){
+    tctx.beginPath(); tctx.moveTo(x,0); tctx.lineTo(x,size); tctx.stroke();
+  }
+  // Baseboard trim band along the bottom edge
+  const baseH=size*0.09;
+  const baseGrad=tctx.createLinearGradient(0,size-baseH,0,size);
+  baseGrad.addColorStop(0,'rgba(20,16,10,0.05)');
+  baseGrad.addColorStop(1,'rgba(12,10,7,0.55)');
+  tctx.fillStyle=baseGrad; tctx.fillRect(0,size-baseH,size,baseH);
+  tctx.strokeStyle='rgba(8,6,4,0.6)'; tctx.lineWidth=2;
+  tctx.beginPath(); tctx.moveTo(0,size-baseH); tctx.lineTo(size,size-baseH); tctx.stroke();
   const tex=new THREE.CanvasTexture(c);
   tex.wrapS=THREE.RepeatWrapping; tex.wrapT=THREE.RepeatWrapping;
   tex.repeat.set(1.4,1);
@@ -1060,6 +1295,26 @@ function buildRubbleTexture(){
   const c=document.createElement('canvas'); c.width=c.height=size;
   const tctx=c.getContext('2d');
   tctx.fillStyle='#3a3833'; tctx.fillRect(0,0,size,size);
+  // Brick courses (running bond) drawn first — the noise/damage passes below then weather it
+  const brickH=size/12, brickW=size/6;
+  for(let row=0,y=0; y<size; row++, y+=brickH){
+    const offset=(row%2===0)?0:brickW/2;
+    for(let x=-offset; x<size; x+=brickW){
+      if(Math.random()<0.65){
+        const g=Math.floor(-14+Math.random()*28);
+        tctx.fillStyle=`rgba(${72+g},${58+g},${46+g},${0.14+Math.random()*0.16})`;
+        tctx.fillRect(x+1,y+1,brickW-2,brickH-2);
+      }
+    }
+  }
+  tctx.strokeStyle='rgba(15,13,10,0.55)'; tctx.lineWidth=2;
+  for(let row=0,y=0; y<size; row++, y+=brickH){
+    const offset=(row%2===0)?0:brickW/2;
+    tctx.beginPath(); tctx.moveTo(0,y); tctx.lineTo(size,y); tctx.stroke();
+    for(let x=-offset; x<size; x+=brickW){
+      tctx.beginPath(); tctx.moveTo(x,y); tctx.lineTo(x,y+brickH); tctx.stroke();
+    }
+  }
   for(let i=0;i<700;i++){
     const x=Math.random()*size,y=Math.random()*size;
     const g=Math.floor(-20+Math.random()*40);
@@ -1281,8 +1536,82 @@ function rebuildHouseWalls(){
   scene.add(ruinedWallsInst);
 }
 rebuildHouseWalls();
+/* ---- Wall detailing: baseboard, cornice, punched windows ----
+   Purely decorative — added as separate meshes on top of the existing
+   wall instances, never touching houseWallsInst/ruinedWallsInst
+   themselves, so collision and monster line-of-sight stay exactly as
+   they were. This is what breaks up the "plain box" look. */
+function buildWallDetailing(){
+  const houseCells=[], ruinedCells=[];
+  for(let gy=0;gy<GROWS;gy++) for(let gx=0;gx<GCOLS;gx++){
+    if(maze[gy][gx]===2){ (gy<STREET_START_ROW?houseCells:ruinedCells).push([gx,gy]); }
+  }
+  const trimMat=new THREE.MeshStandardMaterial({color:0x1c1712, roughness:0.9});
+  const baseGeo=new THREE.BoxGeometry(CELL*1.02, 0.3, CELL*1.02);
+  const capGeo=new THREE.BoxGeometry(CELL*1.04, 0.16, CELL*1.04);
+  const m=new THREE.Matrix4();
+
+  const allWalls=houseCells.concat(ruinedCells);
+  const baseInst=new THREE.InstancedMesh(baseGeo, trimMat, Math.max(allWalls.length,1));
+  allWalls.forEach(([gx,gy],idx)=>{
+    const w=gridToWorld(gx,gy);
+    m.makeTranslation(w.x, 0.16, w.z);
+    baseInst.setMatrixAt(idx,m);
+  });
+  baseInst.instanceMatrix.needsUpdate=true;
+  baseInst.castShadow=true; baseInst.receiveShadow=true;
+  scene.add(baseInst);
+
+  // Cornice cap — house (clean) walls only; ruined walls have irregular broken heights, a flat cap would look wrong
+  const capInst=new THREE.InstancedMesh(capGeo, trimMat, Math.max(houseCells.length,1));
+  houseCells.forEach(([gx,gy],idx)=>{
+    const w=gridToWorld(gx,gy);
+    m.makeTranslation(w.x, HEDGE_H+0.08, w.z);
+    capInst.setMatrixAt(idx,m);
+  });
+  capInst.instanceMatrix.needsUpdate=true;
+  capInst.castShadow=true;
+  scene.add(capInst);
+
+  // Punched windows: only on house-wall faces that actually front an open corridor/outdoor cell
+  const winMat=new THREE.MeshStandardMaterial({color:0x0a0e14, roughness:0.4, metalness:0.2, emissive:0x2a2410, emissiveIntensity:0.15});
+  const winGeo=new THREE.PlaneGeometry(CELL*0.4, 1.15);
+  const winFrameMat=new THREE.MeshStandardMaterial({color:0x241f18, roughness:0.85});
+  const winFrameGeo=new THREE.BoxGeometry(CELL*0.5, 1.3, 0.06);
+  const dirs=[[1,0,Math.PI/2],[-1,0,-Math.PI/2],[0,1,0],[0,-1,Math.PI]];
+  const winMatrices=[], frameMatrices=[];
+  houseCells.forEach(([gx,gy])=>{
+    if(Math.random()<0.55) return; // not every wall gets one — avoids visual overload
+    for(const [dx,dy,rotY] of dirs){
+      const ngx=gx+dx, ngy=gy+dy;
+      if(ngy<0||ngy>=GROWS||ngx<0||ngx>=GCOLS) continue;
+      if(maze[ngy][ngx]!==1 && maze[ngy][ngx]!==3) continue; // must face open ground/floor, not another wall
+      const w=gridToWorld(gx,gy);
+      const offset=CELL*0.5+0.03;
+      const wx=w.x+dx*offset, wz=w.z+dy*offset;
+      const q=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0), rotY);
+      const mm=new THREE.Matrix4().compose(new THREE.Vector3(wx,1.55,wz), q, new THREE.Vector3(1,1,1));
+      winMatrices.push(mm.clone());
+      frameMatrices.push(mm.clone());
+      break; // one window per wall cell, max
+    }
+  });
+  if(winMatrices.length>0){
+    const winInst=new THREE.InstancedMesh(winGeo, winMat, winMatrices.length);
+    winMatrices.forEach((mm,idx)=>winInst.setMatrixAt(idx,mm));
+    winInst.instanceMatrix.needsUpdate=true;
+    scene.add(winInst);
+    const frameInst=new THREE.InstancedMesh(winFrameGeo, winFrameMat, frameMatrices.length);
+    frameMatrices.forEach((mm,idx)=>frameInst.setMatrixAt(idx,mm));
+    frameInst.instanceMatrix.needsUpdate=true;
+    frameInst.castShadow=true;
+    scene.add(frameInst);
+  }
+}
+buildWallDetailing();
 const envTargets=[hedgeInst, rubbleInst, houseWallsInst, ruinedWallsInst, carCoverInst, ground];
 const losTargets=[hedgeInst, rubbleInst, houseWallsInst, ruinedWallsInst, carCoverInst];
+const lanternMeshes=[]; // must exist before placeLantern() is called by any zone-builder below
 
 /* ---- Floors ---- */
 function buildFloor(){
@@ -2305,22 +2634,59 @@ function buildBladeGeometry(){
   geo.computeVertexNormals();
   return geo;
 }
+/* Continuous wind sway for grass, done via onBeforeCompile instead of a
+   custom shader from scratch — keeps normal PBR lighting/shadows working,
+   just displaces the tip of each blade sideways over time. Base of the
+   blade (y≈0) stays planted; the offset grows toward the tip. */
+let grassMats=[];
+function applyGrassWind(material){
+  material.onBeforeCompile=(shader)=>{
+    shader.uniforms.uTime={value:0};
+    material.userData.shader=shader;
+    shader.vertexShader = 'uniform float uTime;\n' + shader.vertexShader;
+    shader.vertexShader = shader.vertexShader.replace(
+      '#include <begin_vertex>',
+      `#include <begin_vertex>
+      #ifdef USE_INSTANCING
+      float windPhase = uTime*1.8 + (instanceMatrix[3].x + instanceMatrix[3].z) * 0.5;
+      float windLift = clamp(position.y*1.7, 0.0, 1.0);
+      transformed.x += sin(windPhase) * windLift * 0.1;
+      transformed.z += cos(windPhase*0.85) * windLift * 0.08;
+      #endif`
+    );
+  };
+}
+function updateGrassWind(t){
+  for(let i=0;i<grassMats.length;i++){
+    const sh=grassMats[i].userData.shader;
+    if(sh) sh.uniforms.uTime.value=t;
+  }
+}
 function scatterGrass(){
   const openCells=[];
   for(let gy=0;gy<GROWS;gy++) for(let gx=0;gx<GCOLS;gx++) if(maze[gy][gx]===1) openCells.push([gx,gy]);
-  const perCell=3;
+  const clumpsPerCell=2, bladesPerClump=4; // clustered tufts instead of evenly-spread single blades
   const bladeGeo=buildBladeGeometry();
   const tints=[0x3f5527, 0x4a6430, 0x38481f];
-  const mats=tints.map(hex=>new THREE.MeshStandardMaterial({color:hex, roughness:1, side:THREE.DoubleSide, vertexColors:true}));
+  const mats=tints.map(hex=>{
+    const mat=new THREE.MeshStandardMaterial({color:hex, roughness:1, side:THREE.DoubleSide, vertexColors:true});
+    applyGrassWind(mat);
+    return mat;
+  });
+  grassMats=mats;
   const perBatch=[[],[],[]];
   openCells.forEach(([gx,gy])=>{
     const w=gridToWorld(gx,gy);
-    for(let k=0;k<perCell;k++){
-      const ox=(Math.random()-0.5)*CELL*0.85, oz=(Math.random()-0.5)*CELL*0.85;
-      const s=0.75+Math.random()*1.0;
-      const pos=new THREE.Vector3(w.x+ox,0,w.z+oz);
-      const tiltX=(Math.random()-0.5)*0.22, tiltZ=(Math.random()-0.5)*0.22, rotY=Math.random()*Math.PI;
-      perBatch[Math.floor(Math.random()*3)].push({pos,tiltX,tiltZ,rotY,scale:s});
+    for(let c=0;c<clumpsPerCell;c++){
+      const cx=w.x+(Math.random()-0.5)*CELL*0.8, cz=w.z+(Math.random()-0.5)*CELL*0.8;
+      const tintBucket=Math.floor(Math.random()*3);
+      for(let k=0;k<bladesPerClump;k++){
+        const ox=(Math.random()-0.5)*0.55, oz=(Math.random()-0.5)*0.55;
+        const s=0.7+Math.random()*1.1;
+        const pos=new THREE.Vector3(cx+ox,0,cz+oz);
+        const tiltX=(Math.random()-0.5)*0.18, tiltZ=(Math.random()-0.5)*0.18, rotY=Math.random()*Math.PI;
+        perBatch[tintBucket].push({pos,tiltX,tiltZ,rotY,scale:s});
+      }
     }
   });
   const m=new THREE.Matrix4();
@@ -2430,14 +2796,20 @@ scatterForest();
 
 /* ---- Distant ruined skyline (decorative, beyond the playable area) ---- */
 function buildSkyline(){
-  const centerX=GCOLS*CELL/2, centerZ=GROWS*CELL/2;
+  const mazeW=GCOLS*CELL, mazeH=GROWS*CELL;
   const buildingMat=new THREE.MeshStandardMaterial({map:buildWallTexture(), roughness:1});
   const towerMat=new THREE.MeshStandardMaterial({map:buildRubbleTexture(), roughness:1});
   const count=42;
+  // The maze is long and narrow (44 x 412 units), not square — a simple radius-from-center
+  // placement leaves buildings landing inside the corridors near the ends. Reject-sample
+  // against the actual bounding rectangle instead, same technique as scatterForest() below.
+  const margin=40, spread=95;
   for(let i=0;i<count;i++){
-    const ang=Math.random()*Math.PI*2;
-    const r=70+Math.random()*95;
-    const x=centerX+Math.cos(ang)*r, z=centerZ+Math.sin(ang)*r;
+    let x,z;
+    do{
+      x=Math.random()*(mazeW+2*(margin+spread)) - (margin+spread);
+      z=Math.random()*(mazeH+2*(margin+spread)) - (margin+spread);
+    } while(x>-margin && x<mazeW+margin && z>-margin && z<mazeH+margin);
     const w=4+Math.random()*7, d=4+Math.random()*7;
     const h=8+Math.random()*34;
     const broken=Math.random()<0.4;
@@ -2556,7 +2928,6 @@ function scatterStreetDetail(){
 scatterStreetDetail();
 
 /* ---- Lanterns ---- */
-const lanternMeshes=[];
 function placeLantern(gx,gy){
   const w=gridToWorld(gx,gy);
   const metalMat=new THREE.MeshStandardMaterial({map:buildRustTexture(), color:0x2a2620, metalness:0.6, roughness:0.55});
@@ -2825,6 +3196,76 @@ function buildHand(mirror){
   const frameMat=new THREE.MeshStandardMaterial({color:0x24211d, metalness:0.15, roughness:0.75});
   const smallMetal=new THREE.MeshStandardMaterial({color:0x2a2a2a, metalness:0.75, roughness:0.35});
   const brassMat=new THREE.MeshStandardMaterial({color:0xc7943c, metalness:0.85, roughness:0.3});
+  // Brushed-metal + wear texture, layered onto the darker gun materials so they read as
+  // machined steel with actual surface detail instead of flat plastic-looking color.
+  [gunMat, slideMat, smallMetal].forEach(mat=>{
+    const tex=buildGunMetalTexture(mat.color.getHex());
+    mat.map=tex; mat.roughnessMap=tex;
+  });
+  function buildGunMetalTexture(baseHex){
+    const size=128;
+    const c=document.createElement('canvas'); c.width=c.height=size;
+    const g=c.getContext('2d');
+    const base=new THREE.Color(baseHex);
+    const r=Math.round(base.r*255), gg=Math.round(base.g*255), b=Math.round(base.b*255);
+    g.fillStyle=`rgb(${r},${gg},${b})`; g.fillRect(0,0,size,size);
+    // Horizontal brushed-metal streaks
+    for(let i=0;i<420;i++){
+      const y=Math.random()*size;
+      const shade=(Math.random()-0.5)*26;
+      g.strokeStyle=`rgba(${Math.max(0,Math.min(255,r+shade))|0},${Math.max(0,Math.min(255,gg+shade))|0},${Math.max(0,Math.min(255,b+shade))|0},${0.12+Math.random()*0.12})`;
+      g.lineWidth=0.6+Math.random()*0.8;
+      g.beginPath(); g.moveTo(0,y); g.lineTo(size,y+(Math.random()-0.5)*2); g.stroke();
+    }
+    // Small scratches at random angles, catching light like real handling wear
+    for(let i=0;i<14;i++){
+      const x=Math.random()*size, y=Math.random()*size, len=6+Math.random()*18, ang=Math.random()*Math.PI;
+      g.strokeStyle=`rgba(255,255,255,${0.05+Math.random()*0.1})`;
+      g.lineWidth=0.7;
+      g.beginPath(); g.moveTo(x,y); g.lineTo(x+Math.cos(ang)*len,y+Math.sin(ang)*len); g.stroke();
+    }
+    // Edge/corner wear highlights
+    for(let i=0;i<8;i++){
+      const x=Math.random()*size, y=Math.random()*size;
+      g.fillStyle='rgba(255,255,255,0.06)';
+      g.beginPath(); g.arc(x,y,1.5+Math.random()*2,0,Math.PI*2); g.fill();
+    }
+    const tex=new THREE.CanvasTexture(c);
+    tex.wrapS=tex.wrapT=THREE.RepeatWrapping;
+    tex.repeat.set(2,2);
+    return tex;
+  }
+  // Shared additive muzzle-flash sprite texture (a soft core + a few spikes),
+  // used on top of the existing point lights so shots have an actual visible
+  // flash shape at the muzzle, not just ambient illumination.
+  const flashTex=(function(){
+    const size=128;
+    const c=document.createElement('canvas'); c.width=c.height=size;
+    const g=c.getContext('2d');
+    const cx=size/2, cy=size/2;
+    const core=g.createRadialGradient(cx,cy,0,cx,cy,size*0.22);
+    core.addColorStop(0,'rgba(255,250,220,1)');
+    core.addColorStop(0.5,'rgba(255,210,120,0.85)');
+    core.addColorStop(1,'rgba(255,180,60,0)');
+    g.fillStyle=core; g.fillRect(0,0,size,size);
+    g.strokeStyle='rgba(255,225,150,0.8)';
+    for(let i=0;i<4;i++){
+      const ang=(i/4)*Math.PI*2;
+      g.lineWidth=4+Math.random()*3;
+      g.beginPath();
+      g.moveTo(cx-Math.cos(ang)*size*0.42, cy-Math.sin(ang)*size*0.42);
+      g.lineTo(cx+Math.cos(ang)*size*0.42, cy+Math.sin(ang)*size*0.42);
+      g.stroke();
+    }
+    return new THREE.CanvasTexture(c);
+  })();
+  function makeFlashSprite(scale){
+    const mat=new THREE.SpriteMaterial({map:flashTex, color:0xfff2b0, transparent:true, blending:THREE.AdditiveBlending, depthWrite:false});
+    const spr=new THREE.Sprite(mat);
+    spr.scale.set(scale,scale,1);
+    spr.visible=false;
+    return spr;
+  }
 
   /* ---- Pistol (left hand): striker-pistol silhouette, separate slide/frame, controls, texture ---- */
   const gunGroup=new THREE.Group();
@@ -2916,6 +3357,10 @@ function buildHand(mirror){
   muzzleFlash.position.set(-0.29,-0.24,-0.86);
   handGroup.add(muzzleFlash);
   handGroup.userData.muzzleFlash=muzzleFlash;
+  const muzzleFlashSprite=makeFlashSprite(0.14);
+  muzzleFlashSprite.position.copy(muzzleFlash.position);
+  handGroup.add(muzzleFlashSprite);
+  handGroup.userData.muzzleFlashSprite=muzzleFlashSprite;
 
   /* ---- Shotgun (left hand, hidden until found): pump-action, distinct barrel/mag tube, grooved forend ---- */
   const woodStockMat=new THREE.MeshStandardMaterial({color:0x4a2f1c, roughness:0.75, metalness:0.05});
@@ -2992,6 +3437,10 @@ function buildHand(mirror){
   sgMuzzle.position.set(-0.3,-0.22,-0.93);
   handGroup.add(sgMuzzle);
   handGroup.userData.shotgunMuzzle=sgMuzzle;
+  const sgMuzzleSprite=makeFlashSprite(0.2);
+  sgMuzzleSprite.position.copy(sgMuzzle.position);
+  handGroup.add(sgMuzzleSprite);
+  handGroup.userData.shotgunMuzzleSprite=sgMuzzleSprite;
 
   /* ---- Sniper rifle (left hand): fluted barrel, distinct receiver, ported brake, honeycomb scope ---- */
   const sniperGroup=new THREE.Group();
@@ -3119,6 +3568,10 @@ function buildHand(mirror){
   snMuzzle.position.set(-0.30,-0.26,-1.5);
   handGroup.add(snMuzzle);
   handGroup.userData.sniperMuzzle=snMuzzle;
+  const snMuzzleSprite=makeFlashSprite(0.24);
+  snMuzzleSprite.position.copy(snMuzzle.position);
+  handGroup.add(snMuzzleSprite);
+  handGroup.userData.sniperMuzzleSprite=snMuzzleSprite;
 
   /* ---- Assault Rifle (left hand): automatic, curved mag, rail handguard, collapsible stock ---- */
   const rifleGroup=new THREE.Group();
@@ -3229,6 +3682,10 @@ function buildHand(mirror){
   rfMuzzle.position.set(-0.30,-0.25,-1.0);
   handGroup.add(rfMuzzle);
   handGroup.userData.rifleMuzzle=rfMuzzle;
+  const rfMuzzleSprite=makeFlashSprite(0.17);
+  rfMuzzleSprite.position.copy(rfMuzzle.position);
+  handGroup.add(rfMuzzleSprite);
+  handGroup.userData.rifleMuzzleSprite=rfMuzzleSprite;
 
   /* ---- Combat knife (left hand): fixed blade, guard, wrapped grip, pommel ---- */
   const knifeGroup=new THREE.Group();
@@ -3846,6 +4303,7 @@ function updateMonsterCountUI(){
 /* ================= JUMPSCARES ================= */
 let jumpscareZones=[];
 let cameraShakeTimer=0;
+let cameraShakeMag=0.06;
 function buildJumpscareZones(){
   const mk=(gx,gy)=>{ const w=gridToWorld(gx,gy); return {x:w.x, z:w.z}; };
   jumpscareZones=[
@@ -3872,7 +4330,7 @@ function buildScareFace(){
 function triggerScareEvent(){
   sJumpscare();
   jumpscareFlash();
-  cameraShakeTimer=0.4;
+  cameraShakeTimer=0.4; cameraShakeMag=0.19;
   const face=buildScareFace();
   const fwd=new THREE.Vector3(0,0,-1).applyEuler(new THREE.Euler(0,player.yaw,0));
   face.position.set(player.x+fwd.x*1.15, EYE_H, player.z+fwd.z*1.15);
@@ -4100,7 +4558,7 @@ function explodeGrenade(pos){
   playNoise(0.35,0.6,900,'lowpass',0.3);
   playNoise(0.15,0.4,3000,'bandpass',0.12);
   beep(70,0.42,0.4,'sawtooth'); beep(48,0.6,0.3,'sawtooth');
-  cameraShakeTimer=Math.max(cameraShakeTimer,0.4);
+  cameraShakeTimer=Math.max(cameraShakeTimer,0.4); cameraShakeMag=Math.max(cameraShakeMag,0.17);
   spookCrows(pos.x, pos.z, 24);
   jumpscareFlash();
   const flashLight=new THREE.PointLight(0xffaa33, 7, 13, 2);
@@ -4241,6 +4699,7 @@ function reloadWeapon(){
   if(activeWeapon==='shotgun' && !w.unlocked) return;
   if(w.reloading || w.mag>=w.magMax || w.reserve<=0) return;
   w.reloading=true;
+  w.reloadElapsed=0;
   updateAmmoUI();
   if(activeWeapon==='pistol') sReloadPistol(w.reloadTime);
   else if(activeWeapon==='shotgun') sReloadShotgun(w.magMax-w.mag);
@@ -4630,9 +5089,19 @@ function updateBloodParticles(dt){
     }
   }
 }
+function showHitMarker(isKill){
+  const el=document.getElementById('hitMarker');
+  el.classList.toggle('kill', !!isKill);
+  el.classList.add('show');
+  clearTimeout(el._hideT);
+  el._hideT=setTimeout(()=>{ el.classList.remove('show'); }, isKill?200:100);
+  beep(isKill?1000:1500, isKill?0.09:0.045, isKill?0.15:0.11, 'triangle');
+  if(isKill) beep(650,0.08,0.13,'triangle');
+}
 function damageMonster(m,dmg,point,skipSpark){
   if(m.mode==='dead') return;
   m.hp -= dmg;
+  showHitMarker(m.hp<=0);
   m.mesh.userData.eyeLight.intensity=2.4;
   sFleshHit();
   if(!skipSpark) spawnHitSpark(point);
@@ -4917,6 +5386,14 @@ function thump(vol, freq, decay){
   playNoise(0.06, jitter(vol||0.3,0.15), jitter(freq||150,0.12), 'lowpass', decay||0.09);
 }
 function jitter(v, amt){ return v*(1+(Math.random()-0.5)*amt); }
+function playFootstep(){
+  const boosted = player.dashTimer>0 || player.slideTimer>0;
+  const speedFrac = boosted ? 1 : Math.min(1, Math.hypot(player.vx,player.vz)/MAX_SPEED);
+  const crouchMul = player.crouching ? 0.45 : 1;
+  const vol=(0.09+speedFrac*0.13)*crouchMul;
+  thump(vol, 82+Math.random()*22, 0.07);
+  click(vol*0.4, 1600+Math.random()*400, 0.025);
+}
 let distortionCurve=null;
 function makeDistortionCurve(amount){
   const n=4096;
@@ -4957,6 +5434,23 @@ function punch(vol, startFreq, endFreq, dur){
   o.connect(g).connect(audioCtx.destination);
   o.start(now); o.stop(now+dur);
 }
+function isPlayerIndoors(){
+  const gx=Math.floor(player.x/CELL), gy=Math.floor(player.z/CELL);
+  if(gy<0||gy>=GROWS||gx<0||gx>=GCOLS) return false;
+  const t=maze[gy][gx];
+  return t===3||t===4;
+}
+/* Cheap fake reverb: a few staggered, filtered echo taps instead of a real
+   convolver — matches the rest of this game's procedural-audio approach and
+   is enough to make gunfire feel roomy indoors vs. flat/open outdoors. */
+function gunshotEnvTail(baseVol){
+  if(!audioCtx) return;
+  const indoor=isPlayerIndoors();
+  const taps = indoor ? [[55,0.24],[115,0.15],[190,0.09]] : [[60,0.06]];
+  taps.forEach(([delayMs,mul])=>{
+    setTimeout(()=>{ if(audioCtx) playNoise(0.1,baseVol*mul,indoor?850:2400,'lowpass',0.17); }, delayMs);
+  });
+}
 function sGunshotPistol(){
   const s = (player.hasSuppressor) ? 0.32 : 1;
   crack(0.42*s,3600);
@@ -4965,6 +5459,7 @@ function sGunshotPistol(){
   playNoise(jitter(0.13,0.2),jitter(0.26*s,0.15),jitter(420,0.2),'lowpass',jitter(0.12,0.2));
   if(!player.hasSuppressor) beep(jitter(1600,0.1),0.03,0.045,'square');
   else playNoise(0.1,0.18,3200,'highpass',0.09);
+  if(!player.hasSuppressor) gunshotEnvTail(0.32*s);
 }
 function sGunshotShotgun(){
   crack(0.5,3000);
@@ -4972,6 +5467,7 @@ function sGunshotShotgun(){
   punch(0.55,110,32,0.16);
   playNoise(jitter(0.26,0.15),jitter(0.42,0.12),jitter(260,0.2),'lowpass',jitter(0.22,0.15));
   setTimeout(()=>playNoise(0.16,0.14,700,'bandpass',0.16),40+Math.random()*20);
+  gunshotEnvTail(0.4);
 }
 function sGunshotSniper(){
   crack(0.55,4200);
@@ -4981,6 +5477,7 @@ function sGunshotSniper(){
   playNoise(jitter(0.4,0.12),jitter(0.48,0.1),jitter(220,0.2),'lowpass',jitter(0.34,0.15));
   setTimeout(()=>playNoise(0.35,0.16,900,'bandpass',0.3), 105+Math.random()*20);
   setTimeout(()=>playNoise(0.4,0.08,600,'bandpass',0.35), 240+Math.random()*30);
+  gunshotEnvTail(0.45);
 }
 function sGunshotRifle(){
   const s = (player.hasSuppressor) ? 0.32 : 1;
@@ -4990,6 +5487,7 @@ function sGunshotRifle(){
   playNoise(jitter(0.09,0.2),jitter(0.24*s,0.15),jitter(400,0.2),'lowpass',jitter(0.08,0.2));
   if(!player.hasSuppressor) beep(jitter(1200,0.1),0.022,0.04,'square');
   else playNoise(0.08,0.15,3000,'highpass',0.08);
+  if(!player.hasSuppressor) gunshotEnvTail(0.28*s);
 }
 function sWeaponSwitch(){
   playNoise(0.05,0.14,2600,'bandpass',0.08);
@@ -5146,7 +5644,7 @@ function doDash(){
   player.dashTimer=0.22;
   player.dashCooldown=2.6;
   player.invulnTimer=0.35;
-  cameraShakeTimer=Math.max(cameraShakeTimer,0.15);
+  cameraShakeTimer=Math.max(cameraShakeTimer,0.15); cameraShakeMag=Math.max(cameraShakeMag,0.05);
   beep(320,0.08,0.18,'triangle');
   updateDashUI();
 }
@@ -5166,7 +5664,7 @@ function doSlide(){
   player.slideTimer=0.62;
   player.slideCooldown=2.4;
   player.crouching=true;
-  cameraShakeTimer=Math.max(cameraShakeTimer,0.1);
+  cameraShakeTimer=Math.max(cameraShakeTimer,0.1); cameraShakeMag=Math.max(cameraShakeMag,0.04);
   beep(260,0.1,0.16,'triangle');
   updateSlideUI();
 }
@@ -5321,7 +5819,7 @@ function resetGame(){
   nearbyNote=null;
 
   buildJumpscareZones();
-  cameraShakeTimer=0;
+  cameraShakeTimer=0; cameraShakeMag=0.06;
 
   gateGroup.userData.leftDoor.rotation.y=0;
   gateGroup.userData.rightDoor.rotation.y=0;
@@ -5464,6 +5962,12 @@ function update(dt){
     const curSpeed=Math.hypot(player.vx,player.vz);
     if(curSpeed>0.05) player.walkT+=dt*8*Math.min(1,curSpeed/MAX_SPEED);
   }
+  if(player.lastStepPhase===undefined) player.lastStepPhase=0;
+  const stepPhase=Math.floor(player.walkT/Math.PI);
+  if(stepPhase!==player.lastStepPhase){
+    player.lastStepPhase=stepPhase;
+    if(player.jumpY<=0) playFootstep();
+  }
   if(player.slideCooldown>0) player.slideCooldown=Math.max(0,player.slideCooldown-dt);
 
   if(player.flashlightOn){
@@ -5498,11 +6002,14 @@ function update(dt){
   camera.rotation.z=0;
   if(cameraShakeTimer>0){
     cameraShakeTimer=Math.max(0,cameraShakeTimer-dt);
-    camera.position.x += (Math.random()-0.5)*0.06;
-    camera.position.y += (Math.random()-0.5)*0.06;
-    camera.rotation.z = (Math.random()-0.5)*0.03;
+    const mag=cameraShakeMag;
+    camera.position.x += (Math.random()-0.5)*mag;
+    camera.position.y += (Math.random()-0.5)*mag;
+    camera.rotation.z = (Math.random()-0.5)*mag*0.5;
   }
-  handGroup.position.y = -0.02 + Math.sin(player.walkT*1.7)*0.015;
+  handGroup.position.y = -0.02 + Math.abs(Math.sin(player.walkT*1.7))*0.016*(zoomed?0.25:1);
+  handGroup.position.x = Math.sin(player.walkT)*0.013*(zoomed?0.2:1);
+  handGroup.rotation.z = Math.sin(player.walkT)*0.011*(zoomed?0.2:1);
 
   items.forEach(it=>{
     if(it.collected) return;
@@ -5553,7 +6060,12 @@ function update(dt){
   }
   if(promptTimer>0){ promptTimer-=dt; if(promptTimer<=0) document.getElementById('prompt').classList.remove('show'); }
 
-  monsters.forEach(m=>{ if(m.mode!=='dead') updateOneMonster(m,dt,moving,mag); });
+  monsters.forEach(m=>{
+    if(m.mode==='dead') return;
+    const prevX=m.mesh.position.x, prevZ=m.mesh.position.z;
+    updateOneMonster(m,dt,moving,mag);
+    applyMonsterWalkBob(m,dt,prevX,prevZ);
+  });
   if(groupAlertTimer>0) groupAlertTimer=Math.max(0,groupAlertTimer-dt);
   updateWarnAll();
   updateAudioCues(dt);
@@ -5592,26 +6104,72 @@ function updateDebrisCulling(dt){
   cullList(casings, c=>c.mesh.position);
 }
 
+function setFlashSprite(spr, active){
+  spr.visible=active;
+  if(active){
+    spr.material.rotation=Math.random()*Math.PI*2;
+    const jitter=0.85+Math.random()*0.3;
+    spr.userData.baseScale = spr.userData.baseScale || spr.scale.x;
+    spr.scale.set(spr.userData.baseScale*jitter, spr.userData.baseScale*jitter, 1);
+  }
+}
 function updateWeaponVisuals(dt){
   ['pistol','shotgun','sniper','rifle','knife'].forEach(name=>{
     const w=weapons[name];
     if(w.cooldown>0) w.cooldown=Math.max(0,w.cooldown-dt);
     if(w.recoil>0) w.recoil=Math.max(0,w.recoil-dt*6);
     if(w.flashTimer>0) w.flashTimer=Math.max(0,w.flashTimer-dt);
+    if(w.reloading) w.reloadElapsed=Math.min(w.reloadTime,(w.reloadElapsed||0)+dt);
   });
+  // Reload dip: gun tips down and back up over the reload duration instead of
+  // just sitting there while a timer runs — one shared curve, applied to
+  // whichever weapon is currently reloading.
+  function reloadDip(name){
+    const w=weapons[name];
+    if(!w.reloading || !w.reloadTime) return 0;
+    return Math.sin(Math.min(1,w.reloadElapsed/w.reloadTime)*Math.PI);
+  }
   const gunGroup=handGroup.userData.gunGroup, muzzleFlash=handGroup.userData.muzzleFlash;
+  const muzzleFlashSprite=handGroup.userData.muzzleFlashSprite;
   const sgGroup=handGroup.userData.shotgunGroup, sgMuzzle=handGroup.userData.shotgunMuzzle;
+  const sgMuzzleSprite=handGroup.userData.shotgunMuzzleSprite;
   const snGroup=handGroup.userData.sniperGroup, snMuzzle=handGroup.userData.sniperMuzzle;
+  const snMuzzleSprite=handGroup.userData.sniperMuzzleSprite;
   const rfGroup=handGroup.userData.rifleGroup, rfMuzzle=handGroup.userData.rifleMuzzle;
+  const rfMuzzleSprite=handGroup.userData.rifleMuzzleSprite;
   const knGroup=handGroup.userData.knifeGroup, knBase=handGroup.userData.knifeBasePos;
-  if(gunGroup) gunGroup.position.z = handGroup.userData.gunBaseZ + (activeWeapon==='pistol'?weapons.pistol.recoil*0.06:0);
+  if(gunGroup){
+    const dip=reloadDip('pistol');
+    gunGroup.position.z = handGroup.userData.gunBaseZ + (activeWeapon==='pistol'?weapons.pistol.recoil*0.06:0);
+    gunGroup.position.y = -dip*0.13;
+    gunGroup.rotation.x = dip*0.55;
+  }
   if(muzzleFlash) muzzleFlash.intensity = (activeWeapon==='pistol' && weapons.pistol.flashTimer>0) ? 3.2 : 0;
-  if(sgGroup) sgGroup.position.z = handGroup.userData.sgBaseZ + (activeWeapon==='shotgun'?weapons.shotgun.recoil*0.09:0);
+  if(muzzleFlashSprite) setFlashSprite(muzzleFlashSprite, activeWeapon==='pistol' && weapons.pistol.flashTimer>0);
+  if(sgGroup){
+    const dip=reloadDip('shotgun');
+    sgGroup.position.z = handGroup.userData.sgBaseZ + (activeWeapon==='shotgun'?weapons.shotgun.recoil*0.09:0);
+    sgGroup.position.y = -dip*0.13;
+    sgGroup.rotation.x = dip*0.5;
+  }
   if(sgMuzzle) sgMuzzle.intensity = (activeWeapon==='shotgun' && weapons.shotgun.flashTimer>0) ? 4 : 0;
-  if(snGroup) snGroup.position.z = handGroup.userData.snBaseZ + (activeWeapon==='sniper'?weapons.sniper.recoil*0.11:0);
+  if(sgMuzzleSprite) setFlashSprite(sgMuzzleSprite, activeWeapon==='shotgun' && weapons.shotgun.flashTimer>0);
+  if(snGroup){
+    const dip=reloadDip('sniper');
+    snGroup.position.z = handGroup.userData.snBaseZ + (activeWeapon==='sniper'?weapons.sniper.recoil*0.11:0);
+    snGroup.position.y = -dip*0.14;
+    snGroup.rotation.x = dip*0.6;
+  }
   if(snMuzzle) snMuzzle.intensity = (activeWeapon==='sniper' && weapons.sniper.flashTimer>0) ? 4.5 : 0;
-  if(rfGroup) rfGroup.position.z = handGroup.userData.rfBaseZ + (activeWeapon==='rifle'?weapons.rifle.recoil*0.045:0);
+  if(snMuzzleSprite) setFlashSprite(snMuzzleSprite, activeWeapon==='sniper' && weapons.sniper.flashTimer>0);
+  if(rfGroup){
+    const dip=reloadDip('rifle');
+    rfGroup.position.z = handGroup.userData.rfBaseZ + (activeWeapon==='rifle'?weapons.rifle.recoil*0.045:0);
+    rfGroup.position.y = -dip*0.13;
+    rfGroup.rotation.x = dip*0.5;
+  }
   if(rfMuzzle) rfMuzzle.intensity = (activeWeapon==='rifle' && weapons.rifle.flashTimer>0) ? 3.5 : 0;
+  if(rfMuzzleSprite) setFlashSprite(rfMuzzleSprite, activeWeapon==='rifle' && weapons.rifle.flashTimer>0);
   if(knGroup && knBase){
     const swing=activeWeapon==='knife'?weapons.knife.recoil:0;
     knGroup.position.z = knBase.z - swing*0.22;
@@ -5673,10 +6231,22 @@ function updateShooterBot(m,dt){
   }
 
   if(canSee){
-    m.mode='attack';
-    m.mesh.rotation.y=Math.atan2(player.x-mx, player.z-mz);
+    m.lastSeenX=player.x; m.lastSeenZ=player.z; m.lastSeenTimer=SEARCH_DURATION;
     const behavior=currentBehavior();
     if(behavior==='swarm') triggerGroupAlert();
+
+    if(m.coverTimer===undefined) m.coverTimer=0;
+    if(m.coverTimer>0){
+      // Ducked behind cover after a burst — reposition instead of firing, then pop back out to shoot again.
+      m.mode='attack';
+      m.coverTimer-=dt;
+      if(m.coverSpot) moveMonsterAlongPath(m, m.coverSpot.x, m.coverSpot.z, MONSTER_SPEED*m.speedMul*1.3, dt, 0.3);
+      m.mesh.userData.eyeLight.intensity=0.5;
+      return;
+    }
+
+    m.mode='attack';
+    m.mesh.rotation.y=Math.atan2(player.x-mx, player.z-mz);
 
     if(behavior==='turret'){
       // Telegraphed heavy shot: eyes flare bright red + a rising warning tone, punishing if you don't take cover
@@ -5695,14 +6265,21 @@ function updateShooterBot(m,dt){
         }
       }
     } else if(behavior==='line' || behavior==='swarm'){
-      // Coordinated burst: two quick shots, then a pause to reset the line
+      // Coordinated burst: 2-4 quick shots (varies per burst), then a pause to reset the line
       if(m.burstLeft===undefined) m.burstLeft=0;
       m.fireTimer-=dt;
       if(m.fireTimer<=0){
-        if(m.burstLeft<=0) m.burstLeft=2;
+        if(m.burstLeft<=0) m.burstLeft=2+Math.floor(Math.random()*3);
         fireShooterShot(m, 0.7, 0.85);
         m.burstLeft--;
-        m.fireTimer = m.burstLeft>0 ? 0.16 : (1.1+Math.random()*0.6)*(m.fireRateMul||1);
+        if(m.burstLeft<=0){
+          m.fireTimer=(1.1+Math.random()*0.6)*(m.fireRateMul||1);
+          // 'line' shooters occasionally break contact and reposition behind cover; 'swarm' stays aggressive.
+          if(behavior==='line' && Math.random()<0.5){
+            const cover=findNearbyCoverCell(mx,mz,player.x,player.z,3);
+            if(cover){ m.coverSpot=cover; m.coverTimer=1.0+Math.random()*0.8; }
+          }
+        } else m.fireTimer=0.16;
       }
     } else if(behavior==='rush'){
       // Fast, aggressive single shots — closing distance, not holding a careful aim
@@ -5716,19 +6293,43 @@ function updateShooterBot(m,dt){
       if(m.fireTimer<=0){
         fireShooterShot(m, 1, 1);
         m.fireTimer=(1.0+Math.random()*0.8)*(m.fireRateMul||1);
+        // Regular shooters take cover after roughly every other shot instead of standing in the open.
+        if(Math.random()<0.45){
+          const cover=findNearbyCoverCell(mx,mz,player.x,player.z,3);
+          if(cover){ m.coverSpot=cover; m.coverTimer=1.1+Math.random()*0.9; }
+        }
       }
     }
   } else {
-    m.mode='idle';
+    m.coverTimer=0;
     const behavior=currentBehavior();
     if(behavior==='turret'){
       // Holds position completely — a stationary ambush, must be approached
+      m.mode='idle';
       if(!m.wanderTarget){ m.wanderTarget={x:m.homeX,z:m.homeZ}; }
+    } else if(m.lastSeenTimer>0){
+      // Lost sight but remembers where you were — investigates instead of instantly forgetting
+      m.lastSeenTimer-=dt;
+      m.mode='search';
+      const spd=MONSTER_SPEED*m.speedMul*0.95;
+      const arrived=moveMonsterAlongPath(m, m.lastSeenX, m.lastSeenZ, spd, dt, 0.3);
+      if(arrived) m.lastSeenTimer=Math.min(m.lastSeenTimer,1.0);
+      m.mesh.userData.eyeLight.intensity=0.7;
+      return;
     } else if((behavior==='rush' && dist<22) || (behavior==='swarm' && groupAlertTimer>0)){
-      // Actively hunts the player's position instead of idling near home
-      m.wanderTarget={x:player.x,z:player.z};
-      m.wanderTimer=0.3;
+      // Actively hunts the player's position; swarm members spread out instead of funneling single-file
+      m.mode='idle';
+      let hunt={x:player.x,z:player.z};
+      if(behavior==='swarm'){
+        const otherHunters=monsters.filter(mm=>mm!==m && mm.mode!=='dead' && Math.hypot(mm.mesh.position.x-player.x,mm.mesh.position.z-player.z)<22).length;
+        if(otherHunters>0) hunt=computeFlankTarget(m, player.x, player.z);
+      }
+      const spd=MONSTER_SPEED*m.speedMul*1.15;
+      moveMonsterAlongPath(m, hunt.x, hunt.z, spd, dt, 0.3);
+      m.mesh.userData.eyeLight.intensity=0.5;
+      return;
     } else {
+      m.mode='idle';
       m.wanderTimer-=dt;
       const wanderR = behavior==='line' ? 0.4+Math.random()*0.5 : 0.7+Math.random()*1.3;
       if(!m.wanderTarget || m.wanderTimer<=0){
@@ -5739,7 +6340,7 @@ function updateShooterBot(m,dt){
     }
     const dx=m.wanderTarget.x-mx, dz=m.wanderTarget.z-mz, len=Math.hypot(dx,dz);
     if(len>0.15){
-      const spd=MONSTER_SPEED*m.speedMul*(behavior==='rush'||behavior==='swarm'?1.15:1);
+      const spd=MONSTER_SPEED*m.speedMul;
       const nx=mx+(dx/len)*spd*dt, nz=mz+(dz/len)*spd*dt;
       if(canMoveTo(nx,mz,0.3)) m.mesh.position.x=nx;
       if(canMoveTo(m.mesh.position.x,nz,0.3)) m.mesh.position.z=nz;
@@ -5778,6 +6379,7 @@ function updateImmolatorBot(m,dt){
 
   const bottleLight=m.mesh.userData.bottleLight;
   if(canSee && dist<13){
+    m.lastSeenX=player.x; m.lastSeenZ=player.z; m.lastSeenTimer=SEARCH_DURATION;
     m.mode='attack';
     m.mesh.rotation.y=Math.atan2(player.x-mx, player.z-mz);
     if(currentBehavior()==='swarm') triggerGroupAlert();
@@ -5798,6 +6400,14 @@ function updateImmolatorBot(m,dt){
         m.chargeTimer=-1;
       }
     }
+  } else if(m.lastSeenTimer>0){
+    // Lost sight but remembers roughly where you threw the last bottle from — closes in on that spot
+    m.lastSeenTimer-=dt;
+    m.mode='search';
+    if(bottleLight) bottleLight.intensity=1.3+Math.sin(performance.now()/300)*0.3;
+    const spd=MONSTER_SPEED*m.speedMul*0.95;
+    const arrived=moveMonsterAlongPath(m, m.lastSeenX, m.lastSeenZ, spd, dt, 0.3);
+    if(arrived) m.lastSeenTimer=Math.min(m.lastSeenTimer,1.0);
   } else {
     m.mode='idle';
     if(bottleLight) bottleLight.intensity=1.3+Math.sin(performance.now()/300)*0.3;
@@ -5822,6 +6432,7 @@ function updateImmolatorBot(m,dt){
 function updateOneMonster(m,dt,playerMoving,moveMag){
   const roughDist=Math.hypot(player.x-m.mesh.position.x, player.z-m.mesh.position.z);
   if(roughDist>40) return;
+  unstickMonsterIfEmbedded(m);
   if(m.type==='shooter'){ updateShooterBot(m,dt); return; }
   if(m.type==='immolator'){ updateImmolatorBot(m,dt); return; }
   const mx=m.mesh.position.x, mz=m.mesh.position.z;
@@ -5830,48 +6441,98 @@ function updateOneMonster(m,dt,playerMoving,moveMag){
   if(m.homeX===undefined){ m.homeX=mx; m.homeZ=mz; }
   if(m.swingTimer===undefined) m.swingTimer=0;
   if(m.wanderTimer===undefined) m.wanderTimer=0;
+  if(m.losCheckTimer===undefined) m.losCheckTimer=Math.random()*0.15;
 
   const ATTACK_R=1.9, SWING_R=1.2;
 
+  // Line-of-sight check, same as the ranged bots — melee enemies now genuinely lose track of you around corners.
+  m.losCheckTimer-=dt;
+  let canSee=m.lastCanSee||false;
+  if(m.losCheckTimer<=0){
+    m.losCheckTimer=0.15;
+    canSee=dist<ATTACK_R; // always "sees" once close enough to swing
+    if(!canSee && dist<20){
+      const eyeY=(m.baseY||0)+1.8;
+      const dir=new THREE.Vector3(player.x-mx, 0.2, player.z-mz);
+      const flatDist=dir.length();
+      dir.normalize();
+      losRaycaster.set(new THREE.Vector3(mx,eyeY,mz), dir);
+      losRaycaster.far=Math.max(0.1,flatDist-0.4);
+      canSee=losRaycaster.intersectObjects(losTargets, true).length===0;
+    }
+    m.lastCanSee=canSee;
+  }
+
   if(dist<ATTACK_R){
+    m.lastSeenX=player.x; m.lastSeenZ=player.z; m.lastSeenTimer=SEARCH_DURATION;
     m.mode='attack';
     m.mesh.rotation.y=Math.atan2(player.x-mx, player.z-mz);
+    if(m.swingSpeedMul===undefined){ m.swingSpeedMul=0.82+Math.random()*0.46; m.lungeRoll=Math.random()<0.35; }
     if(dist>SWING_R*0.9){
-      const spd=MONSTER_SPEED*m.speedMul*0.55;
+      const spd=MONSTER_SPEED*m.speedMul*(m.lungeRoll?0.82:0.55);
       const dx=player.x-mx, dz=player.z-mz, len=Math.hypot(dx,dz)||1;
       const nx=mx+(dx/len)*spd*dt, nz=mz+(dz/len)*spd*dt;
       if(canMoveTo(nx,mz,0.35)) m.mesh.position.x=nx;
       if(canMoveTo(m.mesh.position.x,nz,0.35)) m.mesh.position.z=nz;
     }
-    m.swingTimer+=dt;
+    const prevPhase=m.lastSwingPhase||0;
+    m.swingTimer+=dt*m.swingSpeedMul;
     const swingCycle=1.1;
     const phase=(m.swingTimer%swingCycle)/swingCycle;
+    if(phase<prevPhase){
+      // New swing cycle: re-roll pacing so every melee monster has its own rhythm
+      // instead of every axe in the level ticking on the exact same metronome.
+      m.swingSpeedMul=0.82+Math.random()*0.46;
+      m.lungeRoll=Math.random()<0.35;
+    }
+    m.lastSwingPhase=phase;
     if(m.mesh.userData.axeArm) m.mesh.userData.axeArm.rotation.x=-0.3+Math.sin(phase*Math.PI*2)*0.9;
     if(phase>0.42 && phase<0.55 && dist<SWING_R && player.invulnTimer<=0){
       damagePlayer(42);
     }
   } else {
-    m.mode='idle';
     const behavior=currentBehavior();
-    if((behavior==='rush' && dist<18) || (behavior==='swarm' && (groupAlertTimer>0 || dist<18))){
+    if(canSee){ m.lastSeenX=player.x; m.lastSeenZ=player.z; m.lastSeenTimer=SEARCH_DURATION; }
+    if(canSee && ((behavior==='rush' && dist<18) || (behavior==='swarm' && (groupAlertTimer>0 || dist<18)))){
+      // Actively hunts, using real pathfinding so it can't be lost by hiding behind a wall corner
+      m.mode='idle';
       if(behavior==='swarm' && dist<14) triggerGroupAlert();
-      m.wanderTarget={x:player.x,z:player.z};
-      m.wanderTimer=0.3;
+      let hunt={x:player.x,z:player.z};
+      if(behavior==='swarm'){
+        const otherHunters=monsters.filter(mm=>mm!==m && mm.mode!=='dead' && Math.hypot(mm.mesh.position.x-player.x,mm.mesh.position.z-player.z)<18).length;
+        if(otherHunters>0) hunt=computeFlankTarget(m, player.x, player.z);
+      }
+      const spd=MONSTER_SPEED*m.speedMul*(behavior==='rush'||behavior==='swarm'?0.55:0.32);
+      moveMonsterAlongPath(m, hunt.x, hunt.z, spd, dt, 0.35);
+      if(m.mesh.userData.axeArm) m.mesh.userData.axeArm.rotation.x=Math.sin(performance.now()/600)*0.05;
+      m.mesh.userData.eyeLight.intensity=0.5;
+      return;
+    } else if(m.lastSeenTimer>0){
+      // Lost sight — stalks toward the last place it saw you before giving up and resuming patrol
+      m.lastSeenTimer-=dt;
+      m.mode='search';
+      const spd=MONSTER_SPEED*m.speedMul*0.5;
+      const arrived=moveMonsterAlongPath(m, m.lastSeenX, m.lastSeenZ, spd, dt, 0.35);
+      if(arrived) m.lastSeenTimer=Math.min(m.lastSeenTimer,1.0);
+      if(m.mesh.userData.axeArm) m.mesh.userData.axeArm.rotation.x=Math.sin(performance.now()/600)*0.05;
+      m.mesh.userData.eyeLight.intensity=0.7;
+      return;
     } else {
+      m.mode='idle';
       m.wanderTimer-=dt;
       if(!m.wanderTarget || m.wanderTimer<=0){
         const ang=Math.random()*Math.PI*2, r=0.6+Math.random()*0.9;
         m.wanderTarget={x:m.homeX+Math.cos(ang)*r, z:m.homeZ+Math.sin(ang)*r};
         m.wanderTimer=1.5+Math.random()*2;
       }
-    }
-    const dx=m.wanderTarget.x-mx, dz=m.wanderTarget.z-mz, len=Math.hypot(dx,dz);
-    if(len>0.1){
-      const spd=MONSTER_SPEED*m.speedMul*(behavior==='rush'||behavior==='swarm'?0.55:0.32);
-      const nx=mx+(dx/len)*spd*dt, nz=mz+(dz/len)*spd*dt;
-      if(canMoveTo(nx,mz,0.35)) m.mesh.position.x=nx;
-      if(canMoveTo(m.mesh.position.x,nz,0.35)) m.mesh.position.z=nz;
-      m.mesh.rotation.y=Math.atan2(dx,dz);
+      const dx=m.wanderTarget.x-mx, dz=m.wanderTarget.z-mz, len=Math.hypot(dx,dz);
+      if(len>0.1){
+        const spd=MONSTER_SPEED*m.speedMul*0.32;
+        const nx=mx+(dx/len)*spd*dt, nz=mz+(dz/len)*spd*dt;
+        if(canMoveTo(nx,mz,0.35)) m.mesh.position.x=nx;
+        if(canMoveTo(m.mesh.position.x,nz,0.35)) m.mesh.position.z=nz;
+        m.mesh.rotation.y=Math.atan2(dx,dz);
+      }
     }
     if(m.mesh.userData.axeArm) m.mesh.userData.axeArm.rotation.x=Math.sin(performance.now()/600)*0.05;
   }
@@ -5933,7 +6594,8 @@ function damagePlayer(amount){
   updateHealthUI();
   document.getElementById('hpBadge').classList.add('open');
   hpBadgeTimer=4;
-  cameraShakeTimer=Math.max(cameraShakeTimer,0.18);
+  cameraShakeTimer=Math.max(cameraShakeTimer, 0.14+Math.min(0.3,amount/100*0.35));
+  cameraShakeMag=Math.max(cameraShakeMag, 0.05+Math.min(0.22,amount/100*0.3));
   document.getElementById('redOverlay').classList.add('active');
   setTimeout(()=>{ if(!(monsters.some(m=>m.mode==='attack'))) document.getElementById('redOverlay').classList.remove('active'); },200);
   sPlayerGrunt();
@@ -6020,6 +6682,7 @@ function jumpscareFlash(){
 function animate(){
   const dt=Math.min(0.05, clock.getDelta());
   update(dt);
+  updateGrassWind(performance.now()/1000);
   if(!gameRunning){ updateIdleCamera(dt); }
   lanternMeshes.forEach((l,i)=>{
     if(l.flickerState===undefined) l.flickerState={ timer:3+Math.random()*10, blackout:false, blackoutT:0 };
