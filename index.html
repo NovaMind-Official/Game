@@ -4507,7 +4507,7 @@ function spawnMonsters(){
   monsters.forEach(m=>{ disposeObject3D(m.mesh, true); scene.remove(m.mesh); });
   monsters=[];
   spawnQueue=[]; // drop any still-pending items from an interrupted previous spawn (e.g. a fast restart)
-  ambushTriggered=false;
+  ambushesTriggered=new Set();
   const cfg=currentLevelCfg();
   const env=currentLevelEnv();
   const pools=ZONE_SPAWN_POOLS[env];
@@ -4586,8 +4586,18 @@ function spawnMonsterQueueGradually(cfg){
    first time they reach a specific spot deep in level 1's house — a scripted
    "surprise" beat, distinct from the constant ambient wandering everywhere
    else, so the very first level doesn't feel like more of the same. */
-let ambushTriggered=false;
-const AMBUSH_TRIGGER_WORLD = gridToWorld(5,37);
+/* One-shot ambushes: a few extra monsters spring up behind the player the
+   first time they reach a specific spot deep in each zone — scripted
+   "surprise" beats, distinct from the constant ambient wandering elsewhere,
+   spread across the run so no single zone carries the whole trick. */
+let ambushesTriggered=new Set();
+const AMBUSH_POINTS=[
+  { id:'house1', levelIndex:2, env:'house', pos:gridToWorld(5,37), types:['stalker','stalker'], msg:'Something moved behind you.' },
+  { id:'city1', levelIndex:1, env:'city', pos:gridToWorld(5,52), types:['stalker','stalker'], msg:'They were waiting in the dark.' },
+  { id:'church1', levelIndex:3, env:'church', pos:gridToWorld(5,66), types:['stalker','stalker','crawler'], msg:"The pews aren't empty." },
+  { id:'warehouse1', levelIndex:4, env:'warehouse', pos:gridToWorld(5,79), types:['stalker','stalker'], msg:'Something dropped from the crates.' },
+  { id:'sewer1', levelIndex:5, env:'sewer', pos:gridToWorld(5,95), types:['crawler','crawler'], msg:"The water wasn't empty either." },
+];
 function spawnAmbushMonster(type,gx,gy,baseY){
   baseY=baseY||0;
   const cfg=currentLevelCfg();
@@ -4606,17 +4616,23 @@ function spawnAmbushMonster(type,gx,gy,baseY){
   updateMonsterCountUI();
 }
 function checkAmbushTrigger(){
-  if(ambushTriggered || levelIndex!==0 || currentLevelEnv()!=='house') return;
-  if(Math.hypot(player.x-AMBUSH_TRIGGER_WORLD.x, player.z-AMBUSH_TRIGGER_WORLD.z)>3) return;
-  ambushTriggered=true;
-  const pgx=Math.floor(player.x/CELL), pgz=Math.floor(player.z/CELL);
-  const spotA=nearestOpenCell(pgx-1,pgz+1,2);
-  const spotB=nearestOpenCell(pgx+1,pgz+1,2);
-  if(spotA) spawnAmbushMonster('stalker',spotA[0],spotA[1],0);
-  if(spotB) spawnAmbushMonster('stalker',spotB[0],spotB[1],0);
-  showPrompt('Something moved behind you.',2.2);
-  cameraShakeTimer=Math.max(cameraShakeTimer,0.12); cameraShakeMag=Math.max(cameraShakeMag,0.05);
-  beep(90,0.3,0.22,'sawtooth');
+  for(const amb of AMBUSH_POINTS){
+    if(ambushesTriggered.has(amb.id)) continue;
+    if(levelIndex!==amb.levelIndex || currentLevelEnv()!==amb.env) continue;
+    if(Math.hypot(player.x-amb.pos.x, player.z-amb.pos.z)>3) continue;
+    ambushesTriggered.add(amb.id);
+    const pgx=Math.floor(player.x/CELL), pgz=Math.floor(player.z/CELL);
+    const offsets=[[-1,1],[1,1],[0,2],[-1,-1],[1,-1]];
+    amb.types.forEach((type,i)=>{
+      const off=offsets[i]||[0,1];
+      const spot=nearestOpenCell(pgx+off[0], pgz+off[1], 2);
+      if(spot) spawnAmbushMonster(type, spot[0], spot[1], 0);
+    });
+    showPrompt(amb.msg,2.2);
+    cameraShakeTimer=Math.max(cameraShakeTimer,0.12); cameraShakeMag=Math.max(cameraShakeMag,0.05);
+    beep(90,0.3,0.22,'sawtooth');
+    break;
+  }
 }
 function updateMonsterCountUI(){
   const el=document.getElementById('monsterCount');
