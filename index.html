@@ -278,6 +278,15 @@
     top:50%;left:50%;transform:translate(-50%,-50%);transition:background .1s ease;}
 
   #flashOverlay{position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:200;}
+  #letterboxTop,#letterboxBottom{position:fixed;left:0;right:0;height:0;background:#000;z-index:180;
+    transition:height 0.9s ease;pointer-events:none;}
+  #letterboxTop{top:0;} #letterboxBottom{bottom:0;}
+  #letterboxTop.show,#letterboxBottom.show{height:11vh;}
+  #cutsceneCaption{position:fixed;left:50%;bottom:15vh;transform:translateX(-50%);
+    color:#f0e8d8;font-family:'Special Elite',monospace;font-size:1.05rem;text-align:center;
+    text-shadow:0 2px 10px rgba(0,0,0,0.95);opacity:0;transition:opacity 1s ease;
+    z-index:181;max-width:82vw;pointer-events:none;}
+  #cutsceneCaption.show{opacity:1;}
   #levelBanner{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
     pointer-events:none;z-index:150;opacity:0;transition:opacity .4s ease;background:rgba(3,3,4,0.5);}
   #levelBanner.show{opacity:1;}
@@ -436,9 +445,9 @@
     <h1>Ruined House Hunter</h1>
     <div class="sectionLabel">📖 Story</div>
     <div class="story">
-      Four days ago the street stopped answering. Gas station, corner store, a church that burned from the inside, a warehouse missing everything but one crate — all of it leads to a house at the end nobody's come back from. You're the last one dumb enough to go looking. Whoever came before you left notes behind; find all six and you'll understand what this street actually is before it decides what you are.
-      Seven waves hold the house between you and the truth, each nastier and smarter than the last — some hold a line, some dig in and wait, some hunt the moment you're in range, and in the worst ones, one spotting you alerts them all. From level 2 on, one climbs to the roof and shoots down at you.
-      Three types swing axes and claws inside the house, the rest shoot at you from the street. Take cover behind cars and broken walls. You start with a pistol, shotgun, sniper rifle, and automatic rifle already in hand — all with unlimited ammo.
+      Your sister Mara stopped answering four nights ago. Her last text just said <i>"something's wrong with the street."</i> The gas station, the corner store, a church that burned from the inside, a warehouse missing everything but one crate — every lead on this street ends at the same house, the one nobody who enters ever leaves. You're going in after her.
+      People here didn't vanish. They <i>changed</i> — that's the word survivors used before they stopped writing. Six notes are scattered through this street, left by people who understood a little more than you do right now. Find them. Some levels won't let you move on without one — the truth is part of the way through, not optional reading.
+      Seven stretches of this street stand between you and whatever's left of Mara, each nastier than the last — some hold a line, some dig in and wait, some hunt the moment you're in range, and in the worst ones, one spotting you alerts them all. Take cover behind cars and broken walls. You start with a pistol, shotgun, sniper rifle, and automatic rifle already in hand — all with unlimited ammo.
     </div>
     <div class="sectionLabel">🎮 Controls</div>
     <div class="controlsGrid">
@@ -492,6 +501,16 @@
   </div>
 </div>
 
+<div class="overlay hidden" id="screenStory">
+  <div class="card">
+    <h1 id="storyBeatTitle">Story</h1>
+    <div class="story" id="storyBeatBody" style="text-align:left;"></div>
+    <div class="sectionLabel" id="storyObjectiveLabel" style="display:none;">🎯 Objective</div>
+    <div class="story" id="storyBeatObjective" style="text-align:left;color:var(--amber);"></div>
+    <button class="primary" id="btnCloseStory">Continue</button>
+  </div>
+</div>
+
 <div class="overlay hidden" id="screenNote">
   <div class="card">
     <h1 id="noteTitle">Note</h1>
@@ -518,8 +537,8 @@
 
 <div class="overlay hidden" id="screenWin">
   <div class="card">
-    <h1 style="color:#8fd98a;text-shadow:0 0 20px rgba(143,217,138,0.5);">Hunt complete!</h1>
-    <p>All 7 levels cleared. The yard gate closed behind you for the last time — this ground is finally quiet.</p>
+    <h1 style="color:#8fd98a;text-shadow:0 0 20px rgba(143,217,138,0.5);" id="winTitle">You Found Her</h1>
+    <p id="winIntro">The yard gate closes behind the two of you for the last time. This ground is finally quiet.</p>
     <p id="epilogueText" style="display:none;color:#d9a441;font-style:italic;">You pieced together every note. You know now this was never really over — you just outlasted this street's version of it.</p>
     <div class="story" id="statsBlock" style="text-align:left;">
       <div>⏱ Time: <span id="statTime">-</span></div>
@@ -536,6 +555,9 @@
 </div>
 
 <div id="flashOverlay"></div>
+<div id="letterboxTop"></div>
+<div id="letterboxBottom"></div>
+<div id="cutsceneCaption"></div>
 <div id="levelBanner">
   <div id="levelBannerTitle">LEVEL 1 CLEAR</div>
   <div id="levelBannerSub">Heading into level 2...</div>
@@ -563,13 +585,72 @@
 "use strict";
 
 if(typeof THREE === 'undefined'){
+  document.getElementById('screenLoading').classList.add('loadingHidden');
+  document.getElementById('screenStart').classList.remove('hidden');
   document.getElementById('screenStart').querySelector('.card').innerHTML =
     '<h1>Error</h1><p>The 3D library failed to load. Check your internet connection and reload the page.</p>';
   return;
 }
 
+/* This build of three.js (r128) doesn't initialize `.userData` on Texture
+   instances the way it does on Object3D/Material. Several texture builders
+   below write to `tex.userData.normalMap`, which throws if userData is
+   missing. Patching it once here, on the shared prototype, fixes every
+   texture (CanvasTexture, DataTexture, etc.) without touching each call site. */
+if(THREE.Texture && !Object.getOwnPropertyDescriptor(THREE.Texture.prototype,'userData')){
+  Object.defineProperty(THREE.Texture.prototype,'userData',{
+    get(){ if(!this._userData) this._userData={}; return this._userData; },
+    set(v){ this._userData=v; },
+    configurable:true
+  });
+}
+
+function showLoadError(err){
+  console.error('[game] fatal load error:', err);
+  const stageText=document.getElementById('loadStageText');
+  const pct=document.getElementById('loadPct');
+  const tip=document.getElementById('loadTip');
+  const fill=document.getElementById('loadBarFill');
+  if(stageText) stageText.textContent='Something went wrong loading the game.';
+  if(pct) pct.textContent='ERR';
+  if(fill) fill.style.background='linear-gradient(90deg,#7a1f1f,#b3342f)';
+  let msg=(err && (err.message || err.toString())) || 'Unknown error';
+  if(msg==='Script error.' || msg==='Script error') msg='A script failed silently (likely blocked by this preview\'s security policy).';
+  if(tip) tip.textContent=msg;
+  const wrap=document.querySelector('.loadStageWrap');
+  if(wrap && !document.getElementById('loadErrorRetry')){
+    const box=document.createElement('div');
+    box.id='loadErrorRetry';
+    box.style.cssText='margin-top:14px;color:#e0463f;font-size:0.78rem;text-align:center;line-height:1.5;';
+    box.textContent='This preview panel may be blocking WebGL or external scripts. Try opening this HTML file directly in your phone/desktop browser (Chrome or Safari) instead of this in-app preview.';
+    wrap.appendChild(box);
+  }
+}
+let loadFinishedFlag=false;
+window.addEventListener('error', function(e){
+  if(loadFinishedFlag) return;
+  showLoadError(e.error || e.message || 'Script error.');
+});
+window.addEventListener('unhandledrejection', function(e){
+  if(loadFinishedFlag) return;
+  showLoadError(e.reason || 'Unhandled promise rejection.');
+});
+function hasWebGL(){
+  try{
+    const c=document.createElement('canvas');
+    return !!(window.WebGLRenderingContext && (c.getContext('webgl')||c.getContext('experimental-webgl')));
+  }catch(e){ return false; }
+}
+if(!hasWebGL()){
+  showLoadError('WebGL is not available in this preview. Open this HTML file directly in a normal browser tab (Chrome/Safari) instead of the in-app preview panel.');
+} else {
+
 setLoadStage(84, 'Assembling the world...');
+setTimeout(function(){
+  if(!loadFinishedFlag) showLoadError('Loading stalled for 12 seconds — something hung without throwing an error (likely a blocked/slow external script or a WebGL driver issue in this preview).');
+}, 12000);
 requestAnimationFrame(()=>{ requestAnimationFrame(()=>{
+try{
 
 /* ================= CONSTANTS ================= */
 const CELL=4;
@@ -1020,6 +1101,7 @@ function setupPostProcessing(){
   }
 }
 setupPostProcessing();
+applyGraphicsQuality('low');
 
 /* ---- Lighting ---- */
 const hemi=new THREE.HemisphereLight(0x2a3550, 0x0a0d08, 0.52);
@@ -1229,6 +1311,64 @@ function buildLeafTexture(){
   tex.anisotropy=renderer.capabilities.getMaxAnisotropy?renderer.capabilities.getMaxAnisotropy():1;
   return tex;
 }
+/* Derives a normal map from an existing canvas's own luminance — the bricks,
+   cracks, panel seams, and grime already drawn become actual per-pixel
+   surface bumps that catch light, instead of just a flat-shaded color.
+   No new art needed, just reading depth out of contrast that's already there. */
+function deriveNormalMap(sourceCanvas, strength){
+  // Temporarily disabled: this was the most likely cause of a loading freeze
+  // reported on some devices (canvas pixel read/write can behave very
+  // differently — or be much slower — across browsers, and that can't be
+  // verified without a real device). Every call site already handles a
+  // null return safely, so this just falls back to flat-shaded textures
+  // everywhere until the real cause is confirmed and this can be re-enabled.
+  return null;
+  strength = strength||1.4;
+  try{
+    // Compute at half resolution — a subtle bump effect doesn't need full-res
+    // detail, and this cuts the pixel count (and cost) to a quarter. Downscale
+    // via one drawImage call instead of reading the full-size buffer directly.
+    const srcW=sourceCanvas.width, srcH=sourceCanvas.height;
+    const w=Math.max(8,Math.round(srcW*0.5)), h=Math.max(8,Math.round(srcH*0.5));
+    const small=document.createElement('canvas'); small.width=w; small.height=h;
+    const sctx=small.getContext('2d');
+    sctx.drawImage(sourceCanvas,0,0,w,h);
+    const srcData=sctx.getImageData(0,0,w,h).data;
+    // Precompute grayscale once instead of re-averaging RGB on every neighbor lookup
+    const gray=new Float32Array(w*h);
+    for(let i=0;i<w*h;i++){
+      const j=i*4;
+      gray[i]=(srcData[j]+srcData[j+1]+srcData[j+2])/(3*255);
+    }
+    const out=document.createElement('canvas'); out.width=w; out.height=h;
+    const outCtx=out.getContext('2d');
+    const outImg=outCtx.createImageData(w,h);
+    const outData=outImg.data;
+    for(let y=0;y<h;y++){
+      const yU=((y-1+h)%h)*w, yD=((y+1)%h)*w, yRow=y*w;
+      for(let x=0;x<w;x++){
+        const xL=(x-1+w)%w, xR=(x+1)%w;
+        const dx=(gray[yRow+xL]-gray[yRow+xR])*strength;
+        const dy=(gray[yU+x]-gray[yD+x])*strength;
+        const len=Math.sqrt(dx*dx+dy*dy+1);
+        const i=(yRow+x)*4;
+        outData[i]  =((dx/len)*0.5+0.5)*255;
+        outData[i+1]=((dy/len)*0.5+0.5)*255;
+        outData[i+2]=((1/len)*0.5+0.5)*255;
+        outData[i+3]=255;
+      }
+    }
+    outCtx.putImageData(outImg,0,0);
+    const tex=new THREE.CanvasTexture(out);
+    tex.wrapS=THREE.RepeatWrapping; tex.wrapT=THREE.RepeatWrapping;
+    return tex;
+  }catch(e){
+    // If pixel manipulation fails for any reason on a given device/browser,
+    // skip the normal map rather than breaking the whole loading sequence —
+    // the flat-shaded texture still works fine on its own.
+    return null;
+  }
+}
 function buildWallTexture(){
   const size=384;
   const c=document.createElement('canvas'); c.width=c.height=size;
@@ -1272,6 +1412,11 @@ function buildWallTexture(){
   tex.wrapS=THREE.RepeatWrapping; tex.wrapT=THREE.RepeatWrapping;
   tex.repeat.set(1.4,1);
   tex.anisotropy=renderer.capabilities.getMaxAnisotropy?renderer.capabilities.getMaxAnisotropy():1;
+  tex.userData.normalMap=deriveNormalMap(c,1.3);
+  if(tex.userData.normalMap){
+    tex.userData.normalMap.wrapS=THREE.RepeatWrapping; tex.userData.normalMap.wrapT=THREE.RepeatWrapping;
+    tex.userData.normalMap.repeat.set(1.4,1);
+  }
   return tex;
 }
 function buildWoodTexture(repeatX,repeatY){
@@ -1398,10 +1543,17 @@ function buildNoiseTexture(){
   tex.wrapS=THREE.RepeatWrapping; tex.wrapT=THREE.RepeatWrapping;
   tex.repeat.set(GCOLS*2,GROWS*2);
   tex.anisotropy=renderer.capabilities.getMaxAnisotropy?renderer.capabilities.getMaxAnisotropy():1;
+  tex.userData.normalMap=deriveNormalMap(c,1.6);
+  if(tex.userData.normalMap){
+    tex.userData.normalMap.wrapS=THREE.RepeatWrapping; tex.userData.normalMap.wrapT=THREE.RepeatWrapping;
+    tex.userData.normalMap.repeat.set(GCOLS*2,GROWS*2);
+  }
   return tex;
 }
 const groundW=GCOLS*CELL+80, groundD=GROWS*CELL+80;
 const groundMat=new THREE.MeshStandardMaterial({map:buildNoiseTexture(), roughness:1});
+groundMat.normalMap=groundMat.map.userData.normalMap;
+groundMat.normalScale.set(0.85,0.85);
 const ground=new THREE.Mesh(new THREE.PlaneGeometry(groundW,groundD), groundMat);
 ground.rotation.x=-Math.PI/2;
 ground.position.set(GCOLS*CELL/2, 0, GROWS*CELL/2);
@@ -1453,6 +1605,11 @@ function buildRubbleTexture(){
   tex.wrapS=THREE.RepeatWrapping; tex.wrapT=THREE.RepeatWrapping;
   tex.repeat.set(1.3,1);
   tex.anisotropy=renderer.capabilities.getMaxAnisotropy?renderer.capabilities.getMaxAnisotropy():1;
+  tex.userData.normalMap=deriveNormalMap(c,1.5);
+  if(tex.userData.normalMap){
+    tex.userData.normalMap.wrapS=THREE.RepeatWrapping; tex.userData.normalMap.wrapT=THREE.RepeatWrapping;
+    tex.userData.normalMap.repeat.set(1.3,1);
+  }
   return tex;
 }
 function buildWallpaperTexture(){
@@ -1718,7 +1875,11 @@ scatterDebris();
 
 /* ---- House interior walls (house = clean plaster, street = ruined/scorched) ---- */
 const houseWallMat=new THREE.MeshStandardMaterial({map:buildWallTexture(), roughness:1});
+houseWallMat.normalMap=houseWallMat.map.userData.normalMap;
+houseWallMat.normalScale.set(0.8,0.8);
 const ruinedWallMat=new THREE.MeshStandardMaterial({map:buildRubbleTexture(), roughness:1});
+ruinedWallMat.normalMap=ruinedWallMat.map.userData.normalMap;
+ruinedWallMat.normalScale.set(1.1,1.1);
 let houseWallsInst=null, ruinedWallsInst=null;
 function rebuildHouseWalls(){
   const houseCells=[], ruinedCells=[];
@@ -1994,6 +2155,187 @@ function buildFurniture(){
   addBookStack(36.6,0.69,158.4,3);
 }
 buildFurniture();
+
+/* ---- Church interior: pews down the nave, a modest altar near the front ---- */
+function buildChurchProps(){
+  const pewMat=new THREE.MeshStandardMaterial({map:buildWoodTexture(1,1), roughness:0.85});
+  const candleMat=new THREE.MeshStandardMaterial({color:0xd9c896, roughness:0.6});
+  const flameMat=new THREE.MeshBasicMaterial({color:0xffaa40});
+  for(let gy=61; gy<70; gy++){
+    if(!maze[gy] || maze[gy][5]!==3) continue;
+    if((gy-61)%2!==0) continue; // every other row — leaves an aisle
+    [3,7].forEach(gx=>{
+      if(maze[gy][gx]!==3) return;
+      const w=gridToWorld(gx,gy);
+      const seat=new THREE.Mesh(new THREE.BoxGeometry(CELL*0.75,0.32,0.32), pewMat);
+      seat.position.set(w.x,0.16,w.z); seat.castShadow=true; seat.receiveShadow=true;
+      scene.add(seat);
+      const back=new THREE.Mesh(new THREE.BoxGeometry(CELL*0.75,0.35,0.05), pewMat);
+      back.position.set(w.x,0.42,w.z-0.15); back.castShadow=true;
+      scene.add(back);
+    });
+  }
+  // Altar near the front of the nave
+  const altarZ=63.5, altarX=5;
+  const altarW=gridToWorld(altarX,altarZ|0);
+  const altar=new THREE.Mesh(new THREE.BoxGeometry(1.1,0.75,0.5), pewMat);
+  altar.position.set(altarW.x,0.375,altarW.z); altar.castShadow=true; altar.receiveShadow=true;
+  scene.add(altar);
+  for(let i=0;i<3;i++){
+    const cx=altarW.x-0.4+i*0.4;
+    const candle=new THREE.Mesh(new THREE.CylinderGeometry(0.025,0.03,0.22,6), candleMat);
+    candle.position.set(cx,0.86,altarW.z); scene.add(candle);
+    const flame=new THREE.Mesh(new THREE.ConeGeometry(0.02,0.06,5), flameMat);
+    flame.position.set(cx,1.0,altarW.z); scene.add(flame);
+    const flicker=new THREE.PointLight(0xffaa40,0.4,2,2);
+    flicker.position.set(cx,1.0,altarW.z); scene.add(flicker);
+  }
+}
+buildChurchProps();
+
+/* ---- Warehouse interior: crate stacks and shelving along the floor ---- */
+function buildWarehouseProps(){
+  const crateMat=new THREE.MeshStandardMaterial({map:buildWoodTexture(1,1), roughness:0.9});
+  const shelfMat=new THREE.MeshStandardMaterial({color:0x2a2622, roughness:0.7, metalness:0.3});
+  for(let gy=75; gy<85; gy++){
+    if(!maze[gy] || maze[gy][5]!==3) continue;
+    if(Math.random()<0.55) continue; // sparse, not every open row
+    const side=Math.random()<0.5?3:7;
+    if(maze[gy][side]!==3) continue;
+    const w=gridToWorld(side,gy);
+    const stackH=1+Math.floor(Math.random()*2);
+    for(let i=0;i<stackH;i++){
+      const s=0.55-i*0.04;
+      const crate=new THREE.Mesh(new THREE.BoxGeometry(s,0.5,s), crateMat);
+      crate.position.set(w.x+(Math.random()-0.5)*0.1,0.25+i*0.5,w.z+(Math.random()-0.5)*0.1);
+      crate.rotation.y=Math.random()*0.4-0.2;
+      crate.castShadow=true; crate.receiveShadow=true;
+      scene.add(crate);
+    }
+  }
+  // A couple of steel shelving units for variety
+  [[4,77],[6,82]].forEach(([gx,gy])=>{
+    if(!maze[gy] || maze[gy][gx]!==3) return;
+    const w=gridToWorld(gx,gy);
+    for(let level=0;level<3;level++){
+      const shelf=new THREE.Mesh(new THREE.BoxGeometry(1.0,0.04,0.4), shelfMat);
+      shelf.position.set(w.x,0.3+level*0.5,w.z); shelf.castShadow=true;
+      scene.add(shelf);
+    }
+    [-0.48,0.48].forEach(dx=>{
+      const post=new THREE.Mesh(new THREE.BoxGeometry(0.04,1.6,0.04), shelfMat);
+      post.position.set(w.x+dx,0.8,w.z); scene.add(post);
+    });
+  });
+}
+buildWarehouseProps();
+
+/* ---- Sewer interior: pipes along the walls, grime, low debris ---- */
+function buildSewerProps(){
+  const pipeMat=new THREE.MeshStandardMaterial({color:0x2e3630, roughness:0.75, metalness:0.4});
+  const dirs=[[1,0,Math.PI/2],[-1,0,-Math.PI/2],[0,1,0],[0,-1,Math.PI]];
+  for(let gy=89; gy<101; gy++){
+    if(!maze[gy] || maze[gy][5]!==3) continue;
+    if(Math.random()<0.5) continue;
+    for(const [dx,dy,rotY] of dirs){
+      const ngx=5+dx, ngy=gy+dy;
+      if(!maze[ngy] || maze[ngy][ngx]!==2) continue; // must be against an actual wall
+      const w=gridToWorld(5,gy);
+      const offset=CELL*0.42;
+      const pipe=new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.08,CELL*0.9,8), pipeMat);
+      pipe.rotation.z=Math.PI/2; pipe.rotation.y=rotY;
+      pipe.position.set(w.x+dx*offset, 1.6, w.z+dy*offset);
+      pipe.castShadow=true; pipe.receiveShadow=true;
+      scene.add(pipe);
+      break;
+    }
+  }
+}
+buildSewerProps();
+
+/* ---- Sewer water: a shallow, gently shimmering flooded floor ---- */
+let sewerWaterMat=null, sewerWaterTex=null;
+function buildSewerWater(){
+  const cells=[];
+  for(let gy=89; gy<101; gy++){
+    if(maze[gy] && maze[gy][5]===3) cells.push([5,gy]);
+  }
+  if(!cells.length) return;
+  const size=128;
+  const c=document.createElement('canvas'); c.width=c.height=size;
+  const g=c.getContext('2d');
+  const grad=g.createLinearGradient(0,0,size,size);
+  grad.addColorStop(0,'#0a1f1a'); grad.addColorStop(1,'#132a22');
+  g.fillStyle=grad; g.fillRect(0,0,size,size);
+  for(let i=0;i<40;i++){
+    g.strokeStyle=`rgba(120,160,150,${0.06+Math.random()*0.1})`;
+    g.lineWidth=1+Math.random()*2;
+    const y=Math.random()*size;
+    g.beginPath(); g.moveTo(0,y); g.lineTo(size,y+(Math.random()-0.5)*20); g.stroke();
+  }
+  sewerWaterTex=new THREE.CanvasTexture(c);
+  sewerWaterTex.wrapS=sewerWaterTex.wrapT=THREE.RepeatWrapping;
+  sewerWaterMat=new THREE.MeshStandardMaterial({
+    map:sewerWaterTex, color:0x2a4a40, transparent:true, opacity:0.72,
+    roughness:0.15, metalness:0.3
+  });
+  const geo=new THREE.PlaneGeometry(CELL*0.98,CELL*0.98);
+  const inst=new THREE.InstancedMesh(geo, sewerWaterMat, cells.length);
+  const m=new THREE.Matrix4();
+  const q=new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI/2,0,0));
+  cells.forEach(([gx,gy],i)=>{
+    const w=gridToWorld(gx,gy);
+    m.compose(new THREE.Vector3(w.x,0.06,w.z), q, new THREE.Vector3(1,1,1));
+    inst.setMatrixAt(i,m);
+  });
+  inst.instanceMatrix.needsUpdate=true;
+  scene.add(inst);
+}
+buildSewerWater();
+function updateSewerWater(dt){
+  if(!sewerWaterTex) return;
+  sewerWaterTex.offset.x += dt*0.015;
+  sewerWaterTex.offset.y += dt*0.008;
+}
+
+/* ---- Ambient dust motes: small drifting particles near the player, mostly
+   visible where the flashlight or a lit area catches them. Kept to a small
+   fixed count and cheap per-frame math — this is atmosphere, not a real
+   particle system. ---- */
+let dustMotes=null;
+function buildDustMotes(){
+  const count=60;
+  const geo=new THREE.BufferGeometry();
+  const positions=new Float32Array(count*3);
+  const seeds=new Float32Array(count*3);
+  for(let i=0;i<count;i++){
+    positions[i*3]=(Math.random()-0.5)*6;
+    positions[i*3+1]=Math.random()*2.2;
+    positions[i*3+2]=(Math.random()-0.5)*6;
+    seeds[i*3]=Math.random()*10; seeds[i*3+1]=Math.random()*10; seeds[i*3+2]=Math.random()*10;
+  }
+  geo.setAttribute('position', new THREE.BufferAttribute(positions,3));
+  geo.userData.seeds=seeds;
+  geo.userData.base=positions.slice();
+  const mat=new THREE.PointsMaterial({color:0xd9c896, size:0.02, sizeAttenuation:true, transparent:true, opacity:0.35, depthWrite:false});
+  mat.fog=false;
+  dustMotes=new THREE.Points(geo,mat);
+  scene.add(dustMotes);
+}
+buildDustMotes();
+function updateDustMotes(t){
+  if(!dustMotes) return;
+  const pos=dustMotes.geometry.attributes.position;
+  const base=dustMotes.geometry.userData.base;
+  const seeds=dustMotes.geometry.userData.seeds;
+  for(let i=0;i<pos.count;i++){
+    const sx=seeds[i*3], sy=seeds[i*3+1], sz=seeds[i*3+2];
+    pos.array[i*3]  = player.x + base[i*3]   + Math.sin(t*0.3+sx)*0.4;
+    pos.array[i*3+1]= 0.4+ (base[i*3+1]+Math.sin(t*0.2+sy)*0.3+2.2)%2.2;
+    pos.array[i*3+2]= player.z + base[i*3+2] + Math.cos(t*0.25+sz)*0.4;
+  }
+  pos.needsUpdate=true;
+}
 
 /* ---- City zone props: dumpsters, fire escape, subway entrance ---- */
 function buildCityZoneProps(){
@@ -2941,7 +3283,7 @@ function updateGrassWind(t){
 function scatterGrass(){
   const openCells=[];
   for(let gy=0;gy<GROWS;gy++) for(let gx=0;gx<GCOLS;gx++) if(maze[gy][gx]===1) openCells.push([gx,gy]);
-  const clumpsPerCell=2, bladesPerClump=4; // clustered tufts instead of evenly-spread single blades
+  const clumpsPerCell=1, bladesPerClump=3; // clustered tufts instead of evenly-spread single blades
   const bladeGeo=buildBladeGeometry();
   const tints=[0x3f5527, 0x4a6430, 0x38481f];
   const mats=tints.map(hex=>{
@@ -3045,28 +3387,52 @@ function makeBush(){
 }
 function scatterForest(){
   const mazeW=GCOLS*CELL, mazeH=GROWS*CELL;
-  const margin=26;
-  for(let i=0;i<40;i++){
-    const t=makeTree();
+  // Same bug the skyline buildings had: sampling in a small square around the
+  // map's center only covers a tiny pocket of this long, narrow (44 x 412)
+  // level, leaving most of the run with zero trees. Reject-sample across the
+  // full length instead, so greenery actually appears throughout the run.
+  // Instanced (not individual meshes) since the tree/bush count needed to
+  // cover the whole map is much higher than before — keeps this to 3 draw
+  // calls total regardless of count.
+  const margin=6, spread=30;
+  function sampleOutsideMaze(){
     let x,z;
     do{
-      x=(Math.random()-0.5)*margin*2 + mazeW/2;
-      z=(Math.random()-0.5)*margin*2 + mazeH/2;
-    } while(x>-3 && x<mazeW+3 && z>-3 && z<mazeH+3);
-    t.position.set(x,0,z);
-    t.rotation.y=Math.random()*Math.PI*2;
-    scene.add(t);
+      x=Math.random()*(mazeW+2*(margin+spread)) - (margin+spread);
+      z=Math.random()*(mazeH+2*(margin+spread)) - (margin+spread);
+    } while(x>-margin && x<mazeW+margin && z>-margin && z<mazeH+margin);
+    return {x,z};
   }
-  for(let i=0;i<26;i++){
-    const b=makeBush();
-    let x,z;
-    do{
-      x=(Math.random()-0.5)*margin*2 + mazeW/2;
-      z=(Math.random()-0.5)*margin*2 + mazeH/2;
-    } while(x>-2 && x<mazeW+2 && z>-2 && z<mazeH+2);
-    b.position.set(x,0.35,z);
-    scene.add(b);
+  const treeCount=90, bushCount=70;
+  const trunkInst=new THREE.InstancedMesh(
+    new THREE.CylinderGeometry(0.15,0.22,1.6,6),
+    new THREE.MeshStandardMaterial({color:0x3a2a1c,roughness:1}), treeCount);
+  const canopyInst=new THREE.InstancedMesh(
+    new THREE.ConeGeometry(1.1,2.4,7),
+    new THREE.MeshStandardMaterial({color:0x152414,roughness:1}), treeCount);
+  const bushInst=new THREE.InstancedMesh(
+    new THREE.IcosahedronGeometry(0.65,0),
+    new THREE.MeshStandardMaterial({color:0x243718,roughness:1}), bushCount);
+  const m=new THREE.Matrix4();
+  for(let i=0;i<treeCount;i++){
+    const p=sampleOutsideMaze();
+    const q=new THREE.Quaternion().setFromEuler(new THREE.Euler(0,Math.random()*Math.PI*2,0));
+    m.compose(new THREE.Vector3(p.x,0.8,p.z), q, new THREE.Vector3(1,1,1));
+    trunkInst.setMatrixAt(i,m);
+    m.compose(new THREE.Vector3(p.x,2.4,p.z), q, new THREE.Vector3(1,1,1));
+    canopyInst.setMatrixAt(i,m);
   }
+  for(let i=0;i<bushCount;i++){
+    const p=sampleOutsideMaze();
+    const s=0.5+Math.random()*0.3;
+    m.compose(new THREE.Vector3(p.x,0.35,p.z), new THREE.Quaternion(), new THREE.Vector3(s,s,s));
+    bushInst.setMatrixAt(i,m);
+  }
+  trunkInst.instanceMatrix.needsUpdate=true;
+  canopyInst.instanceMatrix.needsUpdate=true;
+  bushInst.instanceMatrix.needsUpdate=true;
+  trunkInst.castShadow=true; canopyInst.castShadow=true; bushInst.castShadow=true;
+  scene.add(trunkInst); scene.add(canopyInst); scene.add(bushInst);
 }
 scatterForest();
 
@@ -3075,7 +3441,7 @@ function buildSkyline(){
   const mazeW=GCOLS*CELL, mazeH=GROWS*CELL;
   const buildingMat=new THREE.MeshStandardMaterial({map:buildWallTexture(), roughness:1});
   const towerMat=new THREE.MeshStandardMaterial({map:buildRubbleTexture(), roughness:1});
-  const count=42;
+  const count=20;
   // The maze is long and narrow (44 x 412 units), not square — a simple radius-from-center
   // placement leaves buildings landing inside the corridors near the ends. Reject-sample
   // against the actual bounding rectangle instead, same technique as scatterForest() below.
@@ -4637,7 +5003,16 @@ function checkAmbushTrigger(){
 function updateMonsterCountUI(){
   const el=document.getElementById('monsterCount');
   const lvTxt = gameMode==='endless' ? ('Wave '+(levelIndex+1)) : ('Lv'+(levelIndex+1)+'/7');
-  if(el) el.textContent=lvTxt+'  '+monstersKilled+'/'+monstersTotal+' hunted';
+  let txt=lvTxt+'  '+monstersKilled+'/'+monstersTotal+' hunted';
+  if(gameMode==='story'){
+    const obj=currentObjective();
+    if(obj.type==='kill_and_note'){
+      const n=storyNotes[obj.noteIdx];
+      const found = n && n.found;
+      txt += monstersRemaining<=0 ? (found?' — note found':' — find the note') : '';
+    }
+  }
+  if(el) el.textContent=txt;
 }
 
 /* ================= JUMPSCARES ================= */
@@ -5271,12 +5646,12 @@ buildExplosiveBarrel(43, 97);
 
 /* ---- Story notes: scattered lore building the backstory, one per zone ---- */
 const NOTE_TEXTS=[
-  {title:'Torn Page — Kitchen Counter', body:'The gas hasn\'t worked in weeks and nobody from the utility company will answer. Mara says she saw someone standing in the yard last night, just standing there, facing the house. I told her it was a neighbor. I don\'t think either of us believed that.'},
-  {title:'Receipt, Back Scrawled', body:'Fourth night in a row the streetlights flicker exactly at 11. Not before, not after. I timed it. Whatever is happening on this street, it isn\'t random. It has a schedule, and I don\'t think it\'s ours to know.'},
-  {title:'Notebook Page, Water-Stained', body:'The store\'s been closed three weeks and the shelves are still stocked — like whoever left, left mid-sentence. I found claw marks on the inside of the front door. Inside. Like something wanted out, not in.'},
-  {title:'Burned Church Bulletin', body:'Pastor stopped services after the congregation "changed." That\'s the word the last bulletin used — changed. No further explanation. The pews are ash now, but the collection box survived, untouched, like it was never meant to burn.'},
-  {title:'Warehouse Shift Log', body:'Inventory doesn\'t match the manifest — we\'re short on everything except one crate nobody remembers ordering. Whatever\'s in it, don\'t open it after dark. That\'s not a company policy. That\'s a promise I made to myself.'},
-  {title:'Final Entry, Found Near the Gate', body:'If you\'re reading this, you made it further than I did. The house at the end isn\'t the source — it\'s just where they gather. Whatever started this is still out there, past the gate, waiting for the next person foolish enough to walk in.'},
+  {title:'Torn Page — Kitchen Counter, signed M.', body:'The gas hasn\'t worked in weeks and nobody from the utility company will answer. I saw someone standing in the yard last night, just standing there, facing the house. I told myself it was a neighbor. I don\'t think I believed that even as I wrote it. Going back tomorrow to look closer. —M.'},
+  {title:'Mara\'s Handwriting — Inside the House', body:'Found the family that used to live here still IN the house. They didn\'t run when I called out. They turned around slow, all three at once, like something else was deciding for them. I didn\'t stay to ask questions. If you\'re reading this and it\'s not me who wrote it — I\'m sorry. I went further in anyway.'},
+  {title:'Warehouse Shift Log', body:'Inventory doesn\'t match the manifest — we\'re short on everything except one crate nobody remembers ordering, delivered the same week the street started acting wrong. Whatever\'s in it, don\'t open it after dark. That\'s not company policy. That\'s a promise I made myself, right up until I broke it.'},
+  {title:'Final Entry, Found Near the Pump Room', body:'It runs under the whole street, under the church, the warehouse, the house — one thing, feeding through all of it from down here. The house isn\'t the source. It\'s just where whatever it makes goes to wait. Whoever finds this: it can be burned out down here. Whether that undoes what it\'s already done to people, I never found out.'},
+  {title:'Burned Church Bulletin', body:'The pastor stopped services after the congregation "changed." That\'s the word the last bulletin used — changed, not sick, not gone. The pews are ash now, but the collection box survived untouched, like it was never meant to burn. I recognized a coat in the third pew. I didn\'t look at who was wearing it.'},
+  {title:'A Page Torn From Mara\'s Notebook', body:'If it takes me, don\'t let that be the last thing you remember. I\'m still trying to get out the way I came in — past the church, past whatever\'s underneath all of this. If someone comes looking for me: I love you, and I\'m sorry I kept going instead of turning back at the yard like I should have.'},
 ];
 let storyNotes=[], notesFound=0;
 const noteMeshGeo=new THREE.PlaneGeometry(0.28,0.36);
@@ -5329,6 +5704,19 @@ function readNote(n){
 function closeNoteOverlay(){
   document.getElementById('screenNote').classList.add('hidden');
   gamePaused=false;
+  if(gameRunning && !gameOverFlag && !gameWinFlag && !levelTransitioning && objectiveComplete()){
+    const obj=currentObjective();
+    if(obj.type==='kill_and_note'){
+      if(gameMode==='endless' || levelIndex<LEVELS.length-1){
+        advanceLevel();
+      } else {
+        const exitLight=zoneExitLights[currentLevelEnv()];
+        if(exitLight){ exitLight.intensity=2.2; } else { gateLight.intensity=1.2; }
+        showPrompt('All hunted down! '+(ZONE_ESCAPE_TEXT[currentLevelEnv()]||'Head to the gate to escape'), 3);
+      }
+    }
+  }
+  updateMonsterCountUI();
 }
 document.getElementById('btnCloseNote').addEventListener('click', closeNoteOverlay);
 let nearbyNote=null;
@@ -5389,6 +5777,34 @@ function spawnBulletHole(point, normal){
 let bloodParticles=[];
 const bloodParticleGeo=new THREE.SphereGeometry(0.03,5,5);
 const bloodParticleMat=new THREE.MeshBasicMaterial({color:0x8a1010});
+/* Blood on nearby walls, not just the floor pool — checks the 4 grid-adjacent
+   cells for an actual wall and places a decal on that face, reusing the same
+   point+normal approach as bullet holes. */
+let wallBloodDecals=[];
+const wallBloodGeo=new THREE.PlaneGeometry(0.4,0.5);
+const wallBloodMat=new THREE.MeshBasicMaterial({color:0x5a0f0f, transparent:true, opacity:0.75, depthWrite:false});
+function spawnWallBlood(worldX, worldZ){
+  const gx=Math.floor(worldX/CELL), gz=Math.floor(worldZ/CELL);
+  const dirs=[[1,0,new THREE.Vector3(1,0,0)],[-1,0,new THREE.Vector3(-1,0,0)],[0,1,new THREE.Vector3(0,0,1)],[0,-1,new THREE.Vector3(0,0,-1)]];
+  for(const [dx,dy,normal] of dirs){
+    const ngx=gx+dx, ngy=gz+dy;
+    if(!maze[ngy] || maze[ngy][ngx]!==2) continue;
+    const w=gridToWorld(gx,gz);
+    const point=new THREE.Vector3(w.x+dx*(CELL*0.48), 0.8+Math.random()*0.7, w.z+dy*(CELL*0.48));
+    const decal=new THREE.Mesh(wallBloodGeo, wallBloodMat);
+    decal.position.copy(point).addScaledVector(normal,0.02);
+    decal.lookAt(point.clone().add(normal));
+    decal.rotateZ(Math.random()*Math.PI*2);
+    decal.scale.setScalar(0.55+Math.random()*0.55);
+    scene.add(decal);
+    wallBloodDecals.push(decal);
+    if(wallBloodDecals.length>20){
+      const old=wallBloodDecals.shift();
+      scene.remove(old);
+    }
+    return;
+  }
+}
 const hitSparkGeo=new THREE.SphereGeometry(0.06,8,8);
 const hitSparkMat=new THREE.MeshBasicMaterial({color:0xff5533});
 let bloodPools=[];
@@ -5483,9 +5899,15 @@ function killMonster(m){
   sMonsterDeath();
   haptic(35);
   spawnBloodPool(m.mesh.position.x, m.baseY||0, m.mesh.position.z);
+  spawnWallBlood(m.mesh.position.x, m.mesh.position.z);
   dyingMonsters.push({mesh:m.mesh, t:0, startY:m.mesh.position.y});
   if(monstersRemaining<=0 && !levelTransitioning && !gameOverFlag && !gameWinFlag){
-    if(gameMode==='endless' || levelIndex<LEVELS.length-1){
+    const obj=currentObjective();
+    if(gameMode==='story' && obj.type==='kill_and_note' && !objectiveComplete()){
+      const n=storyNotes[obj.noteIdx];
+      showPrompt((n?n.title.split('—')[0].trim():'A note')+' is still out there — find it before you can leave', 3.2);
+      updateMonsterCountUI();
+    } else if(gameMode==='endless' || levelIndex<LEVELS.length-1){
       advanceLevel();
     } else {
       const exitLight=zoneExitLights[currentLevelEnv()];
@@ -5529,7 +5951,7 @@ canvas.addEventListener('contextmenu', e=>{ e.preventDefault(); toggleZoom(); })
 
 function tryOpenGate(){
   const d=Math.hypot(player.x-gateCellWorld.x, player.z-gateCellWorld.z);
-  if(d<2.4 && monstersRemaining<=0 && !gameOverFlag && !gameWinFlag && !levelTransitioning && gameMode==='story' && levelIndex>=LEVELS.length-1){
+  if(d<2.4 && objectiveComplete() && !gameOverFlag && !gameWinFlag && !levelTransitioning && gameMode==='story' && levelIndex>=LEVELS.length-1){
     winGame();
   } else if(d<2.4 && monstersRemaining>0){
     showPrompt(monstersRemaining+' left — hunt them down first', 1.4);
@@ -5579,6 +6001,7 @@ function advanceLevel(){
       console.log('[perf] level transition took', (_t3-_t0).toFixed(1)+'ms', '— spawnMonsters:', (_t1-_t0).toFixed(1)+'ms', 'applyLevelMood:', (_t2-_t1).toFixed(1)+'ms', 'setWeather:', (_t3-_t2).toFixed(1)+'ms');
     }
     levelTransitioning=false;
+    if(gameMode==='story') showStoryBeat(levelIndex);
   }, 2200);
 }
 const BEHAVIOR_HINTS={
@@ -5597,6 +6020,195 @@ const LEVEL_ZONES=[
   {name:'The Sewers', fog:0x040608, sky:0x0a1218, ground:0x020404, groundTint:0x3a4a45, spotlight:'gas', env:'sewer'},
   {name:'The House, Again', fog:0x140000, sky:0x4a0505, ground:0x0a0000, groundTint:0x8a5050, spotlight:'church', env:'house'},
 ];
+
+/* ---- Story beats: a mandatory narrative overlay shown at the start of each
+   level, plus a per-level objective that can require more than "kill
+   everything" — some levels won't let the player move on until they've also
+   found that zone's note, tying the lore directly to progression instead of
+   leaving it as pure optional collectible. ---- */
+const STORY_BEATS=[
+  { title:'Four Nights Ago', body:"Mara's last text just said \"something's wrong with the street.\" No call back since. Her apartment's empty, her phone's dead, and the gate into this yard is the only lead you have left. You're going in after her.",
+    objective:'Clear the yard.' },
+  { title:'The Street', body:"Past the gate the street doesn't look abandoned so much as paused — mid-sentence, mid-meal, mid-something. Whatever's out here saw Mara come through before you. Move fast, use the cars for cover.",
+    objective:'Clear the street.' },
+  { title:'The House She Went Into', body:'This is the house from her texts. If she wrote anything down in here, it\'s worth more than anything you\'ll find on a body outside. Clear it, then look before you move on — leaving without reading what\'s inside would be leaving without her.',
+    objective:'Clear the house, then find Mara\'s note inside before continuing.' },
+  { title:'The Congregation', body:'Whatever this street does to people, it did it here first, in front of everyone, on a Sunday. The bulletin board out front might still say why the pastor stopped holding services. Read it before you go further — you need to understand what "changed" means before you find Mara among them.',
+    objective:'Clear the church, then find the bulletin before continuing.' },
+  { title:'The Warehouse', body:'Every lead on this street eventually points to one crate that showed up the same week everything went wrong. If there\'s a shift log left in here, it\'ll say who signed for it — and maybe why nobody\'s admitted to it since.',
+    objective:'Clear the warehouse, then find the shift log before continuing.' },
+  { title:'Down Into It', body:"Whatever's doing this to people doesn't start at the house — it runs underneath the whole street, and the house is just where it sends what it's finished with. If there's an ending down here, someone before you already found it and wrote it down. Find it.",
+    objective:'Clear the sewers, then find the final entry before continuing.' },
+  { title:'Back to the House', body:"Everything under this street leads back here, to the door Mara walked through first. If she's still in there, this is where she'll be. Clear it, then go get her.",
+    objective:'Clear the house — this is where Mara is.' },
+];
+const LEVEL_OBJECTIVES=[
+  {type:'kill_all'},
+  {type:'kill_all'},
+  {type:'kill_and_note', noteIdx:1},
+  {type:'kill_and_note', noteIdx:4},
+  {type:'kill_and_note', noteIdx:2},
+  {type:'kill_and_note', noteIdx:3},
+  {type:'kill_all', final:true},
+];
+function currentObjective(){
+  return LEVEL_OBJECTIVES[Math.min(levelIndex, LEVEL_OBJECTIVES.length-1)] || {type:'kill_all'};
+}
+function objectiveComplete(){
+  if(monstersRemaining>0) return false;
+  const obj=currentObjective();
+  if(obj.type==='kill_and_note'){
+    const n=storyNotes[obj.noteIdx];
+    if(!n || !n.found) return false;
+  }
+  return true;
+}
+function showStoryBeat(idx){
+  const beat=STORY_BEATS[Math.min(idx, STORY_BEATS.length-1)];
+  if(!beat) return;
+  document.getElementById('storyBeatTitle').textContent=beat.title;
+  document.getElementById('storyBeatBody').textContent=beat.body;
+  const objEl=document.getElementById('storyBeatObjective');
+  const objLabel=document.getElementById('storyObjectiveLabel');
+  if(beat.objective){ objEl.textContent=beat.objective; objEl.style.display='block'; objLabel.style.display='block'; }
+  else { objEl.style.display='none'; objLabel.style.display='none'; }
+  document.getElementById('screenStory').classList.remove('hidden');
+  gamePaused=true;
+  fireHeld=false;
+}
+function closeStoryBeat(){
+  document.getElementById('screenStory').classList.add('hidden');
+  gamePaused=false;
+}
+document.getElementById('btnCloseStory').addEventListener('click', closeStoryBeat);
+function buildMaraMesh(){
+  const g=new THREE.Group();
+  const skinMat=new THREE.MeshStandardMaterial({color:0xC9A27A, roughness:0.85});
+  const clothMat=new THREE.MeshStandardMaterial({color:0x3a4a5a, roughness:0.9});
+  const pantsMat=new THREE.MeshStandardMaterial({color:0x24201c, roughness:0.9});
+  const hairMat=new THREE.MeshStandardMaterial({color:0x2a1c14, roughness:0.9});
+  const body=new THREE.Mesh(new THREE.CylinderGeometry(0.17,0.22,1.0,10), clothMat);
+  body.position.y=0.78; body.castShadow=true; g.add(body);
+  const head=new THREE.Mesh(new THREE.SphereGeometry(0.15,14,14), skinMat);
+  head.position.set(0,1.46,0.01); head.castShadow=true; g.add(head);
+  const hair=new THREE.Mesh(new THREE.SphereGeometry(0.155,12,10,0,Math.PI*2,0,Math.PI*0.62), hairMat);
+  hair.position.set(0,1.52,-0.01); g.add(hair);
+  const eyeMat=new THREE.MeshBasicMaterial({color:0x2a2018});
+  [-0.045,0.045].forEach(ex=>{
+    const eye=new THREE.Mesh(new THREE.SphereGeometry(0.014,6,6), eyeMat);
+    eye.position.set(ex,1.47,0.145); g.add(eye);
+  });
+  g.userData.legs=[]; g.userData.arms=[];
+  [-1,1].forEach(side=>{
+    const arm=new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.045,0.55,8), clothMat);
+    arm.position.set(side*0.23,0.98,0); arm.rotation.z=side*0.1;
+    arm.castShadow=true; g.add(arm);
+    const leg=new THREE.Group();
+    const legMesh=new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.065,0.7,8), pantsMat);
+    legMesh.position.y=-0.35;
+    leg.add(legMesh);
+    leg.position.set(side*0.1,0.62,0);
+    leg.castShadow=true; g.add(leg);
+    g.userData.legs.push(leg);
+    g.userData.arms.push(arm);
+  });
+  return g;
+}
+let maraMesh=null, cutsceneActive=false, cutscene=null;
+function cutsceneCaption(text){
+  const el=document.getElementById('cutsceneCaption');
+  if(text){ el.textContent=text; el.classList.add('show'); }
+  else el.classList.remove('show');
+}
+function startEndingCutscene(onDone){
+  cutsceneActive=true;
+  document.getElementById('hud').classList.add('hidden');
+  document.getElementById('letterboxTop').classList.add('show');
+  document.getElementById('letterboxBottom').classList.add('show');
+  const exitPt=ZONE_EXIT_WORLD[currentLevelEnv()] || OUTDOOR_GATE_WORLD;
+  maraMesh=buildMaraMesh();
+  const rx0=Math.cos(player.yaw), rz0=-Math.sin(player.yaw);
+  maraMesh.position.set(player.x+rx0*0.9, 0, player.z+rz0*0.9);
+  maraMesh.rotation.y=player.yaw;
+  scene.add(maraMesh);
+  cutscene={
+    phase:'letterbox-in', t:0,
+    from:{x:player.x,z:player.z}, to:{x:exitPt.x,z:exitPt.z},
+    captionShown:false, savedTimeOfDay:timeOfDay, onDone
+  };
+  cutsceneCaption('You found her.');
+}
+function updateCutscene(dt){
+  if(!cutscene) return;
+  const c=cutscene;
+  c.t+=dt;
+  const el=document.getElementById('flashOverlay');
+  if(c.phase==='letterbox-in'){
+    if(c.t>1.4){ c.t=0; c.phase='walk'; cutsceneCaption('"Let\'s go home," she says.'); }
+  } else if(c.phase==='walk'){
+    const dur=6.2;
+    const p=Math.min(1, c.t/dur);
+    const ease = p<0.5 ? 2*p*p : 1-Math.pow(-2*p+2,2)/2;
+    player.x = c.from.x + (c.to.x-c.from.x)*ease;
+    player.z = c.from.z + (c.to.z-c.from.z)*ease;
+    const dx=c.to.x-c.from.x, dz=c.to.z-c.from.z, dlen=Math.hypot(dx,dz)||1;
+    player.yaw = Math.atan2(dx,dz);
+    player.walkT += dt*6.5;
+    camera.position.set(player.x, EYE_H+Math.sin(player.walkT)*0.035, player.z);
+    camera.rotation.set(0, player.yaw, 0);
+    const rx=Math.cos(player.yaw), rz=-Math.sin(player.yaw);
+    maraMesh.position.set(player.x+rx*0.9, Math.sin(player.walkT+0.7)*0.02, player.z+rz*0.9);
+    maraMesh.rotation.y=player.yaw;
+    const swing=Math.sin(player.walkT)*0.55;
+    maraMesh.userData.legs[0].rotation.x=swing;
+    maraMesh.userData.legs[1].rotation.x=-swing;
+    maraMesh.userData.arms[0].rotation.x=-swing*0.7;
+    maraMesh.userData.arms[1].rotation.x=swing*0.7;
+    if(p>=0.55 && !c.captionShown){ c.captionShown=true; cutsceneCaption('"I\'ve got you," you tell her.'); }
+    if(p>=1){ c.t=0; c.phase='fade-white'; cutsceneCaption(null); }
+  } else if(c.phase==='fade-white'){
+    el.style.transition='opacity 1.1s ease';
+    el.style.opacity=Math.min(1, c.t/1.1);
+    if(c.t>1.3){ c.t=0; c.phase='teleport'; }
+  } else if(c.phase==='teleport'){
+    const home=OUTDOOR_SPAWN_WORLD;
+    player.x=home.x; player.z=home.z; player.yaw=Math.PI;
+    camera.position.set(player.x, EYE_H, player.z);
+    camera.rotation.set(0, player.yaw, 0);
+    const rx=Math.cos(player.yaw), rz=-Math.sin(player.yaw);
+    maraMesh.position.set(player.x+rx*1.1, 0, player.z+rz*1.1);
+    maraMesh.rotation.y=player.yaw;
+    maraMesh.userData.legs.forEach(l=>l.rotation.x=0);
+    maraMesh.userData.arms.forEach(a=>a.rotation.x=0);
+    setTimeOfDay('day'); setWeather('clear');
+    cutsceneCaption('Months later.');
+    c.t=0; c.phase='fade-in-home';
+  } else if(c.phase==='fade-in-home'){
+    el.style.opacity=Math.max(0, 1-c.t/1.3);
+    if(c.t>1.5){ c.t=0; c.phase='home-hold'; cutsceneCaption(null); }
+  } else if(c.phase==='home-hold'){
+    camera.position.set(player.x+Math.sin(c.t*0.2)*0.35, EYE_H+0.03, player.z+Math.cos(c.t*0.15)*0.2);
+    camera.rotation.set(-0.04, Math.PI+Math.sin(c.t*0.12)*0.12, 0);
+    maraMesh.position.y=Math.sin(c.t*1.3)*0.015;
+    if(c.t>1.0 && !c.captionShown2){ c.captionShown2=true; cutsceneCaption('They made it home.'); }
+    if(c.t>4.4){ c.t=0; c.phase='letterbox-out'; cutsceneCaption(null); }
+  } else if(c.phase==='letterbox-out'){
+    document.getElementById('letterboxTop').classList.remove('show');
+    document.getElementById('letterboxBottom').classList.remove('show');
+    if(c.t>1.0){ endCutscene(); }
+  }
+}
+function endCutscene(){
+  cutsceneActive=false;
+  if(maraMesh){ scene.remove(maraMesh); disposeObject3D(maraMesh); maraMesh=null; }
+  document.getElementById('flashOverlay').style.opacity=0;
+  document.getElementById('hud').classList.remove('hidden');
+  const done=cutscene && cutscene.onDone;
+  const savedTOD=cutscene && cutscene.savedTimeOfDay;
+  cutscene=null;
+  if(savedTOD){ setTimeOfDay(savedTOD); setWeather('clear'); }
+  if(done) done();
+}
 
 /* ---- Per-level environment re-skin: ground/wall textures, and a ceiling for indoor levels ---- */
 const envTextureCache={};
@@ -5682,8 +6294,9 @@ function showPrompt(text,t){
 }
 
 /* ================= AUDIO ================= */
-let audioCtx=null, ambientNodes=[], ambientGains=[], ambientOscs=[];
+let audioCtx=null, ambientNodes=[], ambientGains=[], ambientOscs=[], ambientFilters=[];
 let musicIntensity=0, tensionStingPlayed=false;
+let musicPulseTimer=0, stingRepeatTimer=0;
 /* ---- Real sample playback, with automatic fallback to synthesis ----
    If a file below isn't present (or fails to load), the game keeps using
    the synthesized version — nothing breaks either way. Drop matching files
@@ -5723,7 +6336,7 @@ function initAudio(){
   audioCtx=new (window.AudioContext||window.webkitAudioContext)();
   if(audioCtx.state==='suspended') audioCtx.resume();
   loadAllSamples();
-  ambientGains=[]; ambientOscs=[];
+  ambientGains=[]; ambientOscs=[]; ambientFilters=[];
   [46,50].forEach((f,i)=>{
     const o=audioCtx.createOscillator(); o.type='sine'; o.frequency.value=f;
     const g=audioCtx.createGain(); g.gain.value= i===0?0.045:0.028;
@@ -5731,6 +6344,15 @@ function initAudio(){
     ambientNodes.push(o);
     ambientOscs.push(o); ambientGains.push(g);
   });
+  // Third layer: a higher, dissonant tension pad — silent until danger rises,
+  // filtered brighter as intensity climbs, giving the drone an actual "score"
+  // arc instead of just two flat sustained tones.
+  const tensionOsc=audioCtx.createOscillator(); tensionOsc.type='sawtooth'; tensionOsc.frequency.value=110;
+  const tensionGain=audioCtx.createGain(); tensionGain.gain.value=0;
+  const tensionFilter=audioCtx.createBiquadFilter(); tensionFilter.type='lowpass'; tensionFilter.frequency.value=300;
+  tensionOsc.connect(tensionFilter).connect(tensionGain).connect(audioCtx.destination); tensionOsc.start();
+  ambientNodes.push(tensionOsc);
+  ambientOscs.push(tensionOsc); ambientGains.push(tensionGain); ambientFilters.push(tensionFilter);
 }
 function beep(freq,dur,vol,type){
   if(!audioCtx) return;
@@ -6136,6 +6758,7 @@ let gameRunning=false, gameOverFlag=false, gameWinFlag=false, gamePaused=false;
 function togglePause(){
   if(!gameRunning || gameOverFlag || gameWinFlag) return;
   if(!document.getElementById('screenNote').classList.contains('hidden')) return;
+  if(!document.getElementById('screenStory').classList.contains('hidden')) return;
   gamePaused=!gamePaused;
   document.getElementById('screenPause').classList.toggle('hidden', !gamePaused);
   if(gamePaused){ fireHeld=false; }
@@ -6146,6 +6769,15 @@ function resetGame(){
   fireHeld=false;
   gamePaused=false;
   document.getElementById('screenPause').classList.add('hidden');
+  document.getElementById('screenStory').classList.add('hidden');
+  if(cutsceneActive || maraMesh){
+    cutsceneActive=false; cutscene=null;
+    if(maraMesh){ scene.remove(maraMesh); disposeObject3D(maraMesh); maraMesh=null; }
+    document.getElementById('letterboxTop').classList.remove('show');
+    document.getElementById('letterboxBottom').classList.remove('show');
+    document.getElementById('cutsceneCaption').classList.remove('show');
+    document.getElementById('flashOverlay').style.opacity=0;
+  }
   buildMazeGrid();
   levelIndex=0;
   levelTransitioning=false;
@@ -6467,7 +7099,7 @@ function update(dt){
   const gd=Math.hypot(player.x-gateCellWorld.x, player.z-gateCellWorld.z);
   if(gd<2.4){ tryOpenGate(); }
   if(gd<2.6 && promptTimer<=0 && !nearbyNote){
-    document.getElementById('prompt').textContent = (monstersRemaining<=0 && gameMode==='story' && levelIndex>=LEVELS.length-1) ? (ZONE_ESCAPE_READY_TEXT[currentLevelEnv()]||'Gate is open — go through to escape') : (monstersRemaining>0 ? monstersRemaining+' left' : '');
+    document.getElementById('prompt').textContent = (objectiveComplete() && gameMode==='story' && levelIndex>=LEVELS.length-1) ? (ZONE_ESCAPE_READY_TEXT[currentLevelEnv()]||'Gate is open — go through to escape') : (monstersRemaining>0 ? monstersRemaining+' left' : '');
     document.getElementById('prompt').classList.add('show');
   } else if(gd>=2.6 && promptTimer<=0 && !nearbyNote){
     document.getElementById('prompt').classList.remove('show');
@@ -6977,19 +7609,42 @@ function updateAudioCues(dt){
   const target=Math.min(1, proximityDanger+finalStretch);
   musicIntensity += (target-musicIntensity)*Math.min(1,dt*2.2);
 
-  if(ambientGains.length===2){
+  if(ambientGains.length>=2){
     ambientGains[0].gain.value=0.045+musicIntensity*0.05;
     ambientGains[1].gain.value=0.028+musicIntensity*0.06;
   }
-  if(ambientOscs.length===2){
+  if(ambientOscs.length>=2){
     ambientOscs[0].frequency.value=46-musicIntensity*6;
     ambientOscs[1].frequency.value=50+musicIntensity*10;
   }
-  if(musicIntensity>0.7 && !tensionStingPlayed){
-    tensionStingPlayed=true;
-    beep(220,0.4,0.22,'sawtooth'); beep(233,0.4,0.16,'sawtooth');
-  } else if(musicIntensity<0.3){
-    tensionStingPlayed=false;
+  // Third layer: dissonant tension pad, silent below ~40% danger, then swells
+  // and brightens — gives the score an actual rising arc instead of a flat drone.
+  if(ambientGains.length>=3){
+    ambientGains[2].gain.value=Math.max(0,musicIntensity-0.4)*0.1;
+  }
+  if(ambientFilters.length>=1){
+    ambientFilters[0].frequency.value=280+musicIntensity*900;
+  }
+  // Rhythmic low pulse — the "heartbeat of the music" — tempo speeds up as
+  // danger rises (1.7s between pulses when calm, down to ~0.6s at max danger).
+  if(musicIntensity>0.12){
+    musicPulseTimer-=dt;
+    if(musicPulseTimer<=0){
+      thump(0.07+musicIntensity*0.1, 64+musicIntensity*14, 0.32);
+      musicPulseTimer=1.7-musicIntensity*1.1;
+    }
+  } else {
+    musicPulseTimer=0;
+  }
+  // Recurring sting motif while danger stays high, instead of a single one-off hit
+  if(musicIntensity>0.72){
+    stingRepeatTimer-=dt;
+    if(stingRepeatTimer<=0){
+      beep(220,0.4,0.2,'sawtooth'); beep(233,0.4,0.15,'sawtooth');
+      stingRepeatTimer=8+Math.random()*4;
+    }
+  } else {
+    stingRepeatTimer=0;
   }
 
   if(musicIntensity<0.04) return;
@@ -7061,9 +7716,14 @@ function winGame(){
   },30);
   setTimeout(()=>{
     gameRunning=false;
-    populateWinStats();
-    document.getElementById('screenWin').classList.remove('hidden');
+    startEndingCutscene(()=>{
+      populateWinStats();
+      document.getElementById('screenWin').classList.remove('hidden');
+    });
   },900);
+}
+function buildEpilogue(){
+  return "You get her out past the gate, past the street, past all of it. It takes months before she sleeps through a night without checking the door twice. It takes longer before either of you talk about what was actually down there. But you're both out, and you're both still you — and some mornings, that's the whole story worth telling.";
 }
 function populateWinStats(){
   const elapsed=Math.round((Date.now()-runStats.startTime)/1000);
@@ -7076,7 +7736,9 @@ function populateWinStats(){
   document.getElementById('statGrenades').textContent=runStats.grenadesUsed;
   document.getElementById('statHitsTaken').textContent=runStats.hitsTaken;
   document.getElementById('statNotes').textContent=notesFound+'/'+NOTE_TEXTS.length;
-  document.getElementById('epilogueText').style.display = (notesFound>=NOTE_TEXTS.length) ? 'block' : 'none';
+  const epiEl=document.getElementById('epilogueText');
+  epiEl.textContent=buildEpilogue();
+  epiEl.style.display='block';
   const score=computeScore();
   document.getElementById('statScore').textContent=score;
   const isBest=saveScoreIfBest(score);
@@ -7139,8 +7801,11 @@ function animate(){
   const dt=Math.min(0.05, clock.getDelta());
   update(dt);
   updateGrassWind(performance.now()/1000);
+  updateDustMotes(performance.now()/1000);
+  updateSewerWater(dt);
   if(gameRunning) drawMinimap();
-  if(!gameRunning){ updateIdleCamera(dt); }
+  if(cutsceneActive){ updateCutscene(dt); }
+  else if(!gameRunning){ updateIdleCamera(dt); }
   lanternMeshes.forEach((l,i)=>{
     if(l.flickerState===undefined) l.flickerState={ timer:3+Math.random()*10, blackout:false, blackoutT:0 };
     const fs=l.flickerState;
@@ -7364,6 +8029,7 @@ document.getElementById('btnStart').addEventListener('click', ()=>{
     showLevelBanner('ENDLESS MODE', 'Wave 1 — '+BEHAVIOR_HINTS[endlessWaveCfg(1).behavior]);
   } else {
     showLevelBanner('LEVEL 1', LEVEL_ZONES[0].name+' — '+BEHAVIOR_HINTS[LEVELS[0].behavior]);
+    showStoryBeat(0);
   }
 });
 function restart(){
@@ -7374,6 +8040,7 @@ function restart(){
     showLevelBanner('ENDLESS MODE', 'Wave 1 — '+BEHAVIOR_HINTS[endlessWaveCfg(1).behavior]);
   } else {
     showLevelBanner('LEVEL 1', LEVEL_ZONES[0].name+' — '+BEHAVIOR_HINTS[LEVELS[0].behavior]);
+    showStoryBeat(0);
   }
 }
 document.getElementById('btnRestart1').addEventListener('click', restart);
@@ -7395,6 +8062,7 @@ function updateIdleCamera(dt){
    landing mid-gameplay, right on top of a level transition. */
 Object.values(ENV_THEMES).forEach(theme=>{ theme.groundTex(); theme.wallTex(); });
 setLoadStage(100, 'Ready.');
+loadFinishedFlag=true;
 setTimeout(()=>{
   document.getElementById('screenLoading').classList.add('loadingHidden');
   document.getElementById('screenStart').classList.remove('hidden');
@@ -7403,7 +8071,9 @@ setTimeout(()=>{
 
 animate();
 
+}catch(err){ loadFinishedFlag=true; showLoadError(err); }
 }); });
+}
 })();
 </script>
 </body>
