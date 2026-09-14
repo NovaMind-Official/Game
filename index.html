@@ -1541,7 +1541,7 @@ function deriveNormalMap(sourceCanvas, strength){
   }
 }
 function buildWallTexture(){
-  const size=384;
+  const size=512;
   const c=document.createElement('canvas'); c.width=c.height=size;
   const tctx=c.getContext('2d');
   tctx.fillStyle='#453c2e'; tctx.fillRect(0,0,size,size);
@@ -1651,7 +1651,7 @@ function buildRustTexture(){
 
 /* ---- Ground ---- */
 function buildNoiseTexture(){
-  const size=384;
+  const size=512;
   const c=document.createElement('canvas'); c.width=c.height=size;
   const tctx=c.getContext('2d');
   tctx.fillStyle='#26262a'; tctx.fillRect(0,0,size,size);
@@ -1733,7 +1733,7 @@ scene.add(ground);
 
 /* ---- Boundary (dense forest/hedge around the house+yard; rubble in the street) ---- */
 function buildRubbleTexture(){
-  const size=384;
+  const size=512;
   const c=document.createElement('canvas'); c.width=c.height=size;
   const tctx=c.getContext('2d');
   tctx.fillStyle='#3a3833'; tctx.fillRect(0,0,size,size);
@@ -1784,7 +1784,7 @@ function buildRubbleTexture(){
   return tex;
 }
 function buildWallpaperTexture(){
-  const size=384;
+  const size=512;
   const c=document.createElement('canvas'); c.width=c.height=size;
   const tctx=c.getContext('2d');
   tctx.fillStyle='#5a4438'; tctx.fillRect(0,0,size,size);
@@ -1817,7 +1817,7 @@ function buildWallpaperTexture(){
   return tex;
 }
 function buildAsphaltTexture(){
-  const size=384;
+  const size=512;
   const c=document.createElement('canvas'); c.width=c.height=size;
   const tctx=c.getContext('2d');
   tctx.fillStyle='#2a2a2c'; tctx.fillRect(0,0,size,size);
@@ -4024,6 +4024,22 @@ function buildHand(mirror){
   handGroup.add(spot);
   handGroup.userData.spot=spot;
 
+  /* Volumetric-looking beam: a plain additive cone lets the flashlight's
+     throw actually read as a beam cutting through the dark/fog, instead of
+     just lighting up whatever it happens to hit. Cheap — one extra
+     transparent mesh, no real volumetric sampling. */
+  const beamLen=9, beamAngle=Math.PI/6.5;
+  const beamRadius=beamLen*Math.tan(beamAngle);
+  const beamMesh=new THREE.Mesh(
+    new THREE.ConeGeometry(beamRadius, beamLen, 20, 1, true),
+    new THREE.MeshBasicMaterial({color:0xfff0c8, transparent:true, opacity:0, blending:THREE.AdditiveBlending, depthWrite:false, side:THREE.DoubleSide})
+  );
+  beamMesh.material.fog=false;
+  beamMesh.rotation.x=Math.PI/2;
+  beamMesh.position.z=-beamLen/2;
+  handGroup.add(beamMesh);
+  handGroup.userData.beamMesh=beamMesh;
+
   const fillLight=new THREE.PointLight(0xffffff, 0, 3, 2);
   handGroup.userData.fillLight=fillLight;
   camera.add(fillLight);
@@ -5032,7 +5048,7 @@ const sewerMeleeDefs=[
   {start:[3,101], patrol:[[3,101],[5,101],[3,101]], type:'brute'},
 ];
 const sewerArmoredDefs=[
-  {start:[5,101], patrol:[[5,101],[5,100],[5,101]], type:'armored'},
+  {start:[5,101], patrol:[[5,101],[5,100],[5,101]], type:'armored', boss:true},
 ];
 const sewerShooterDefs=[
   {start:[4,92],zone:'sewer'}, {start:[6,92],zone:'sewer'}, {start:[5,96],zone:'sewer'},
@@ -5105,6 +5121,7 @@ function spawnMonsters(){
   monsters=[];
   spawnQueue=[]; // drop any still-pending items from an interrupted previous spawn (e.g. a fast restart)
   ambushesTriggered=new Set();
+  storyMidBeatShown=false;
   const cfg=currentLevelCfg();
   const env=currentLevelEnv();
   const pools=ZONE_SPAWN_POOLS[env];
@@ -5134,7 +5151,7 @@ function spawnMonsters(){
     allDefs=chosenMelee.concat(chosenArmored).concat(chosenShooters).concat(chosenImmolators);
   }
   allDefs.forEach(def=>{
-    spawnQueue.push({type:def.type, gx:def.start[0], gy:def.start[1], baseY:0, patrol:def.patrol});
+    spawnQueue.push({type:def.type, gx:def.start[0], gy:def.start[1], baseY:0, patrol:def.patrol, boss:def.boss});
   });
   if(levelIndex>=1 && inOutdoorStreet){
     spawnQueue.push({type:'shooter', wx:ROOFTOP_SPAWN.x, wz:ROOFTOP_SPAWN.z, baseY:ROOF_Y, homeX:ROOFTOP_SPAWN.x, homeZ:ROOFTOP_SPAWN.z});
@@ -5164,11 +5181,12 @@ function spawnMonsterQueueGradually(cfg){
       const mesh=buildMonster(item.type);
       const w = item.wx!==undefined ? {x:item.wx,z:item.wz} : gridToWorld(item.gx,item.gy);
       mesh.position.set(w.x,item.baseY||0,w.z);
+      if(item.boss){ mesh.scale.setScalar(1.32); }
       scene.add(mesh);
       const m={
-        mesh, type:item.type, hp:stats.hp, mode:'idle',
-        speedMul:stats.speedMul*cfg.speedMul, chaseMul:stats.chaseMul*cfg.speedMul, catchR:stats.catchR,
-        accuracy:cfg.accuracy, fireRateMul:cfg.fireRateMul, baseY:item.baseY||0
+        mesh, type:item.type, hp:stats.hp*(item.boss?2.4:1), mode:'idle',
+        speedMul:stats.speedMul*cfg.speedMul, chaseMul:stats.chaseMul*cfg.speedMul, catchR:stats.catchR*(item.boss?1.3:1),
+        accuracy:cfg.accuracy, fireRateMul:cfg.fireRateMul, baseY:item.baseY||0, isBoss:!!item.boss
       };
       if(item.patrol) m.patrol=item.patrol;
       if(item.homeX!==undefined){ m.homeX=item.homeX; m.homeZ=item.homeZ; }
@@ -6137,10 +6155,12 @@ function killMonster(m){
   monstersKilled++;
   runStats.totalKills++;
   updateMonsterCountUI();
+  checkMidStoryBeat();
+  if(m.isBoss) showBossDefeatBeat();
   sMonsterDeath();
   haptic(35);
-  triggerHitstop(0.045);
-  cameraShakeTimer=Math.max(cameraShakeTimer,0.1); cameraShakeMag=Math.max(cameraShakeMag,0.05);
+  triggerHitstop(m.isBoss?0.09:0.045);
+  cameraShakeTimer=Math.max(cameraShakeTimer,m.isBoss?0.22:0.1); cameraShakeMag=Math.max(cameraShakeMag,m.isBoss?0.09:0.05);
   spawnBloodPool(m.mesh.position.x, m.baseY||0, m.mesh.position.z);
   spawnWallBlood(m.mesh.position.x, m.mesh.position.z);
   dyingMonsters.push({mesh:m.mesh, t:0, startY:m.mesh.position.y});
@@ -6269,20 +6289,48 @@ const LEVEL_ZONES=[
    leaving it as pure optional collectible. ---- */
 const STORY_BEATS=[
   { title:'Four Nights Ago', body:"Mara's last text just said \"something's wrong with the street.\" No call back since. Her apartment's empty, her phone's dead, and the gate into this yard is the only lead you have left. You're going in after her.",
-    objective:'Clear the yard.' },
+    objective:'Clear the yard.',
+    mid:"Half of what's out here hasn't even noticed you yet. Mara wouldn't have made it this far without a fight of her own." },
   { title:'The Street', body:"Past the gate the street doesn't look abandoned so much as paused — mid-sentence, mid-meal, mid-something. Whatever's out here saw Mara come through before you. Move fast, use the cars for cover.",
-    objective:'Clear the street.' },
+    objective:'Clear the street.',
+    mid:"Whoever cleared a path through here before you didn't do it quietly. Neither will you." },
   { title:'The House She Went Into', body:'This is the house from her texts. If she wrote anything down in here, it\'s worth more than anything you\'ll find on a body outside. Clear it, then look before you move on — leaving without reading what\'s inside would be leaving without her.',
-    objective:'Clear the house, then find Mara\'s note inside before continuing.' },
+    objective:'Clear the house, then find Mara\'s note inside before continuing.',
+    mid:"Somewhere upstairs a tap is still running. Someone was here recently — recently enough to matter." },
   { title:'The Congregation', body:'Whatever this street does to people, it did it here first, in front of everyone, on a Sunday. The bulletin board out front might still say why the pastor stopped holding services. Read it before you go further — you need to understand what "changed" means before you find Mara among them.',
-    objective:'Clear the church, then find the bulletin before continuing.' },
+    objective:'Clear the church, then find the bulletin before continuing.',
+    mid:"Some of these faces you'd have recognized, once, from the neighborhood. That's the part you won't get used to." },
   { title:'The Warehouse', body:'Every lead on this street eventually points to one crate that showed up the same week everything went wrong. If there\'s a shift log left in here, it\'ll say who signed for it — and maybe why nobody\'s admitted to it since.',
-    objective:'Clear the warehouse, then find the shift log before continuing.' },
+    objective:'Clear the warehouse, then find the shift log before continuing.',
+    mid:"Whatever came out of that crate has already changed more people than you want to count. You're just counting the ones still standing." },
   { title:'Down Into It', body:"Whatever's doing this to people doesn't start at the house — it runs underneath the whole street, and the house is just where it sends what it's finished with. If there's an ending down here, someone before you already found it and wrote it down. Find it.",
-    objective:'Clear the sewers, then find the final entry before continuing.' },
+    objective:'Clear the sewers, then find the final entry before continuing.',
+    mid:"The deeper you go, the less this feels like an accident. Somebody built this on purpose — and he's still down here with you." },
   { title:'Back to the House', body:"Everything under this street leads back here, to the door Mara walked through first. If she's still in there, this is where she'll be. Clear it, then go get her.",
-    objective:'Clear the house — this is where Mara is.' },
+    objective:'Clear the house — this is where Mara is.',
+    mid:"You can hear something moving upstairs. It might be her. You go anyway." },
 ];
+let storyMidBeatShown=false;
+function checkMidStoryBeat(){
+  if(gameMode!=='story' || storyMidBeatShown) return;
+  const beat=STORY_BEATS[Math.min(levelIndex, STORY_BEATS.length-1)];
+  if(!beat || !beat.mid || monstersTotal<=0) return;
+  if(monstersKilled >= Math.ceil(monstersTotal/2)){
+    storyMidBeatShown=true;
+    const el=document.getElementById('cutsceneCaption');
+    el.textContent=beat.mid;
+    el.classList.add('show');
+    clearTimeout(checkMidStoryBeat._t);
+    checkMidStoryBeat._t=setTimeout(()=>{ el.classList.remove('show'); }, 4200);
+  }
+}
+function showBossDefeatBeat(){
+  const el=document.getElementById('cutsceneCaption');
+  el.textContent='His name was on the shift log. Whatever he started, it stops with him.';
+  el.classList.add('show');
+  clearTimeout(showBossDefeatBeat._t);
+  showBossDefeatBeat._t=setTimeout(()=>{ el.classList.remove('show'); }, 4600);
+}
 const LEVEL_OBJECTIVES=[
   {type:'kill_all'},
   {type:'kill_all'},
@@ -6435,7 +6483,8 @@ function updateCutscene(dt){
     camera.rotation.set(-0.04, Math.PI+Math.sin(c.t*0.12)*0.12, 0);
     maraMesh.position.y=Math.sin(c.t*1.3)*0.015;
     if(c.t>1.0 && !c.captionShown2){ c.captionShown2=true; cutsceneCaption('They made it home.'); }
-    if(c.t>4.4){ c.t=0; c.phase='letterbox-out'; cutsceneCaption(null); }
+    if(c.t>3.4 && !c.captionShown3){ c.captionShown3=true; cutsceneCaption('Whatever else this cost you both, you still have this — quiet, together, safe.'); }
+    if(c.t>6.6){ c.t=0; c.phase='letterbox-out'; cutsceneCaption(null); }
   } else if(c.phase==='letterbox-out'){
     document.getElementById('letterboxTop').classList.remove('show');
     document.getElementById('letterboxBottom').classList.remove('show');
@@ -7282,6 +7331,13 @@ function update(dt){
   spot.intensity = player.flashlightOn ? 2.4 : 0;
   fill.intensity = player.flashlightOn ? 0.35 : 0;
   lens.material.color.setHex(player.flashlightOn?0xfff3c4:0x333333);
+  const beamMesh=handGroup.userData.beamMesh;
+  if(beamMesh){
+    beamMesh.visible=player.flashlightOn;
+    if(player.flashlightOn){
+      beamMesh.material.opacity=0.05+Math.sin(performance.now()/260)*0.008;
+    }
+  }
 
   const targetEyeOffset = player.crouching ? (EYE_H-CROUCH_H) : 0;
   player.eyeOffset += (targetEyeOffset-player.eyeOffset)*Math.min(1,dt*8);
@@ -7973,7 +8029,7 @@ function winGame(){
   },900);
 }
 function buildEpilogue(){
-  return "You get her out past the gate, past the street, past all of it. It takes months before she sleeps through a night without checking the door twice. It takes longer before either of you talk about what was actually down there. But you're both out, and you're both still you — and some mornings, that's the whole story worth telling.";
+  return "You get her out past the gate, past the street, past all of it. It takes months before she sleeps through a night without checking the door twice. It takes longer before either of you talk about what was actually down there. But every morning after, you wake up in the same house, and she's still there, and you're still you — and you hold onto that, quietly, like the whole reason any of it was worth surviving.";
 }
 function populateWinStats(){
   const elapsed=Math.round((Date.now()-runStats.startTime)/1000);
